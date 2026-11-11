@@ -96,9 +96,11 @@ def flatten_visits(obj):
     walk(obj)
     out=[]
     for visit in result:
+        if not isinstance(visit,dict):continue
         j=visit.get('MonitoredVehicleJourney') or {}
-        call=j.get('MonitoredCall') or {}
         if not isinstance(j,dict):continue
+        call=j.get('MonitoredCall') or {}
+        if not isinstance(call,dict):call={}
         out.append({'route':str(j.get('LineRef','')),'direction':str(j.get('DirectionRef','')),'destination':j.get('DestinationName',''), 'vehicle':j.get('VehicleRef',''), 'expected':call.get('ExpectedArrivalTime') or call.get('ExpectedDepartureTime'), 'aimed':call.get('AimedArrivalTime') or call.get('AimedDepartureTime'), 'recorded':visit.get('RecordedAtTime'),'stop':call.get('StopPointRef','')})
     return out
 def arrivals(code):
