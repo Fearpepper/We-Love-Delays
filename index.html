@@ -480,12 +480,61 @@ function routeChoice(out,title,detail,choose){
  };
  out.append(btn);return btn;
 }
-function showSelectedRoute(out,title,steps){
+function estimateTripTiming(legs){
+ const first=network.stops[legs[0].p.stops[legs[0].start]];
+ const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
+ const origin=selectedPlaces.originSearch||locationPoint;
+ const destination=selectedPlaces.place;
+ const walking=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000*1.35/75):null;
+ const walkStart=walking(origin,first),walkEnd=walking(last,destination);
+ let walkTransfer=0,transferKnown=true;
+ for(let i=0;i<legs.length-1;i++){
+  const a=network.stops[legs[i].p.stops[legs[i].end]],b=network.stops[legs[i+1].p.stops[legs[i+1].start]];
+  const mins=walking(a,b);
+  if(mins===null)transferKnown=false;else walkTransfer+=mins;
+ }
+ const stopCount=legs.reduce((n,x)=>n+x.end-x.start,0);
+ // Planning assumptions only; no GTFS stop_times or service-calendar validation.
+ const busLow=Math.max(2,Math.round(stopCount*1.5)),busHigh=Math.max(busLow+2,Math.round(stopCount*3));
+ const waiting=legs.length*8;
+ const buffer=5;
+ const totalLow=busLow+(walkStart||0)+(walkEnd||0)+walkTransfer+waiting+buffer;
+ const totalHigh=busHigh+(walkStart||0)+(walkEnd||0)+walkTransfer+waiting+buffer;
+ return {walkStart,walkEnd,walkTransfer:transferKnown?walkTransfer:null,busLow,busHigh,waiting,buffer,totalLow,totalHigh};
+}
+function appendTripTiming(panel,legs){
+ if(!legs?.length)return;
+ const t=estimateTripTiming(legs);
+ const block=document.createElement('div');block.className='notice';
+ const heading=document.createElement('strong');heading.textContent='Estimated journey timing · planning only';block.append(heading);
+ const lines=[
+  'Walk to first stop: '+(t.walkStart===null?'unknown (select a place or enable location)':'about '+t.walkStart+' min'),
+  'Time riding buses: roughly '+t.busLow+'–'+t.busHigh+' min ('+legs.length+' bus'+(legs.length>1?'es':'')+')',
+  ...(legs.length>1?['Walk between transfer stops: '+(t.walkTransfer===null?'unknown':'about '+t.walkTransfer+' min')]:[]),
+  'Walk after last stop: '+(t.walkEnd===null?'unknown (select a destination place)':'about '+t.walkEnd+' min'),
+  'Assumed waiting: '+t.waiting+' min total; extra buffer: '+t.buffer+' min',
+  'Partial trip estimate: '+t.totalLow+'–'+t.totalHigh+' min, excluding unknown walking portions'
+ ];
+ for(const line of lines){const p=document.createElement('p');p.textContent=line;p.style.margin='6px 0';block.append(p)}
+ const label=document.createElement('label');label.textContent='When do you need to arrive? ';label.style.display='block';label.style.marginTop='12px';
+ const input=document.createElement('input');input.type='time';input.setAttribute('aria-label','Desired arrival time');input.style.maxWidth='190px';input.style.marginLeft='8px';label.append(input);block.append(label);
+ const result=document.createElement('p');result.className='hint';result.textContent='Choose an arrival time to estimate when to leave. This is not a verified bus departure or guaranteed arrival.';block.append(result);
+ input.onchange=()=>{
+  if(!input.value)return;
+  const [h,m]=input.value.split(':').map(Number),target=new Date();target.setHours(h,m,0,0);if(target.getTime()<Date.now())target.setDate(target.getDate()+1);
+  const earliest=new Date(target.getTime()-t.totalHigh*60000),latest=new Date(target.getTime()-t.totalLow*60000);
+  const fmtTime=x=>x.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  result.textContent='Estimated leave-home window: '+fmtTime(earliest)+'–'+fmtTime(latest)+'. Prefer the earlier time. Missing walking distances, actual bus departures and service disruptions can change this substantially.';
+ };
+ panel.append(block);
+}
+function showSelectedRoute(out,title,steps,legs){
  let panel=$('selectedRoutePanel');
  if(!panel){panel=document.createElement('div');panel.id='selectedRoutePanel';panel.className='selected-route';out.insertBefore(panel,out.children[1]||null)}
  panel.innerHTML='';
  const heading=document.createElement('strong');heading.textContent='✓ Selected route: '+title;panel.append(heading);
  for(const step of steps){const p=document.createElement('p');p.textContent=step;panel.append(p)}
+ appendTripTiming(panel,legs);
  const note=document.createElement('p');note.className='hint';note.textContent='This is a possible stop-order connection. Bus departure times, transfer timing, and on-time arrival are not yet verified.';panel.append(note);
  const mapBtn=document.createElement('button');mapBtn.type='button';mapBtn.className='btn';mapBtn.textContent='View selected route on map';mapBtn.onclick=()=>{if(window.innerWidth<=790&&typeof window.wldSelectTab==='function')window.wldSelectTab('map');else $('map').scrollIntoView({behavior:'smooth',block:'center'});if(routeMap)setTimeout(()=>routeMap.invalidateSize(),150)};panel.append(mapBtn);
 }
@@ -519,7 +568,7 @@ function findDirectTrips(){
     $('board').value=String(x.start);boardChanged();$('exit').value=String(x.end);$('exit').onchange();$('preview').click();
     const fromStop=network.stops[x.p.stops[x.start]],toStop=network.stops[x.p.stops[x.end]];
     setNavigation([x]);setAppView('guide');
-    showSelectedRoute(out,'Bus '+routeName(x.p),['Board at '+(fromStop?.name||'starting stop'),'Get off at '+(toStop?.name||'destination stop')]);
+    showSelectedRoute(out,'Bus '+routeName(x.p),['Board at '+(fromStop?.name||'starting stop'),'Get off at '+(toStop?.name||'destination stop')],[x]);
    })
   }
   return;
@@ -583,7 +632,7 @@ function findDirectTrips(){
        '2. Get off at '+aStop.name,
        '3. Walk to '+bStop.name+' (about '+Math.round(t.walkKm*1000)+' m straight-line; actual walking distance may be longer)',
        '4. Board Bus '+routeName(t.second.p)+' and get off at '+(end?.name||'destination')
-      ]);
+      ],[t.first,t.second]);
       $('message').textContent='Walking transfer is an unverified possibility. Check pedestrian access, safety and bus schedules.';
       $('startJourney').disabled=true;
      });
@@ -612,7 +661,7 @@ function findDirectTrips(){
     '2. Transfer at '+(transfer?.name||'transfer stop'),
     '3. Board Bus '+routeName(t.second.p)+' toward '+(t.second.p.headsign||'its destination'),
     '4. Get off at '+(end?.name||'destination stop')
-   ]);
+   ],[t.first,t.second]);
    $('message').textContent='Transfer route selected. Review the instructions and map above. Check actual bus times before traveling.';
    $('arrivals').textContent='Transfer selected. Live predictions for both legs are not yet available.';
    $('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
