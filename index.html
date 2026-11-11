@@ -51,6 +51,8 @@ button{touch-action:manipulation}
  .pill{font-size:10px}
  .stat strong{font-size:17px}
 }
+
+.route-choice{display:block;width:100%;text-align:left;margin:9px 0;padding:14px 16px;white-space:normal;border:2px solid #e7e7ed;border-radius:13px;background:#fff;color:var(--ink);cursor:pointer}.route-choice:hover,.route-choice:focus-visible{border-color:#d93838;background:#fff7f7}.route-choice[aria-pressed="true"]{border-color:#d93838;background:#fff1f1;box-shadow:0 0 0 2px #d9383820}.route-choice strong{display:block;font-size:15px}.route-choice small{display:block;margin-top:5px;color:#666}.selected-route{padding:15px;border:1px solid #ffcaca;border-radius:13px;background:#fff7f7;margin:14px 0}.selected-route strong{display:block;margin-bottom:6px}.selected-route p{margin:7px 0}.selected-route button{margin-top:8px}@media(max-width:790px){.route-choice{min-height:64px}}
 </style><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""><style>.map .leaflet-container{height:100%;width:100%;z-index:0}.map{position:relative}.map .leaflet-control-container{z-index:1}</style></head><body>
 <section class="welcome" id="welcome"><div class="intro"><div class="logo"><span class="heart">♥</span>we love delays<b>.</b></div><div class="kicker">BERKELEY · CALIFORNIA</div><h1>Turn the wait into <em>something good.</em></h1><p class="muted">Find AC Transit buses, check live arrivals, and earn fictional rewards when delays get in the way.</p><div class="actions"><button class="btn" id="startNow">Plan a trip →</button></div><p class="hint" style="margin-top:35px">UC Berkeley · DES INV 15 concept prototype · Bus service only</p></div></section>
 <div class="shell"><div class="top"><div class="logo"><span class="heart" style="width:34px;height:34px;font-size:19px">♥</span>we love delays<b>.</b></div><div class="pill" id="feedStatus">Checking local server…</div></div><div class="grid"><div><div class="card"><div class="eyebrow">01 · YOUR JOURNEY</div><h2>Plan a bus trip</h2><p class="muted">Choose where to start, your route, and where to get off. Only stops in the correct travel order appear.</p><div class="actions"><button class="btn alt" id="home">← Home</button></div><div class="field"><label>STARTING LOCATION</label><div class="actions"><button class="btn alt" id="locate">◎ Use my current location</button><button class="btn alt" id="chooseMap">Choose on map</button><button class="btn alt" id="clearLoc">Clear</button></div><p class="hint" id="locationText">Location is optional. Select a boarding stop manually below.</p></div><div class="field"><label>STARTING BUS STOP</label><input id="originSearch" placeholder="Start typing a stop name…" autocomplete="off" aria-label="Starting bus stop"><div class="suggestions" id="originSuggestions"></div></div><div class="field"><label>DESTINATION BUS STOP</label><input id="place" placeholder="Start typing a destination…" autocomplete="off" aria-label="Destination bus stop"><div class="suggestions" id="destinationSuggestions"></div><p class="hint">Search bus stops or local businesses (for example Trader Joe's). Choose a suggestion. Direct buses and same-stop one-transfer options. Times are not yet verified.</p></div><div class="actions"><button class="btn" id="autoFind">Find my bus route</button></div><div class="status" id="autoResults" aria-live="polite"></div><details style="margin-top:18px"><summary style="cursor:pointer;font-weight:700">Advanced: choose a route manually</summary><div class="field"><label>FILTER BUS ROUTES</label><input id="routeFilter" placeholder="Search route number or name, e.g. 51B" autocomplete="off"></div><div class="field"><label>AC TRANSIT BUS ROUTE</label><select id="route" disabled><option>Loading Berkeley routes…</option></select></div><div class="field"><label>DIRECTION / TRIP PATTERN</label><select id="pattern" disabled><option>Select a route first</option></select></div><div class="field"><label>FILTER STOPS</label><input id="stopFilter" placeholder="Search stops on the selected direction" autocomplete="off"></div><div class="field"><label>BOARDING STOP</label><select id="board" disabled><option>Select a direction first</option></select></div><div class="field"><label>DESTINATION STOP</label><select id="exit" disabled><option>Select a boarding stop first</option></select></div></details><div class="actions"><button class="btn" id="preview" disabled>Show bus trip</button><button class="btn alt" id="refresh" disabled>Refresh live arrivals</button></div><div class="notice" id="message">The app uses published AC Transit stop sequences. Actual bus service can change.</div></div><div class="card"><div class="eyebrow">02 · LIVE ARRIVALS</div><h2 id="arrivalTitle">Your next bus</h2><div id="arrivals" class="status">Choose a route and boarding stop to see arrivals.</div><div class="statgrid" style="margin-top:17px"><div class="stat"><small>Scheduled</small><strong id="scheduled">—</strong></div><div class="stat"><small>Predicted</small><strong id="predicted">—</strong></div><div class="stat"><small>Delay</small><strong id="delay">—</strong></div></div><p class="hint">Live predictions are provided by 511 SF Bay when available. Missing predictions are not treated as on-time buses.</p></div></div><div><div class="card"><div class="eyebrow">BERKELEY BUS MAP</div><h2>Where you're going</h2><div class="map" id="map"><iframe title="Berkeley map" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=-122.299%2C37.854%2C-122.243%2C37.894&amp;layer=mapnik&amp;marker=37.8715%2C-122.2585"></iframe></div><p class="hint" id="mapText">Berkeley, California · Select stops to see their area on the map.</p></div><div class="card"><div class="eyebrow">03 · REWARDS CONCEPT</div><h2>Worth the wait ♥</h2><p class="muted">Points are fictional and do not represent real transit compensation.</p><div class="reward"><span id="points">0</span> <small style="font-size:18px">pts</small></div><div class="actions"><button class="btn alt" id="startJourney" disabled>Start selected trip</button><button class="btn alt" id="finishJourney" disabled>Finish trip & collect demo points</button></div><p class="status" id="journeyStatus">No trip started.</p><div class="notice">Demo mode: choose a simulated delay to show how rewards could work.</div><div class="actions" id="demoDelays"><button class="btn alt" data-delay="5">+5 min</button><button class="btn alt" data-delay="10">+10 min</button><button class="btn alt" data-delay="15">+15 min</button></div><p class="hint">Delay rewards use 10 fictional points per minute. Live estimates may change.</p></div><div class="card"><div class="eyebrow">COMMUNITY PROTOTYPE</div><h2>Report a delay</h2><p class="muted">Reports stay in this browser. They are not submitted to AC Transit or 511.</p><div class="actions"><button class="btn alt" id="report">Report a 10-minute delay (demo)</button></div><p class="status" id="reportStatus"></p></div><p class="hint">Transit information powered by <a href="https://511.org" target="_blank" rel="noopener">511.org</a>. Map © OpenStreetMap contributors. Not affiliated with AC Transit.</p></div></div></div>
@@ -105,6 +107,26 @@ function showTransferMap(first,second){
  setTimeout(()=>routeMap.invalidateSize(),100);
  $('mapText').textContent='Red: first bus. Blue: second bus. Lines connect stop coordinates, not road geometry. Transfer walking directions and timing are not verified.';
 }
+function routeChoice(out,title,detail,choose){
+ const btn=document.createElement('button');btn.type='button';btn.className='route-choice';btn.setAttribute('aria-pressed','false');
+ const label=document.createElement('strong');label.textContent=title;btn.append(label);
+ const sub=document.createElement('small');sub.textContent=detail+' · Tap to select';btn.append(sub);
+ btn.onclick=()=>{
+  out.querySelectorAll('.route-choice').forEach(x=>{x.setAttribute('aria-pressed','false');x.querySelector('small').textContent=x.querySelector('small').textContent.replace(' · Selected','')});
+  btn.setAttribute('aria-pressed','true');sub.textContent=detail+' · Selected';
+  choose();
+ };
+ out.append(btn);return btn;
+}
+function showSelectedRoute(out,title,steps){
+ let panel=$('selectedRoutePanel');
+ if(!panel){panel=document.createElement('div');panel.id='selectedRoutePanel';panel.className='selected-route';out.insertBefore(panel,out.children[1]||null)}
+ panel.innerHTML='';
+ const heading=document.createElement('strong');heading.textContent='✓ Selected route: '+title;panel.append(heading);
+ for(const step of steps){const p=document.createElement('p');p.textContent=step;panel.append(p)}
+ const note=document.createElement('p');note.className='hint';note.textContent='This is a possible stop-order connection. Bus departure times, transfer timing, and on-time arrival are not yet verified.';panel.append(note);
+ const mapBtn=document.createElement('button');mapBtn.type='button';mapBtn.className='btn';mapBtn.textContent='View selected route on map';mapBtn.onclick=()=>{$('map').scrollIntoView({behavior:'smooth',block:'center'});if(routeMap)setTimeout(()=>routeMap.invalidateSize(),150)};panel.append(mapBtn);
+}
 function findDirectTrips(){
  const out=$('autoResults');out.innerHTML='';
  if(!network){out.textContent='Routes have not loaded yet. Check the live-data status.';return}
@@ -128,9 +150,14 @@ function findDirectTrips(){
  if(direct.length){
   heading.textContent='Direct bus options (published stop order, not verified departure times):';out.append(heading);
   for(const x of direct.slice(0,5)){
-   const btn=document.createElement('button');btn.className='btn alt';btn.style.cssText='display:block;width:100%;text-align:left;margin:8px 0';
-   btn.textContent='Bus '+routeName(x.p)+' toward '+(x.p.headsign||'destination')+' · '+(x.end-x.start)+' stops · View route';
-   btn.onclick=()=>{$('routeFilter').value='';populateRoutes();$('route').value=x.p.route;$('route').onchange();const index=patterns.indexOf(x.p);if(index<0)return;$('stopFilter').value='';$('pattern').value=String(index);$('pattern').onchange();$('board').value=String(x.start);boardChanged();$('exit').value=String(x.end);$('exit').onchange();$('preview').click()};out.append(btn)
+   routeChoice(out,'Bus '+routeName(x.p)+' · Direct', (x.p.headsign||'Bus direction')+' · '+(x.end-x.start)+' stops',()=>{
+    $('routeFilter').value='';populateRoutes();$('route').value=x.p.route;$('route').onchange();
+    const index=patterns.indexOf(x.p);if(index<0)return;
+    $('stopFilter').value='';$('pattern').value=String(index);$('pattern').onchange();
+    $('board').value=String(x.start);boardChanged();$('exit').value=String(x.end);$('exit').onchange();$('preview').click();
+    const fromStop=network.stops[x.p.stops[x.start]],toStop=network.stops[x.p.stops[x.end]];
+    showSelectedRoute(out,'Bus '+routeName(x.p),['Board at '+(fromStop?.name||'starting stop'),'Get off at '+(toStop?.name||'destination stop')]);
+   })
   }
   return;
  }
@@ -155,15 +182,19 @@ function findDirectTrips(){
  heading.textContent='Possible one-transfer routes ('+transfers.length+' found). These are stop-order connections only: schedules, transfer wait, and arrival deadlines have NOT been checked.';
  for(const t of transfers.slice(0,6)){
   const transfer=network.stops[t.transferId],start=network.stops[t.first.p.stops[t.first.start]],end=network.stops[t.second.p.stops[t.second.end]];
-  const btn=document.createElement('button');btn.className='btn alt';btn.style.cssText='display:block;width:100%;text-align:left;margin:10px 0;white-space:normal';
-  btn.textContent='Bus '+routeName(t.first.p)+' → transfer at '+(transfer?.name||'stop')+' → Bus '+routeName(t.second.p)+' · Show map';
-  btn.onclick=()=>{
+  routeChoice(out,'Bus '+routeName(t.first.p)+' → Bus '+routeName(t.second.p),'Transfer at '+(transfer?.name||'stop'),()=>{
    showTransferMap(t.first,t.second);
-   $('message').textContent='Suggested connection: board '+routeName(t.first.p)+' at '+(start?.name||'starting stop')+', get off at '+(transfer?.name||'transfer stop')+', then board '+routeName(t.second.p)+' toward '+(t.second.p.headsign||'its destination')+' and get off at '+(end?.name||'destination')+'. Check actual service times before traveling.';
-   $('arrivals').textContent='Transfer route selected. Arrival predictions for both legs are not yet available in this planner.';
+   showSelectedRoute(out,'Bus '+routeName(t.first.p)+' → Bus '+routeName(t.second.p),[
+    '1. Board Bus '+routeName(t.first.p)+' at '+(start?.name||'starting stop'),
+    '2. Transfer at '+(transfer?.name||'transfer stop'),
+    '3. Board Bus '+routeName(t.second.p)+' toward '+(t.second.p.headsign||'its destination'),
+    '4. Get off at '+(end?.name||'destination stop')
+   ]);
+   $('message').textContent='Transfer route selected. Review the instructions and map above. Check actual bus times before traveling.';
+   $('arrivals').textContent='Transfer selected. Live predictions for both legs are not yet available.';
    $('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
    $('startJourney').disabled=true;
-  };out.append(btn)
+  })
  }
 }
 $('autoFind').onclick=findDirectTrips;
