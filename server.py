@@ -23,6 +23,26 @@ def cached(key,ttl,fn):
     val=fn()
     with LOCK:CACHE[key]=(time.time(),val)
     return val
+def places(query):
+    """Search OpenStreetMap place names through Photon, without exposing a key."""
+    query=query.strip()
+    if len(query)<3 or len(query)>100:raise ValueError('Enter at least 3 characters (maximum 100).')
+    params=urllib.parse.urlencode({'q':query,'lat':37.8715,'lon':-122.2585,'limit':8,'lang':'en'})
+    req=urllib.request.Request('https://photon.komoot.io/api/?'+params,headers={'User-Agent':'WeLoveDelaysStudentProject/1.0 (https://we-love-delays.onrender.com)','Accept':'application/json'})
+    try:
+        with urllib.request.urlopen(req,timeout=8) as response:raw=json.load(response)
+    except Exception as exc:raise RuntimeError('Place search is temporarily unavailable.') from exc
+    out=[]
+    for feature in raw.get('features',[]):
+        prop=feature.get('properties') or {};coords=feature.get('geometry',{}).get('coordinates') or []
+        if len(coords)<2:continue
+        lon,lat=coords[:2]
+        if not (37.3<=lat<=38.3 and -123.0<=lon<=-121.5):continue
+        name=prop.get('name') or prop.get('street')
+        if not name:continue
+        detail=', '.join(str(prop[k]) for k in ('street','city') if prop.get(k) and prop[k]!=name)
+        out.append({'name':name,'detail':detail,'lat':lat,'lon':lon})
+    return out
 def gtfs():
     def get():
         raw=upstream('datafeeds',{'operator_id':'AC'},True)
@@ -86,6 +106,7 @@ class Handler(BaseHTTPRequestHandler):
             if path.path=='/api/status':return self.respond(200,{'configured':bool(KEY),'agency':'AC Transit','location':'Berkeley, California','local':False})
             if path.path=='/health':return self.respond(200,{'ok':True})
             if path.path=='/api/network':return self.respond(200,gtfs())
+            if path.path=='/api/places':return self.respond(200,{'places':cached('places:'+q.get('q',[''])[0].lower(),300,lambda:places(q.get('q',[''])[0]))})
             if path.path=='/api/network/status':
                 data=gtfs()
                 return self.respond(200,{'ok':True,'routes':len(data['routes']),'patterns':len(data['patterns']),'stops':len(data['stops']),'updated':data['updated']})
