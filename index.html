@@ -55,24 +55,31 @@ $('route').onchange=()=>{reset($('pattern'),'Choose direction / pattern');reset(
 $('pattern').onchange=()=>{reset($('board'),'Choose a boarding stop');reset($('exit'),'Choose a boarding stop first');selected=$('pattern').value===''?null:patterns[Number($('pattern').value)];if(!selected)return;populateBoarding();nearest()};
 function populateBoarding(){reset($('board'),'Choose a boarding stop');reset($('exit'),'Choose a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true;if(!selected)return;const filter=$('stopFilter').value.trim().toLowerCase();selected.stops.forEach((id,i)=>{const s=network.stops[id];if(s&&(s.name+' '+s.code).toLowerCase().includes(filter))option($('board'),s.name+' · stop '+(s.code||s.id),String(i))});$('board').disabled=$('board').options.length===1} $('stopFilter').oninput=()=>{populateBoarding();nearest()};function nearest(){if(!locationPoint||!selected)return;const choices=selected.stops.map((id,i)=>({i,s:network.stops[id]})).filter(x=>x.s&&x.s.lat!=null&&x.s.lon!=null&&Array.from($('board').options).some(o=>o.value===String(x.i)));choices.sort((a,b)=>distance(locationPoint.lat,locationPoint.lon,a.s.lat,a.s.lon)-distance(locationPoint.lat,locationPoint.lon,b.s.lat,b.s.lon));if(choices.length){$('board').value=String(choices[0].i);$('locationText').textContent='Nearest stop on this pattern: '+choices[0].s.name+' ('+distance(locationPoint.lat,locationPoint.lon,choices[0].s.lat,choices[0].s.lon).toFixed(2)+' km straight-line). Confirm it is safe to reach.';boardChanged()}}
 function boardChanged(){reset($('exit'),'Choose your destination stop');$('preview').disabled=true;$('startJourney').disabled=true;if(!selected||$('board').value==='')return;const from=Number($('board').value);selected.stops.forEach((id,i)=>{if(i<=from)return;const s=network.stops[id];if(s)option($('exit'),s.name+' · stop '+(s.code||s.id),String(i))});$('exit').disabled=false;refreshArrivals()};$('board').onchange=boardChanged;$('exit').onchange=()=>{$('preview').disabled=!$('exit').value;$('startJourney').disabled=!$('exit').value};
+let locationRequestId=0;
 $('locate').onclick=()=>{
- if(!window.isSecureContext){$('locationText').textContent='Location requires HTTPS. Open the secure Render website.';return}
- if(!navigator.geolocation){$('locationText').textContent='Your browser does not support location. Enter a stop manually.';return}
- $('locationText').textContent='Requesting location permission from your browser…';
- navigator.geolocation.getCurrentPosition(p=>{
+ if(!window.isSecureContext){$('locationText').textContent='Location requires HTTPS. Open the secure website.';return}
+ if(!navigator.geolocation){$('locationText').textContent='Location is unavailable in this browser. Enter a starting stop manually.';return}
+ const id=++locationRequestId;let finished=false;
+ $('locate').disabled=true;
+ $('locationText').textContent='Waiting for your device to provide a location… Check the browser permission prompt and your device location settings.';
+ const finish=()=>{if(finished||id!==locationRequestId)return false;finished=true;clearTimeout(watchdog);$('locate').disabled=false;return true};
+ const watchdog=setTimeout(()=>{if(!finish())return;$('locationText').textContent='Location is taking too long. Check that location services are enabled for your browser and device, then try again. You can also type a starting stop.'},15000);
+ try{navigator.geolocation.getCurrentPosition(p=>{
+  if(!finish())return;
   locationPoint={lat:p.coords.latitude,lon:p.coords.longitude};showLocationOnMap();
-  if(!network||!network.stops){$('locationText').textContent='Location received and shown on map. Transit stop data is still loading; you can retry after it loads.';return}
+  if(!network||!network.stops){$('locationText').textContent='Location received and shown on the map. Transit stops are still loading.';return}
   const candidates=Object.values(network.stops).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));
   candidates.sort((a,b)=>distance(locationPoint.lat,locationPoint.lon,a.lat,a.lon)-distance(locationPoint.lat,locationPoint.lon,b.lat,b.lon));
-  if(!candidates.length){$('locationText').textContent='Your location is on the map, but transit stop coordinates are unavailable.';return}
+  if(!candidates.length){$('locationText').textContent='Location shown on the map, but bus stop coordinates are unavailable.';return}
   const stop=candidates[0],km=distance(locationPoint.lat,locationPoint.lon,stop.lat,stop.lon);
   $('originSearch').value=stop.name;selectedPlaces.originSearch=null;$('originSuggestions').innerHTML='';
-  $('locationText').textContent='Using nearby stop: '+stop.name+' ('+km.toFixed(2)+' km straight-line). You can change it above. This is not a walking route.';
+  $('locationText').textContent='Location shown on map. Nearest listed bus stop: '+stop.name+' ('+km.toFixed(2)+' km straight-line). Check the blue dot to confirm your position.';
   nearest();
  },e=>{
-  const guidance=e.code===1?'Location permission was denied. Allow location for this site in your browser settings and try again.':e.code===2?'Your device could not determine its location. Check device location services.':'Location timed out. Try again or enter a stop manually.';
-  $('locationText').textContent=guidance;
- },{timeout:20000,maximumAge:60000,enableHighAccuracy:false});
+  if(!finish())return;
+  $('locationText').textContent=e.code===1?'Location permission denied. Enable location for this site in browser settings and try again.':e.code===2?'Your device cannot determine its location. Check system location services, then retry.':'Location timed out. Check system location services and retry.';
+ },{timeout:12000,maximumAge:60000,enableHighAccuracy:false})}
+ catch(e){if(finish())$('locationText').textContent='Could not start location request: '+e.message}
 };$('clearLoc').onclick=()=>{locationPoint=null;if(routeMap&&locationMarker){routeMap.removeLayer(locationMarker);locationMarker=null}$('locationText').textContent='Location cleared. Choose your boarding stop manually.'};
 function chosenStops(){if(!selected||$('board').value===''||$('exit').value==='')return null;const ai=Number($('board').value),bi=Number($('exit').value);if(bi<=ai)return null;return [network.stops[selected.stops[ai]],network.stops[selected.stops[bi]]]}let routeMap=null,routeLayer=null,locationMarker=null,placeMarker=null;
 function ensureMap(){if(typeof L==='undefined')return false;if(!ensureMap())return;return true}
