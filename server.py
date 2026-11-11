@@ -145,7 +145,7 @@ def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
         raise ValueError('Pedestrian routing currently supports the East Bay area')
     params=urllib.parse.urlencode({'start':str(a_lon)+','+str(a_lat),'end':str(b_lon)+','+str(b_lat)})
     url='https://api.heigit.org/openrouteservice/v2/directions/'+profile+'?'+params
-    req=urllib.request.Request(url,headers={'Authorization':key,'Accept':'application/json','User-Agent':'WeLoveDelays/1.0'})
+    req=urllib.request.Request(url,headers={'Authorization':key,'Accept':'application/geo+json','User-Agent':'WeLoveDelays/1.0'})
     try:
         with urllib.request.urlopen(req,timeout=12) as response:payload=json.load(response)
         features=payload.get('features') or []
