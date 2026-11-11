@@ -564,4 +564,36 @@ $('startJourney').onclick=()=>{const s=chosenStops();if(!s)return;journey={from:
  if(window.innerWidth<=790)selectTab('routes');
  window.addEventListener('resize',()=>{if(window.innerWidth<=790&&!document.body.classList.contains('wld-tabs'))selectTab('routes')});
 })();
+</script>
+<script>
+/* Independent location control: works even if a separate feature fails to initialize. */
+(function(){
+ const btn=document.getElementById('locate'),status=document.getElementById('locationText'),input=document.getElementById('originSearch');
+ if(!btn||!status||!input)return;
+ let pending=false;
+ btn.addEventListener('click',function(e){
+  e.stopImmediatePropagation();
+  if(pending)return;
+  if(!window.isSecureContext){status.textContent='Location needs HTTPS.';return}
+  if(!navigator.geolocation){status.textContent='Location services are unavailable in this browser.';return}
+  pending=true;btn.disabled=true;btn.textContent='Locating…';
+  status.textContent='Requesting your location. Please allow access if Safari asks.';
+  const finish=()=>{pending=false;btn.disabled=false;btn.textContent='◎ Use my current location'};
+  navigator.geolocation.getCurrentPosition(function(pos){
+   finish();
+   const lat=pos.coords.latitude,lon=pos.coords.longitude;
+   try{
+    if(typeof applyStartingCoordinates==='function'){
+     applyStartingCoordinates(lat,lon,'Device location');
+    }else{
+     status.textContent='Location found. Waiting for bus stops to load…';
+     window.wldPendingLocation={lat,lon};
+    }
+   }catch(err){status.textContent='Location found, but bus stops are still loading. Please retry.'}
+  },function(err){
+   finish();
+   status.textContent=err.code===1?'Location access was denied. Enable location permissions for this site in Safari settings.':err.code===2?'Your device could not determine its location. Try again or choose on map.':'Location timed out. Try again or choose on map.';
+  },{enableHighAccuracy:false,timeout:12000,maximumAge:60000});
+ },true);
+})();
 </script></body></html>
