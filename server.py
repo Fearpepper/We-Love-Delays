@@ -134,6 +134,30 @@ def scheduled_journey(sample_trip,board,exit,at=None):
     results.sort(key=lambda x:x['departure'])
     return {'trips':results[:12],'source':'511 AC Transit GTFS','timezone':'America/Los_Angeles'}
 
+def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
+    """OpenRouteService pedestrian routing; unavailable rather than inventing a walk."""
+    key=os.getenv('ORS_API_KEY','').strip()
+    if not key:raise RuntimeError('Pedestrian routing is not configured (ORS_API_KEY missing).')
+    if profile not in ('foot-walking','wheelchair'):raise ValueError('Unsupported pedestrian profile')
+    coords=[a_lat,a_lon,b_lat,b_lon]
+    if not all(__import__('math').isfinite(v) and -180<=v<=180 for v in coords):raise ValueError('Invalid coordinates')
+    if not all(37.0<=v<=38.5 for v in (a_lat,b_lat)) or not all(-123.5<=v<=-121.0 for v in (a_lon,b_lon)):
+        raise ValueError('Pedestrian routing currently supports the East Bay area')
+    params=urllib.parse.urlencode({'start':str(a_lon)+','+str(a_lat),'end':str(b_lon)+','+str(b_lat)})
+    url='https://api.openrouteservice.org/v2/directions/'+profile+'?'+params
+    req=urllib.request.Request(url,headers={'Authorization':key,'Accept':'application/json','User-Agent':'WeLoveDelays/1.0'})
+    try:
+        with urllib.request.urlopen(req,timeout=12) as response:payload=json.load(response)
+        features=payload.get('features') or []
+        if not features:raise ValueError('No pedestrian route available')
+        feature=features[0];summary=(feature.get('properties') or {}).get('summary') or {}
+        geometry=feature.get('geometry') or {}
+        seconds=float(summary['duration']);meters=float(summary['distance'])
+        if not (0<=seconds<=86400 and 0<=meters<=100000):raise ValueError('Invalid pedestrian route metrics')
+        return {'available':True,'minutes':round(seconds/60,1),'meters':round(meters),'geometry':geometry,'source':'OpenRouteService '+profile,'accessibility_verified':False}
+    except (KeyError,IndexError,TypeError,ValueError,urllib.error.URLError) as exc:
+        raise RuntimeError('Pedestrian route unavailable: '+str(exc)) from exc
+
 def num(x):
     try:return float(x)
     except (TypeError,ValueError):return None
@@ -176,6 +200,8 @@ class Handler(BaseHTTPRequestHandler):
             if path.path=='/api/network/status':
                 data=gtfs()
                 return self.respond(200,{'ok':True,'routes':len(data['routes']),'patterns':len(data['patterns']),'stops':len(data['stops']),'updated':data['updated']})
+            if path.path=='/api/walk-route':
+                return self.respond(200,pedestrian_route(float(q.get('from_lat',['nan'])[0]),float(q.get('from_lon',['nan'])[0]),float(q.get('to_lat',['nan'])[0]),float(q.get('to_lon',['nan'])[0]),q.get('profile',['foot-walking'])[0]))
             if path.path=='/api/scheduled-journey':return self.respond(200,scheduled_journey(q.get('trip',[''])[0],int(q.get('board',['-1'])[0]),int(q.get('exit',['-1'])[0])))
             if path.path=='/api/arrivals':return self.respond(200,{'arrivals':arrivals(q.get('code',[''])[0]),'fetched':int(time.time())})
             return self.respond(404,{'error':'Not found'})
