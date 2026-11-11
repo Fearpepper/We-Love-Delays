@@ -557,14 +557,16 @@ async function getPublishedLegTimes(legs){
 async function getWalkingJourney(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
+ const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
+ const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
  const tasks=[
-  {a:selectedPlaces.originSearch||locationPoint,b:first},
+  {a:origin,b:first},
   ...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),
-  {a:last,b:selectedPlaces.place}
+  {a:last,b:destination}
  ];
  return Promise.all(tasks.map(async ({a,b})=>{
   if(!a||!b)return null;
-  if(a.id&&b.id&&a.id===b.id)return {minutes:0,meters:0};
+  if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {minutes:0,meters:0};
   try{return await getPedestrianLeg(a,b)}catch(e){return null}
  }));
 }
@@ -573,24 +575,31 @@ function chooseScheduledConnection(schedules,walks,arrivalDeadline){
  if(!walks||walks.some(x=>!x||!Number.isFinite(x.minutes)))return null;
  const valid=schedules.map(list=>(list||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival))&&Date.parse(t.arrival)>=Date.parse(t.departure)).sort((a,b)=>Date.parse(a.departure)-Date.parse(b.departure)));
  if(valid.some(list=>!list.length))return [];
- const startWalk=walks[0].minutes*60000,finishWalk=walks[walks.length-1].minutes*60000;
  const candidates=[];
  for(const first of valid[0]){
-  const leave=Date.parse(first.departure)-startWalk-buffer;
+  const leave=Date.parse(first.departure)-(walks[0].minutes+5)*60000;
   if(leave<now)continue;
-  let chain=[first],previous=first;
+  let paths=[{chain:[first],arrival:Date.parse(first.arrival)}];
   for(let k=1;k<valid.length;k++){
-   const transfer=walks[k].minutes*60000;
-   const next=valid[k].find(t=>Date.parse(t.departure)>=Date.parse(previous.arrival)+transfer+connectionBuffer);
-   if(!next){chain=null;break}
-   chain.push(next);previous=next;
+   const nextPaths=[];
+   for(const path of paths){
+    for(const trip of valid[k]){
+     if(Date.parse(trip.departure)<path.arrival+walks[k].minutes*60000+connectionBuffer)continue;
+     nextPaths.push({chain:[...path.chain,trip],arrival:Date.parse(trip.arrival)});
+    }
+   }
+   paths=nextPaths.sort((a,b)=>a.arrival-b.arrival).slice(0,100);
+   if(!paths.length)break;
   }
-  if(!chain)continue;
-  const arrival=Date.parse(previous.arrival)+finishWalk;
-  if(arrivalDeadline!==null&&arrival>arrivalDeadline)continue;
-  candidates.push({chain,leave,arrival});
+  for(const path of paths){
+   if(path.chain.length!==valid.length)continue;
+   const arrival=path.arrival+walks[walks.length-1].minutes*60000;
+   if(arrivalDeadline!==null&&arrival>arrivalDeadline)continue;
+   candidates.push({chain:path.chain,leave,arrival});
+  }
  }
  if(!candidates.length)return [];
+ candidates.sort((a,b)=>a.leave-b.leave||a.arrival-b.arrival);
  return arrivalDeadline===null?candidates[0]:candidates[candidates.length-1];
 }
 function appendTripTiming(panel,legs){
@@ -633,7 +642,7 @@ function showSelectedRoute(out,title,steps,legs){
  const heading=document.createElement('strong');heading.textContent='✓ Selected route: '+title;panel.append(heading);
  for(const step of steps){const p=document.createElement('p');p.textContent=step;panel.append(p)}
  appendTripTiming(panel,legs);
- const note=document.createElement('p');note.className='hint';note.textContent='This is a possible stop-order connection. Bus departure times, transfer timing, and on-time arrival are not yet verified.';panel.append(note);
+ const note=document.createElement('p');note.className='hint';note.textContent='Candidate stop-order route. The timing panel checks published schedules and pedestrian paths; it does not verify live arrivals, accessibility, or on-time operation.';panel.append(note);
  const mapBtn=document.createElement('button');mapBtn.type='button';mapBtn.className='btn';mapBtn.textContent='View selected route on map';mapBtn.onclick=()=>{if(window.innerWidth<=790&&typeof window.wldSelectTab==='function')window.wldSelectTab('map');else $('map').scrollIntoView({behavior:'smooth',block:'center'});if(routeMap)setTimeout(()=>routeMap.invalidateSize(),150)};panel.append(mapBtn);
 }
 function findDirectTrips(){
