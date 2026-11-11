@@ -1,0 +1,21 @@
+// Run with: node tests/journey.test.js
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8');
+const scripts=[...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)].map(x=>x[1]);
+assert(scripts.length>0,'JavaScript scripts exist');
+for(const script of scripts)new vm.Script(script);
+const start=html.indexOf('function chooseScheduledConnection('),end=html.indexOf('function appendTripTiming(',start);
+assert(start>=0&&end>start,'connection calculator exists');
+const ctx={Date,Number,Array};vm.createContext(ctx);
+vm.runInContext(html.slice(start,end)+';this.choose=chooseScheduledConnection;',ctx);
+const choose=ctx.choose,now=Date.now(),at=m=>new Date(now+m*60000).toISOString();
+const walks=[{minutes:5},{minutes:5},{minutes:4}];
+const schedules=[[{departure:at(20),arrival:at(35)}],[{departure:at(45),arrival:at(60)}]];
+assert.equal(choose(schedules,walks,null).chain.length,2,'valid transfer');
+assert(Array.isArray(choose(schedules,[{minutes:5},{minutes:12},{minutes:4}],null)),'reject impossible transfer');
+assert(Array.isArray(choose(schedules,walks,now+50*60000)),'reject missed arrival deadline');
+assert.equal(choose(schedules,[null,{minutes:5},{minutes:4}],null),null,'unknown pedestrian leg');
+assert(Array.isArray(choose([[],schedules[1]],walks,null)),'no scheduled departure');
+const alternatives=[[{departure:at(20),arrival:at(35)}],[{departure:at(45),arrival:at(90)},{departure:at(55),arrival:at(70)}]];
+assert.equal(choose(alternatives,walks,now+80*60000).chain[1].arrival,at(70),'try later transfer when first arrives too late');
+console.log('Journey tests passed');
