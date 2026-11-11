@@ -537,7 +537,66 @@ function findDirectTrips(){
   }
  }
  transfers.sort((x,y)=>x.score-y.score);
- if(!transfers.length){heading.textContent='No direct or same-stop one-transfer connection found in the available AC Transit data. Try a nearby stop or a different starting point. Walking transfers and other agencies are not supported.';return}
+ if(!transfers.length){
+  heading.textContent='No same-stop transfer found. Looking for nearby walking transfers…';
+  const nearby=[],nearbySeen=new Set(),maxWalkKm=0.35;
+  const candidateLast=new Map();
+  for(const leg of lastLegs)for(let j=0;j<leg.end;j++){
+   const id=leg.p.stops[j],stop=network.stops[id];
+   if(!stop||!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;
+   if(!candidateLast.has(id))candidateLast.set(id,[]);
+   if(candidateLast.get(id).length<8)candidateLast.get(id).push({p:leg.p,start:j,end:leg.end});
+  }
+  const transferStops=[...candidateLast.keys()].map(id=>({id,s:network.stops[id]}));
+  for(const first of firstLegs.slice(0,250)){
+   for(let i=first.start+1;i<first.p.stops.length;i++){
+    const fromId=first.p.stops[i],fromStop=network.stops[fromId];
+    if(!fromStop||!Number.isFinite(fromStop.lat)||!Number.isFinite(fromStop.lon))continue;
+    for(const dest of transferStops){
+     if(dest.id===fromId)continue;
+     const km=distance(fromStop.lat,fromStop.lon,dest.s.lat,dest.s.lon);
+     if(km>maxWalkKm)continue;
+     for(const second of candidateLast.get(dest.id)){
+      if(first.p.route===second.p.route)continue;
+      const key=first.p.route+'|'+second.p.route+'|'+fromId+'|'+dest.id;
+      if(nearbySeen.has(key))continue;nearbySeen.add(key);
+      nearby.push({first:{p:first.p,start:first.start,end:i},second,walkKm:km,score:(i-first.start)+(second.end-second.start)+km*50});
+     }
+    }
+   }
+  }
+  nearby.sort((a,b)=>a.score-b.score);
+  if(nearby.length){
+   heading.textContent='Possible connections with a short walk (up to 350 m straight-line). These are NOT verified walking paths or timed transfers. Check accessibility, crossings, and live service before traveling.';
+   for(const t of nearby.slice(0,5)){
+    const aStop=network.stops[t.first.p.stops[t.first.end]],bStop=network.stops[t.second.p.stops[t.second.start]];
+    const start=network.stops[t.first.p.stops[t.first.start]],end=network.stops[t.second.p.stops[t.second.end]];
+    routeChoice(out,'Bus '+routeName(t.first.p)+' → walk → Bus '+routeName(t.second.p),
+     'Walk about '+Math.round(t.walkKm*1000)+' m straight-line between '+aStop.name+' and '+bStop.name,()=>{
+      showTransferMap(t.first,t.second);setNavigation([t.first,t.second]);setAppView('guide');
+      showSelectedRoute(out,'Bus '+routeName(t.first.p)+' → walk → Bus '+routeName(t.second.p),[
+       '1. Board at '+(start?.name||'starting stop'),
+       '2. Get off at '+aStop.name,
+       '3. Walk to '+bStop.name+' (about '+Math.round(t.walkKm*1000)+' m straight-line; actual walking distance may be longer)',
+       '4. Board Bus '+routeName(t.second.p)+' and get off at '+(end?.name||'destination')
+      ]);
+      $('message').textContent='Walking transfer is an unverified possibility. Check pedestrian access, safety and bus schedules.';
+      $('startJourney').disabled=true;
+     });
+   }
+  }else{
+   heading.textContent='We could not verify a connection from these stops in the available AC Transit data. Try the full transit planner below for walking transfers and other agencies.';
+  }
+  const firstStop=a[0],lastStop=b[0];
+  if(Number.isFinite(firstStop?.lat)&&Number.isFinite(firstStop?.lon)&&Number.isFinite(lastStop?.lat)&&Number.isFinite(lastStop?.lon)){
+   const link=document.createElement('a');link.className='btn alt';link.style.display='inline-block';link.style.marginTop='12px';
+   link.textContent='Explore more transit options in Google Maps ↗';
+   const params=new URLSearchParams({api:'1',origin:firstStop.lat+','+firstStop.lon,destination:lastStop.lat+','+lastStop.lon,travelmode:'transit'});
+   link.href='https://www.google.com/maps/dir/?'+params.toString();link.target='_blank';link.rel='noopener noreferrer';out.append(link);
+   const note=document.createElement('p');note.className='hint';note.textContent='External directions open with the first candidate origin and destination stops. Confirm the stops before traveling.';out.append(note);
+  }
+  return;
+ }
  heading.textContent='Possible one-transfer routes ('+transfers.length+' found). These are stop-order connections only: schedules, transfer wait, and arrival deadlines have NOT been checked.';
  for(const t of transfers.slice(0,6)){
   const transfer=network.stops[t.transferId],start=network.stops[t.first.p.stops[t.first.start]],end=network.stops[t.second.p.stops[t.second.end]];
