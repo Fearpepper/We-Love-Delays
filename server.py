@@ -143,11 +143,15 @@ def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
     if not all(__import__('math').isfinite(v) and -180<=v<=180 for v in coords):raise ValueError('Invalid coordinates')
     if not all(37.0<=v<=38.5 for v in (a_lat,b_lat)) or not all(-123.5<=v<=-121.0 for v in (a_lon,b_lon)):
         raise ValueError('Pedestrian routing currently supports the East Bay area')
-    params=urllib.parse.urlencode({'start':str(a_lon)+','+str(a_lat),'end':str(b_lon)+','+str(b_lat)})
-    url='https://api.heigit.org/openrouteservice/v2/directions/'+profile+'?'+params
-    req=urllib.request.Request(url,headers={'Authorization':key,'Accept':'application/geo+json','User-Agent':'WeLoveDelays/1.0'})
+    # POST GeoJSON is the documented directions endpoint and avoids GET content-negotiation issues.
+    url='https://api.heigit.org/openrouteservice/v2/directions/'+profile+'/geojson'
+    body=json.dumps({'coordinates':[[a_lon,a_lat],[b_lon,b_lat]]}).encode('utf-8')
+    req=urllib.request.Request(url,data=body,method='POST',headers={
+        'Authorization':key,'Accept':'application/geo+json',
+        'Content-Type':'application/json','User-Agent':'WeLoveDelays/1.0'
+    })
     try:
-        with urllib.request.urlopen(req,timeout=12) as response:payload=json.load(response)
+        with urllib.request.urlopen(req,timeout=18) as response:payload=json.load(response)
         features=payload.get('features') or []
         if not features:raise ValueError('No pedestrian route available')
         feature=features[0];summary=(feature.get('properties') or {}).get('summary') or {}
@@ -155,6 +159,9 @@ def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
         seconds=float(summary['duration']);meters=float(summary['distance'])
         if not (0<=seconds<=86400 and 0<=meters<=100000):raise ValueError('Invalid pedestrian route metrics')
         return {'available':True,'minutes':round(seconds/60,1),'meters':round(meters),'geometry':geometry,'source':'OpenRouteService '+profile,'accessibility_verified':False}
+    except urllib.error.HTTPError as exc:
+        detail=exc.read(1200).decode('utf-8','replace')
+        raise RuntimeError('Pedestrian route provider HTTP '+str(exc.code)+': '+detail[:400]) from exc
     except (KeyError,IndexError,TypeError,ValueError,urllib.error.URLError) as exc:
         raise RuntimeError('Pedestrian route unavailable: '+str(exc)) from exc
 
