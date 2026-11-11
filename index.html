@@ -586,8 +586,22 @@ $('startJourney').onclick=()=>{const s=chosenStops();if(!s)return;journey={from:
     if(typeof applyStartingCoordinates==='function'){
      applyStartingCoordinates(lat,lon,'Device location');
     }else{
-     status.textContent='Location found. Waiting for bus stops to load…';
+     status.textContent='Location found. Loading nearby AC Transit stops…';
      window.wldPendingLocation={lat,lon};
+     fetch('/api/network').then(async r=>{if(!r.ok)throw Error('Transit data unavailable');return r.json()}).then(data=>{
+      const stops=Object.values(data.stops||{});let nearest=null,best=Infinity;
+      for(const stop of stops){
+       const a=Number(stop.lat),b=Number(stop.lon);
+       if(!Number.isFinite(a)||!Number.isFinite(b))continue;
+       const km=Math.hypot((a-lat)*111.2,(b-lon)*111.2*Math.cos(lat*Math.PI/180));
+       if(km<best){best=km;nearest=stop}
+      }
+      if(!nearest)throw Error('No stop coordinates available');
+      input.value=nearest.name;
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+      status.textContent='✓ Nearest bus stop selected: '+nearest.name+' ('+Math.round(best*1000)+' m away).';
+      window.wldNearestStopId=nearest.id;
+     }).catch(err=>{status.textContent='Location found, but AC Transit stop data could not load: '+err.message+'. You can type a stop manually.'});
     }
    }catch(err){status.textContent='Location found, but bus stops are still loading. Please retry.'}
   },function(err){
