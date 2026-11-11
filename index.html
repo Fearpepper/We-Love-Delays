@@ -416,17 +416,28 @@ function navStopTracking(){
 }
 function setNavigation(legs){
  navStopTracking();
- const steps=[];
+ const timing=estimateTripTiming(legs),steps=[];
+ const walk=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000*1.35/75):null;
+ const firstStop=network.stops[legs[0].p.stops[legs[0].start]];
+ if(timing.walkStart!==null&&timing.walkStart>0)steps.push({stop:firstStop,label:'Walk to '+(firstStop?.name||'first bus stop'),estimate:'About '+timing.walkStart+' min walking · straight-line estimate'});
+ else steps.push({stop:firstStop,label:'Reach '+(firstStop?.name||'first bus stop'),estimate:timing.walkStart===0?'At or very near the stop':'Walking time unknown · select a starting place or enable GPS'});
  for(let k=0;k<legs.length;k++){
   const leg=legs[k],from=network.stops[leg.p.stops[leg.start]],to=network.stops[leg.p.stops[leg.end]];
-  steps.push({stop:from,label:(k===0?'Walk to boarding stop, then board Bus ':'Board Bus ')+routeName(leg.p)+' at '+(from?.name||'starting stop')});
-  steps.push({stop:to,label:(k<legs.length-1?'Get off Bus '+routeName(leg.p)+' at ':'Get off at ')+(to?.name||'destination stop')});
-  if(k<legs.length-1){const next=network.stops[legs[k+1].p.stops[legs[k+1].start]];if(next?.id!==to?.id)steps.push({stop:next,label:'Walk to '+(next?.name||'next boarding stop')+' for Bus '+routeName(legs[k+1].p)+'. Verify the pedestrian route and crossing.'});}
+  const count=Math.max(1,leg.end-leg.start),low=Math.max(2,Math.round(count*1.5)),high=Math.max(low+2,Math.round(count*3));
+  steps.push({stop:from,label:'Wait for and board Bus '+routeName(leg.p)+' at '+(from?.name||'boarding stop'),estimate:'Allow about 8 min waiting · not a confirmed departure'});
+  steps.push({stop:to,label:'Ride Bus '+routeName(leg.p)+' and get off at '+(to?.name||'destination stop'),estimate:'About '+low+'–'+high+' min riding · '+count+' stops (rough estimate)'});
+  if(k<legs.length-1){
+   const next=network.stops[legs[k+1].p.stops[legs[k+1].start]];
+   if(next?.id!==to?.id){const minutes=walk(to,next);steps.push({stop:next,label:'Walk to '+(next?.name||'next boarding stop')+' for the transfer',estimate:minutes===null?'Walking time unknown · verify pedestrian route':'About '+minutes+' min walking · verify crossings and accessibility'});}
+  }
  }
+ const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
+ if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'About '+timing.walkEnd+' min walking · straight-line estimate'});
+ else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking time unknown · select a destination place'});
  activeNavigation={legs,steps,progress:0};
  $('navigationPanel').classList.remove('hidden');
  $('navTitle').textContent=legs.length===1?'Direct bus directions':'Transfer directions';
- $('navStatus').textContent='Select Start following to show your GPS position and nearby route stops. This does not provide street-by-street navigation or confirmed bus times.';
+ $('navStatus').textContent='Planning estimate: '+timing.totalLow+'–'+timing.totalHigh+' min plus any unknown walking time. Includes assumed waits and a 5 min buffer. Actual departures, walking routes and travel times are not verified. GPS can follow listed stops but not street-by-street directions.';
  renderNavigation();
 }
 function renderNavigation(){
@@ -434,10 +445,13 @@ function renderNavigation(){
  const list=$('navSteps');list.innerHTML='';
  activeNavigation.steps.forEach((step,i)=>{
   const el=document.createElement('div');el.className='nav-step'+(i===activeNavigation.progress?' active':i<activeNavigation.progress?' done':'');
-  el.textContent=(i+1)+'. '+step.label;list.append(el)
+  const label=document.createElement('strong');label.textContent=(i+1)+'. '+step.label;
+  const estimate=document.createElement('small');estimate.textContent=step.estimate||'';
+  estimate.style.display='block';estimate.style.marginTop='4px';
+  el.append(label,estimate);list.append(el)
  });
  const step=activeNavigation.steps[activeNavigation.progress];
- $('navNext').textContent=step?'Next: '+step.label:'All listed stops reached';
+ $('navNext').textContent=step?'Next: '+step.label+(step.estimate?' · '+step.estimate:''):'All listed steps completed';
 }
 function updateNavigationPosition(lat,lon,accuracy){
  locationPoint={lat,lon};showLocationOnMap();
@@ -446,7 +460,7 @@ function updateNavigationPosition(lat,lon,accuracy){
  // Only advance sequentially when physically near the next waypoint.
  while(activeNavigation.progress<steps.length){
   const step=steps[activeNavigation.progress],p=step.stop;
-  if(!p||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)||distance(lat,lon,p.lat,p.lon)>0.08)break;
+  if(!p||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)||!Number.isFinite(accuracy)||accuracy>60||distance(lat,lon,p.lat,p.lon)>0.06)break;
   activeNavigation.progress++;
  }
  renderNavigation();
