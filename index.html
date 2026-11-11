@@ -179,6 +179,20 @@ body.app-map-mode{overflow:hidden}
  body.app-map-mode .grid>div:first-child.sheet-expanded>.card{visibility:visible}
  .sheet-grabber:focus-visible{outline:3px solid #20b76d;outline-offset:-3px}
 }
+
+/* Desktop counterpart: drag sidebar handle left to reveal full map, right to reopen */
+@media(min-width:791px){
+ .grid{transition:grid-template-columns .28s ease}
+ .grid>div:first-child{position:relative;padding-right:22px}
+ .sheet-grabber{position:sticky;top:calc(50% - 38px);float:right;z-index:8;display:flex;align-items:center;justify-content:center;width:28px;height:76px;margin:0 -21px -76px 0;border:1px solid #cfe4d7;border-radius:14px 0 0 14px;background:#fff;color:#238b58;cursor:ew-resize;touch-action:none;box-shadow:-3px 2px 12px #0001}
+ .sheet-grabber:before{content:'‹';font-size:29px;line-height:1}
+ .sheet-grabber:focus-visible{outline:3px solid #18b16a}
+ body.desktop-sheet-collapsed .grid{grid-template-columns:44px minmax(0,1fr)}
+ body.desktop-sheet-collapsed .grid>div:first-child{padding:0;overflow:visible;box-shadow:none;background:#eaf4ed}
+ body.desktop-sheet-collapsed .grid>div:first-child>.card{display:none}
+ body.desktop-sheet-collapsed .sheet-grabber{position:absolute;top:calc(50% - 38px);right:0;float:none;margin:0;width:44px;border-radius:0 14px 14px 0}
+ body.desktop-sheet-collapsed .sheet-grabber:before{content:'›'}
+}
 </style><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""><style>.map .leaflet-container{height:100%;width:100%;z-index:0}.map{position:relative}.map .leaflet-control-container{z-index:1}</style></head><body>
 <section class="welcome" id="welcome"><div class="intro"><div class="logo"><span class="heart">♥</span>we love delays<b>.</b></div><div class="kicker">BERKELEY · CALIFORNIA</div><h1>Turn the wait into <em>something good.</em></h1><p class="muted">Find AC Transit buses, check live arrivals, and earn fictional rewards when delays get in the way.</p><div class="actions"><button class="btn" id="startNow">Plan a trip →</button></div><p class="hint" style="margin-top:35px">UC Berkeley · DES INV 15 concept prototype · Bus service only</p></div></section>
 <nav class="app-controls" aria-label="App views"><button type="button" id="appTrips" class="active">☷ Routes</button><button type="button" id="appMap">⌖ Map</button><button type="button" id="appGuide">↗ Guide</button></nav><aside class="app-map-sheet" id="appMapSheet"><strong id="appSheetTitle">Your journey</strong><p id="appSheetText">Select a route to see your journey on the map.</p></aside><div class="shell"><div class="top"><div class="logo"><span class="heart" style="width:34px;height:34px;font-size:19px">♥</span>we love delays<b>.</b></div><div class="pill" id="feedStatus">Checking local server…</div></div><div class="grid"><div id="tripSheet"><button class="sheet-grabber" id="sheetGrabber" type="button" aria-label="Drag down to reveal the full map, or up to expand route information" aria-expanded="true"></button><div class="card"><div class="eyebrow">PLAN YOUR JOURNEY</div><h2>Where are we going?</h2><p class="muted">Choose where to start, your route, and where to get off. Only stops in the correct travel order appear.</p><div class="actions"><button class="btn alt" id="home">← Home</button></div><div class="field"><label>STARTING LOCATION</label><div class="actions"><button class="btn alt" id="locate">◎ Use my current location</button><button class="btn alt" id="chooseMap">Choose on map</button><button class="btn alt" id="clearLoc">Clear</button></div><p class="hint" id="locationText">Location is optional. Select a boarding stop manually below.</p></div><div class="field"><label>STARTING BUS STOP</label><input id="originSearch" placeholder="Start typing a stop name…" autocomplete="off" aria-label="Starting bus stop"><div class="suggestions" id="originSuggestions"></div></div><div class="field"><label>DESTINATION BUS STOP</label><input id="place" placeholder="Start typing a destination…" autocomplete="off" aria-label="Destination bus stop"><div class="suggestions" id="destinationSuggestions"></div><p class="hint">Search bus stops or local businesses (for example Trader Joe's). Choose a suggestion. Direct buses and same-stop one-transfer options. Times are not yet verified.</p></div><div class="actions"><button class="btn" id="autoFind">Find my bus route</button></div><div class="status" id="autoResults" aria-live="polite"></div><section id="navigationPanel" class="navigation-panel hidden" aria-live="polite"><div class="eyebrow">YOUR ROUTE GUIDE</div><h2 id="navTitle">Ready to go</h2><p id="navNext">Select a route to begin.</p><p class="hint" id="navStatus">Live GPS tracking is optional.</p><div class="actions"><button class="btn" id="navStart" type="button">Start following my location</button><button class="btn alt" id="navStop" type="button" disabled>Stop following</button></div><div id="navSteps"></div></section><details style="margin-top:18px"><summary style="cursor:pointer;font-weight:700">Advanced: choose a route manually</summary><div class="field"><label>FILTER BUS ROUTES</label><input id="routeFilter" placeholder="Search route number or name, e.g. 51B" autocomplete="off"></div><div class="field"><label>AC TRANSIT BUS ROUTE</label><select id="route" disabled><option>Loading Berkeley routes…</option></select></div><div class="field"><label>DIRECTION / TRIP PATTERN</label><select id="pattern" disabled><option>Select a route first</option></select></div><div class="field"><label>FILTER STOPS</label><input id="stopFilter" placeholder="Search stops on the selected direction" autocomplete="off"></div><div class="field"><label>BOARDING STOP</label><select id="board" disabled><option>Select a direction first</option></select></div><div class="field"><label>DESTINATION STOP</label><select id="exit" disabled><option>Select a boarding stop first</option></select></div></details><div class="actions"><button class="btn" id="preview" disabled>Show bus trip</button><button class="btn alt" id="refresh" disabled>Refresh live arrivals</button></div><div class="notice" id="message">The app uses published AC Transit stop sequences. Actual bus service can change.</div></div><div class="card"><div class="eyebrow">LIVE ARRIVALS</div><h2 id="arrivalTitle">Your next bus</h2><div id="arrivals" class="status">Choose a route and boarding stop to see arrivals.</div><div class="statgrid" style="margin-top:17px"><div class="stat"><small>Scheduled</small><strong id="scheduled">—</strong></div><div class="stat"><small>Predicted</small><strong id="predicted">—</strong></div><div class="stat"><small>Delay</small><strong id="delay">—</strong></div></div><p class="hint">Live predictions are provided by 511 SF Bay when available. Missing predictions are not treated as on-time buses.</p></div></div><div><div class="card"><div class="eyebrow">LIVE ROUTE MAP</div><h2>Where you're going</h2><div class="map" id="map"><iframe title="Berkeley map" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=-122.299%2C37.854%2C-122.243%2C37.894&amp;layer=mapnik&amp;marker=37.8715%2C-122.2585"></iframe></div><p class="hint" id="mapText">Berkeley, California · Select stops to see their area on the map.</p></div><div class="card"><div class="eyebrow">REWARDS CONCEPT</div><h2>Worth the wait ♥</h2><p class="muted">Points are fictional and do not represent real transit compensation.</p><div class="reward"><span id="points">0</span> <small style="font-size:18px">pts</small></div><div class="actions"><button class="btn alt" id="startJourney" disabled>Start selected trip</button><button class="btn alt" id="finishJourney" disabled>Finish trip & collect demo points</button></div><p class="status" id="journeyStatus">No trip started.</p><div class="notice"><strong>Reward rate: 10 fictional points per minute of delay.</strong> Points are part of this concept prototype, not real transit compensation.</div><div class="actions" id="demoDelays"><button class="btn alt" data-delay="5">+5 min</button><button class="btn alt" data-delay="10">+10 min</button><button class="btn alt" data-delay="15">+15 min</button></div></div><div class="card"><div class="eyebrow">COMMUNITY PROTOTYPE</div><h2>Report a delay</h2><p class="muted">Reports stay in this browser. They are not submitted to AC Transit or 511.</p><div class="actions"><button class="btn alt" id="report">Report a 10-minute delay (demo)</button></div><p class="status" id="reportStatus"></p></div><p class="hint">Transit information powered by <a href="https://511.org" target="_blank" rel="noopener">511.org</a>. Map © OpenStreetMap contributors. Not affiliated with AC Transit.</p></div></div></div>
@@ -216,9 +230,40 @@ grabber.addEventListener('touchend',e=>{
 grabber.addEventListener('click',()=>{if(Date.now()-lastSheetTouch<450)return;setSheetState(sheetState==='collapsed'?'expanded':'collapsed')});
 let lastSheetTouch=0;
 grabber.addEventListener('touchend',()=>{lastSheetTouch=Date.now()},{passive:true});
+
+function setDesktopSheetCollapsed(collapsed){
+ if(window.innerWidth<=790)return;
+ document.body.classList.toggle('desktop-sheet-collapsed',collapsed);
+ $('sheetGrabber').setAttribute('aria-expanded',String(!collapsed));
+ $('sheetGrabber').setAttribute('aria-label',collapsed?'Expand route sidebar':'Collapse route sidebar to see more map');
+ if(routeMap)setTimeout(()=>routeMap.invalidateSize(),340);
+}
+let desktopDragStart=null,desktopSuppressClick=false;
+grabber.addEventListener('pointerdown',e=>{
+ if(window.innerWidth<=790||e.button!==0)return;
+ desktopDragStart={x:e.clientX,collapsed:document.body.classList.contains('desktop-sheet-collapsed')};
+ grabber.setPointerCapture(e.pointerId);
+});
+grabber.addEventListener('pointerup',e=>{
+ if(window.innerWidth<=790||!desktopDragStart)return;
+ const dx=e.clientX-desktopDragStart.x;
+ if(Math.abs(dx)>45){setDesktopSheetCollapsed(dx<0);desktopSuppressClick=true}
+ desktopDragStart=null;
+});
+grabber.addEventListener('pointercancel',()=>{desktopDragStart=null});
+grabber.addEventListener('keydown',e=>{
+ if(window.innerWidth<=790)return;
+ if(e.key==='ArrowLeft'){e.preventDefault();setDesktopSheetCollapsed(true)}
+ if(e.key==='ArrowRight'){e.preventDefault();setDesktopSheetCollapsed(false)}
+});
+grabber.addEventListener('click',()=>{
+ if(window.innerWidth<=790||desktopSuppressClick){desktopSuppressClick=false;return}
+ setDesktopSheetCollapsed(!document.body.classList.contains('desktop-sheet-collapsed'));
+});
 function setAppView(view){
  const map=view==='map'||view==='guide';
  document.body.classList.toggle('app-map-mode',map);
+ if(window.innerWidth>790&&view==='routes')setDesktopSheetCollapsed(false);
  if(window.innerWidth<=790){const sheet=$('tripSheet');sheet.classList.remove('sheet-expanded');sheet.classList.toggle('sheet-collapsed',map);sheetState=map?'collapsed':'default';$('sheetGrabber').setAttribute('aria-expanded',String(!map))}
  for(const [id,active] of [['appTrips',!map],['appMap',view==='map'],['appGuide',view==='guide']]){
   const el=$(id);el.classList.toggle('active',active);el.setAttribute('aria-pressed',String(active));
