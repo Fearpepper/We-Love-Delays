@@ -419,8 +419,8 @@ function setNavigation(legs){
  const timing=estimateTripTiming(legs),steps=[];
  const walk=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000/75):null;
  const firstStop=network.stops[legs[0].p.stops[legs[0].start]];
- if(timing.walkStart!==null&&timing.walkStart>0)steps.push({stop:firstStop,kind:'walk-start',label:'Walk to '+(firstStop?.name||'first bus stop'),estimate:'At least '+timing.walkStart+' min walking · straight-line minimum'});
- else steps.push({stop:firstStop,kind:'walk-start',label:'Reach '+(firstStop?.name||'first bus stop'),estimate:timing.walkStart===0?'At or very near the stop':'Walking time unknown · select a starting place or enable GPS'});
+ if(timing.walkStart!==null&&timing.walkStart>0)steps.push({stop:firstStop,kind:'walk-start',label:'Walk to '+(firstStop?.name||'first bus stop'),estimate:'Checking pedestrian walking route…'});
+ else steps.push({stop:firstStop,kind:'walk-start',label:'Reach '+(firstStop?.name||'first bus stop'),estimate:timing.walkStart===0?'At or very near the stop':'Walking route unavailable until a starting place or GPS location is provided'});
  for(let k=0;k<legs.length;k++){
   const leg=legs[k],from=network.stops[leg.p.stops[leg.start]],to=network.stops[leg.p.stops[leg.end]];
   const count=Math.max(1,leg.end-leg.start),low=Math.max(2,Math.round(count*1.5)),high=Math.max(low+2,Math.round(count*3));
@@ -428,12 +428,12 @@ function setNavigation(legs){
   steps.push({stop:to,kind:'ride',legIndex:k,label:'Ride Bus '+routeName(leg.p)+' and get off at '+(to?.name||'destination stop'),estimate:'Scheduled riding time loading below · '+count+' stops'});
   if(k<legs.length-1){
    const next=network.stops[legs[k+1].p.stops[legs[k+1].start]];
-   if(next?.id!==to?.id){const minutes=walk(to,next);steps.push({stop:next,kind:'walk-transfer',legIndex:k,label:'Walk to '+(next?.name||'next boarding stop')+' for the transfer',estimate:minutes===null?'Walking time unknown · verify pedestrian route':'At least '+minutes+' min straight-line walking · verify pedestrian route'});}
+   if(next?.id!==to?.id){const minutes=walk(to,next);steps.push({stop:next,kind:'walk-transfer',legIndex:k,label:'Walk to '+(next?.name||'next boarding stop')+' for the transfer',estimate:'Checking pedestrian transfer route…'});}
   }
  }
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'At least '+timing.walkEnd+' min walking · straight-line minimum'});
- else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking time unknown · select a destination place'});
+ if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
+ else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  activeNavigation={legs,steps,progress:0};
  $('navigationPanel').classList.remove('hidden');
  $('navTitle').textContent=legs.length===1?'Direct bus directions':'Transfer directions';
