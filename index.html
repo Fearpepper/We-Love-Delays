@@ -236,6 +236,7 @@ const $=id=>document.getElementById(id);
 /* Native mobile scroll: Map tab jumps to the real map; Routes jumps to the planner. */
 function scrollMobileView(view){
  if(window.innerWidth>790)return false;
+ if(typeof window.wldSelectTab==='function'){window.wldSelectTab(view);return true}
  document.body.classList.remove('app-map-mode');
  const target=view==='map'?$('map'):view==='guide'?($('navigationPanel').classList.contains('hidden')?$('map'):$('navigationPanel')):$('originSearch');
  if(target)requestAnimationFrame(()=>target.scrollIntoView({behavior:'smooth',block:view==='map'?'center':'start'}));
@@ -391,7 +392,7 @@ function showSelectedRoute(out,title,steps){
  const heading=document.createElement('strong');heading.textContent='✓ Selected route: '+title;panel.append(heading);
  for(const step of steps){const p=document.createElement('p');p.textContent=step;panel.append(p)}
  const note=document.createElement('p');note.className='hint';note.textContent='This is a possible stop-order connection. Bus departure times, transfer timing, and on-time arrival are not yet verified.';panel.append(note);
- const mapBtn=document.createElement('button');mapBtn.type='button';mapBtn.className='btn';mapBtn.textContent='View selected route on map';mapBtn.onclick=()=>{$('map').scrollIntoView({behavior:'smooth',block:'center'});if(routeMap)setTimeout(()=>routeMap.invalidateSize(),150)};panel.append(mapBtn);
+ const mapBtn=document.createElement('button');mapBtn.type='button';mapBtn.className='btn';mapBtn.textContent='View selected route on map';mapBtn.onclick=()=>{if(window.innerWidth<=790&&typeof window.wldSelectTab==='function')window.wldSelectTab('map');else $('map').scrollIntoView({behavior:'smooth',block:'center'});if(routeMap)setTimeout(()=>routeMap.invalidateSize(),150)};panel.append(mapBtn);
 }
 function findDirectTrips(){
  const out=$('autoResults');out.innerHTML='';
