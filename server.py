@@ -24,25 +24,35 @@ def cached(key,ttl,fn):
     with LOCK:CACHE[key]=(time.time(),val)
     return val
 def places(query):
-    """Search OpenStreetMap place names through Photon, without exposing a key."""
+    """Search OSM locations near Berkeley, with a backup provider."""
     query=query.strip()
-    if len(query)<3 or len(query)>100:raise ValueError('Enter at least 3 characters (maximum 100).')
-    params=urllib.parse.urlencode({'q':query,'lat':37.8715,'lon':-122.2585,'limit':8,'lang':'en'})
-    req=urllib.request.Request('https://photon.komoot.io/api/?'+params,headers={'User-Agent':'WeLoveDelaysStudentProject/1.0 (https://we-love-delays.onrender.com)','Accept':'application/json'})
-    try:
-        with urllib.request.urlopen(req,timeout=8) as response:raw=json.load(response)
-    except Exception as exc:raise RuntimeError('Place search is temporarily unavailable.') from exc
+    if len(query)<3 or len(query)>100:raise ValueError('Enter 3–100 characters.')
+    headers={'User-Agent':'WeLoveDelays/1.0 (student project; https://we-love-delays.onrender.com)','Accept':'application/json'}
     out=[]
-    for feature in raw.get('features',[]):
-        prop=feature.get('properties') or {};coords=feature.get('geometry',{}).get('coordinates') or []
-        if len(coords)<2:continue
-        lon,lat=coords[:2]
-        if not (37.3<=lat<=38.3 and -123.0<=lon<=-121.5):continue
-        name=prop.get('name') or prop.get('street')
-        if not name:continue
-        detail=', '.join(str(prop[k]) for k in ('street','city') if prop.get(k) and prop[k]!=name)
-        out.append({'name':name,'detail':detail,'lat':lat,'lon':lon})
-    return out
+    try:
+        params=urllib.parse.urlencode({'q':query,'lat':37.8715,'lon':-122.2585,'limit':10,'lang':'en'})
+        req=urllib.request.Request('https://photon.komoot.io/api/?'+params,headers=headers)
+        with urllib.request.urlopen(req,timeout=6) as response:raw=json.load(response)
+        for feature in raw.get('features',[]):
+            prop=feature.get('properties') or {};coords=feature.get('geometry',{}).get('coordinates') or []
+            if len(coords)<2:continue
+            lon,lat=coords[:2]
+            if not (37.3<=lat<=38.3 and -123.0<=lon<=-121.5):continue
+            name=prop.get('name') or prop.get('street')
+            if name:out.append({'name':name,'detail':', '.join(str(prop[k]) for k in ('street','city') if prop.get(k) and prop[k]!=name),'lat':lat,'lon':lon})
+    except Exception:
+        pass
+    if out:return out[:8]
+    try:
+        params=urllib.parse.urlencode({'q':query,'format':'json','limit':8,'addressdetails':1,'viewbox':'-122.6,38.1,-122.0,37.6','bounded':1})
+        req=urllib.request.Request('https://nominatim.openstreetmap.org/search?'+params,headers=headers)
+        with urllib.request.urlopen(req,timeout=7) as response:raw=json.load(response)
+        for item in raw:
+            address=item.get('address') or {}
+            out.append({'name':item.get('name') or item.get('display_name','').split(',')[0],'detail':', '.join(filter(None,[address.get('road'),address.get('city') or address.get('town')])),'lat':float(item['lat']),'lon':float(item['lon'])})
+    except Exception as exc:
+        raise RuntimeError('Place search providers are unavailable. Try an AC Transit stop name instead.') from exc
+    return out[:8]
 def gtfs():
     def get():
         raw=upstream('datafeeds',{'operator_id':'AC'},True)
