@@ -419,8 +419,8 @@ function setNavigation(legs){
  const timing=estimateTripTiming(legs),steps=[];
  const walk=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000/75):null;
  const firstStop=network.stops[legs[0].p.stops[legs[0].start]];
- if(timing.walkStart!==null&&timing.walkStart>0)steps.push({stop:firstStop,label:'Walk to '+(firstStop?.name||'first bus stop'),estimate:'At least '+timing.walkStart+' min walking · straight-line minimum'});
- else steps.push({stop:firstStop,label:'Reach '+(firstStop?.name||'first bus stop'),estimate:timing.walkStart===0?'At or very near the stop':'Walking time unknown · select a starting place or enable GPS'});
+ if(timing.walkStart!==null&&timing.walkStart>0)steps.push({stop:firstStop,kind:'walk-start',label:'Walk to '+(firstStop?.name||'first bus stop'),estimate:'At least '+timing.walkStart+' min walking · straight-line minimum'});
+ else steps.push({stop:firstStop,kind:'walk-start',label:'Reach '+(firstStop?.name||'first bus stop'),estimate:timing.walkStart===0?'At or very near the stop':'Walking time unknown · select a starting place or enable GPS'});
  for(let k=0;k<legs.length;k++){
   const leg=legs[k],from=network.stops[leg.p.stops[leg.start]],to=network.stops[leg.p.stops[leg.end]];
   const count=Math.max(1,leg.end-leg.start),low=Math.max(2,Math.round(count*1.5)),high=Math.max(low+2,Math.round(count*3));
@@ -428,11 +428,11 @@ function setNavigation(legs){
   steps.push({stop:to,kind:'ride',legIndex:k,label:'Ride Bus '+routeName(leg.p)+' and get off at '+(to?.name||'destination stop'),estimate:'Scheduled riding time loading below · '+count+' stops'});
   if(k<legs.length-1){
    const next=network.stops[legs[k+1].p.stops[legs[k+1].start]];
-   if(next?.id!==to?.id){const minutes=walk(to,next);steps.push({stop:next,label:'Walk to '+(next?.name||'next boarding stop')+' for the transfer',estimate:minutes===null?'Walking time unknown · verify pedestrian route':'At least '+minutes+' min straight-line walking · verify pedestrian route'});}
+   if(next?.id!==to?.id){const minutes=walk(to,next);steps.push({stop:next,kind:'walk-transfer',legIndex:k,label:'Walk to '+(next?.name||'next boarding stop')+' for the transfer',estimate:minutes===null?'Walking time unknown · verify pedestrian route':'At least '+minutes+' min straight-line walking · verify pedestrian route'});}
   }
  }
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'At least '+timing.walkEnd+' min walking · straight-line minimum'});
+ if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'At least '+timing.walkEnd+' min walking · straight-line minimum'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking time unknown · select a destination place'});
  activeNavigation={legs,steps,progress:0};
  $('navigationPanel').classList.remove('hidden');
@@ -440,6 +440,7 @@ function setNavigation(legs){
  $('navStatus').textContent='Bus departure and riding times are shown from published 511 schedules in the selected-route panel. Walking estimates are straight-line minimums, not verified pedestrian routes. GPS is not street-by-street navigation.';
  renderNavigation();
  const current=activeNavigation;
+ applyPedestrianTimes(legs,steps).then(()=>{if(activeNavigation===current)renderNavigation()}).catch(()=>{});
  getPublishedLegTimes(legs).then(data=>{
   if(activeNavigation!==current)return;
   let previousArrival=null,connectionFailed=false;
@@ -533,6 +534,27 @@ function estimateTripTiming(legs){
  let walkTransfer=0,transferKnown=true;
  for(let i=0;i<legs.length-1;i++){const a=network.stops[legs[i].p.stops[legs[i].end]],b=network.stops[legs[i+1].p.stops[legs[i+1].start]],v=walk(a,b);if(v===null)transferKnown=false;else walkTransfer+=v}
  return {walkStart,walkEnd,walkTransfer:transferKnown?walkTransfer:null};
+}
+async function getPedestrianLeg(a,b){
+ if(!a||!b||![a.lat,a.lon,b.lat,b.lon].every(Number.isFinite))return null;
+ const params=new URLSearchParams({from_lat:String(a.lat),from_lon:String(a.lon),to_lat:String(b.lat),to_lon:String(b.lon)});
+ const data=await api('/api/walk-route?'+params.toString());
+ if(!data.available||!Number.isFinite(data.minutes)||!Number.isFinite(data.meters))return null;
+ return data;
+}
+async function applyPedestrianTimes(legs,steps){
+ const tasks=[];
+ const first=network.stops[legs[0].p.stops[legs[0].start]];
+ const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
+ tasks.push({step:steps.find(x=>x.kind==='walk-start'),a:selectedPlaces.originSearch||locationPoint,b:first});
+ for(let k=0;k<legs.length-1;k++){
+  tasks.push({step:steps.find(x=>x.kind==='walk-transfer'&&x.legIndex===k),a:network.stops[legs[k].p.stops[legs[k].end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]});
+ }
+ tasks.push({step:steps.find(x=>x.kind==='walk-end'),a:last,b:selectedPlaces.place});
+ await Promise.all(tasks.filter(x=>x.step).map(async x=>{
+  try{const data=await getPedestrianLeg(x.a,x.b);x.step.estimate=data?'Pedestrian route: '+data.minutes+' min · '+data.meters+' m (OpenRouteService; accessibility not verified)':'Walking route unavailable · distance and duration not verified'}
+  catch(e){x.step.estimate='Walking route unavailable · '+e.message}
+ }));
 }
 async function getPublishedLegTimes(legs){
  const results=[];
