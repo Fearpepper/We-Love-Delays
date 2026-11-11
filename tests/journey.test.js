@@ -1,7 +1,7 @@
 // Run with: node tests/journey.test.js
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const html=fs.readFileSync('index.html','utf8');
-const scripts=[...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)].map(x=>x[1]);
+const scripts=html.split('<script').slice(1).map(x=>x.slice(x.indexOf('>')+1,x.indexOf('</script>')));
 assert(scripts.length>0,'JavaScript scripts exist');
 for(const script of scripts)new vm.Script(script);
 const start=html.indexOf('function chooseScheduledConnection('),end=html.indexOf('function appendTripTiming(',start);
