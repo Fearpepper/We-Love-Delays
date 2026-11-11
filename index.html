@@ -442,13 +442,26 @@ function setNavigation(legs){
  const current=activeNavigation;
  getPublishedLegTimes(legs).then(data=>{
   if(activeNavigation!==current)return;
+  let previousArrival=null,connectionFailed=false;
   for(let k=0;k<legs.length;k++){
-   const trips=data[k]||[],valid=trips.find(x=>Number.isFinite(Date.parse(x.departure))&&Number.isFinite(Date.parse(x.arrival)));
+   const trips=data[k]||[];
+   const valid=trips.find(x=>{
+    const dep=Date.parse(x.departure),arr=Date.parse(x.arrival);
+    if(!Number.isFinite(dep)||!Number.isFinite(arr)||arr<dep)return false;
+    if(previousArrival===null)return true;
+    const prev=network.stops[legs[k-1].p.stops[legs[k-1].end]],next=network.stops[legs[k].p.stops[legs[k].start]];
+    const walk=prev&&next&&Number.isFinite(prev.lat)&&Number.isFinite(prev.lon)&&Number.isFinite(next.lat)&&Number.isFinite(next.lon)?Math.ceil(distance(prev.lat,prev.lon,next.lat,next.lon)*1000/75):null;
+    if(walk===null)return false;
+    return dep>=previousArrival+(walk+3)*60000;
+   });
+   if(!valid&&k>0)connectionFailed=true;
+   previousArrival=valid?Date.parse(valid.arrival):Number.POSITIVE_INFINITY;
    const boardStep=current.steps.find(x=>x.legIndex===k&&x.kind==='board');
    const rideStep=current.steps.find(x=>x.legIndex===k&&x.kind==='ride');
    if(boardStep)boardStep.estimate=valid?'Next published departure: '+new Date(valid.departure).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+' · schedule only':'No upcoming published departure verified';
    if(rideStep)rideStep.estimate=valid?'Published ride: '+valid.ride_minutes+' min · scheduled arrival '+new Date(valid.arrival).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Scheduled ride time unavailable';
   }
+  if(connectionFailed)$('navStatus').textContent='No timed transfer verified among the upcoming published departures. Try another route or check the agency planner. Walking connections are straight-line estimates.';
   renderNavigation();
  }).catch(()=>{if(activeNavigation===current){$('navStatus').textContent='Published schedules unavailable. Bus times cannot be verified; walking estimates remain approximate.'}});
 }
@@ -472,7 +485,7 @@ function updateNavigationPosition(lat,lon,accuracy){
  // Only advance sequentially when physically near the next waypoint.
  while(activeNavigation.progress<steps.length){
   const step=steps[activeNavigation.progress],p=step.stop;
-  if(!p||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)||!Number.isFinite(accuracy)||accuracy>60||distance(lat,lon,p.lat,p.lon)>0.06)break;
+  if(step.kind==='board'||step.kind==='ride'||!p||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)||!Number.isFinite(accuracy)||accuracy>60||distance(lat,lon,p.lat,p.lon)>0.06)break;
   activeNavigation.progress++;
  }
  renderNavigation();
