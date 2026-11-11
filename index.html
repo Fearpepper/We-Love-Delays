@@ -239,7 +239,7 @@ function scrollMobileView(view){
  document.body.classList.remove('app-map-mode');
  const target=view==='map'?$('map'):view==='guide'?($('navigationPanel').classList.contains('hidden')?$('map'):$('navigationPanel')):$('originSearch');
  if(target)requestAnimationFrame(()=>target.scrollIntoView({behavior:'smooth',block:view==='map'?'center':'start'}));
- for(const [id,on] of [['appTrips',view==='routes'],['appMap',view==='map'],['appGuide',view==='guide']]]){$(id).classList.toggle('active',on);$(id).setAttribute('aria-pressed',String(on))}
+ for(const [id,on] of [['appTrips',view==='routes'],['appMap',view==='map'],['appGuide',view==='guide']]){$(id).classList.toggle('active',on);$(id).setAttribute('aria-pressed',String(on))}
  return true;
 }
 function setAppView(view){
