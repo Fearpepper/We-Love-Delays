@@ -61,23 +61,23 @@ button{touch-action:manipulation}
 <script>
 const $=id=>document.getElementById(id);let network=null,patterns=[],selected=null,locationPoint=null,journey=null,delayDemo=0,demo=false,arrivalDelay=null;let points=Number(localStorage.getItem('wld-berkeley-points')||0);$('points').textContent=points;
 function say(s){$('message').textContent=s}function option(sel,label,value){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o)}function reset(sel,label){sel.innerHTML='';option(sel,label,'');sel.disabled=true}function fmt(x){if(!x)return '—';const d=new Date(x);return isNaN(d)?'—':d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}function distance(a,b,c,d){const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r*Math.cos((a+c)/2*r);return Math.hypot(x,y)*6371}async function api(url){const r=await fetch(url);const data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');return data}function show(){ $('welcome').classList.add('off');window.scrollTo({top:0,behavior:'smooth'})} $('startNow').onclick=show;$('home').onclick=()=>$('welcome').classList.remove('off');
-async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}}
+async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location');say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}}
 function populateRoutes(){const r=$('route'),filter=$('routeFilter').value.trim().toLowerCase(),previous=r.value;reset(r,'Select an AC Transit bus route');const routes=(network.routes||[]).filter(x=>(x.name+' '+(x.description||'')).toLowerCase().includes(filter));routes.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).forEach(x=>option(r,x.name+(x.description?' · '+x.description:''),x.id));r.disabled=!routes.length;if(routes.some(x=>x.id===previous))r.value=previous;else {reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true}if(!routes.length)say('No routes match this filter. Clear the filter or try a different route number.')} $('routeFilter').oninput=()=>{if(network)populateRoutes()};
 
 function populateStopSuggestions(){/* Suggestions are generated while typing, so no huge datalist is needed. */}
 function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const all=Object.values(network.stops);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
-const selectedPlaces={originSearch:null,place:null};
+const selectedPlaces={originSearch:null,place:null};const selectedStopIds={originSearch:null,place:null};
 function attachAutocomplete(inputId,listId){
  const field=$(inputId),list=$(listId);let request=0,timer=null;
  field.addEventListener('input',()=>{
-  selectedPlaces[inputId]=null;const current=++request;clearTimeout(timer);list.innerHTML='';
+  selectedPlaces[inputId]=null;selectedStopIds[inputId]=null;const current=++request;clearTimeout(timer);list.innerHTML='';
   const q=field.value.trim().toLowerCase();if(q.length<2)return;
   const seen=new Set(),matches=[];
-  for(const stop of Object.values(network?.stops||{})){const name=stop.name||'';if(name.toLowerCase().includes(q)&&!seen.has(name)){seen.add(name);matches.push({name,type:'stop'})}}
+  for(const stop of Object.values(network?.stops||{})){const name=stop.name||'';if(name.toLowerCase().includes(q)&&!seen.has(name)){seen.add(name);matches.push({name,type:'stop',id:stop.id})}}
   matches.sort((a,b)=>(a.name.toLowerCase().startsWith(q)?0:1)-(b.name.toLowerCase().startsWith(q)?0:1)||a.name.localeCompare(b.name));
   const draw=(places=[])=>{if(current!==request)return;list.innerHTML='';
    const choices=[...matches.slice(0,5),...places.slice(0,5).map(p=>({...p,type:'place'}))];
-   for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;list.innerHTML='';field.focus();if(item.type==='place'&&ensureMap()){if(placeMarker)routeMap.removeLayer(placeMarker);placeMarker=L.marker([item.lat,item.lon]).bindPopup(item.name).addTo(routeMap);routeMap.setView([item.lat,item.lon],15);$('mapText').textContent='Pin: '+item.name+'. Nearby transit stops will be used for route search.'}};list.append(btn)}
+   for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;selectedStopIds[inputId]=item.type==='stop'?item.id:null;list.innerHTML='';field.focus();if(item.type==='place'&&ensureMap()){if(placeMarker)routeMap.removeLayer(placeMarker);placeMarker=L.marker([item.lat,item.lon]).bindPopup(item.name).addTo(routeMap);routeMap.setView([item.lat,item.lon],15);$('mapText').textContent='Pin: '+item.name+'. Nearby transit stops will be used for route search.'}};list.append(btn)}
   };
   draw();if(q.length>=3){timer=setTimeout(async()=>{try{const data=await api('/api/places?q='+encodeURIComponent(q));draw(data.places||[]);if(!(data.places||[]).length&&!matches.length){list.textContent='No nearby places found. Try a more specific name.'}}catch(e){if(current===request){const note=document.createElement('div');note.className='hint';note.style.padding='10px';note.textContent='Business suggestions unavailable: '+e.message;list.append(note)}}},650)}
  });
@@ -86,6 +86,7 @@ function attachAutocomplete(inputId,listId){
  document.addEventListener('click',e=>{if(e.target!==field&&!list.contains(e.target))list.innerHTML=''});
 }
 function stopsForInput(id){
+ if(selectedStopIds[id]&&network.stops[selectedStopIds[id]])return [network.stops[selectedStopIds[id]]];
  const place=selectedPlaces[id];if(!place)return matchStops($(id).value);
  return Object.values(network.stops).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)).map(s=>({s,d:distance(place.lat,place.lon,s.lat,s.lon)})).filter(x=>x.d<=0.8).sort((a,b)=>a.d-b.d).slice(0,12).map(x=>x.s);
 }
@@ -271,8 +272,9 @@ function applyStartingCoordinates(lat,lon,source){
  let nearestStop=null,best=Infinity;
  for(const stop of Object.values(network.stops)){if(!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;const km=distance(lat,lon,stop.lat,stop.lon);if(km<best){best=km;nearestStop=stop}}
  if(!nearestStop){$('locationText').textContent=source+' shown on map. No bus stop coordinates available.';return}
- $('originSearch').value=nearestStop.name;selectedPlaces.originSearch=null;$('originSuggestions').innerHTML='';
- $('locationText').textContent=source+' shown on map. Nearest listed stop: '+nearestStop.name+' ('+best.toFixed(2)+' km straight-line). Check that this is where you want to start.';
+ $('originSearch').value=nearestStop.name;selectedPlaces.originSearch=null;selectedStopIds.originSearch=nearestStop.id;$('originSuggestions').innerHTML='';
+ $('locationText').textContent='✓ Starting bus stop automatically selected: '+nearestStop.name+' ('+Math.round(best*1000)+' m straight-line from '+source.toLowerCase()+'). You can change it before finding a route.';
+ if($('place').value.trim())findDirectTrips();
 }
 $('chooseMap').onclick=()=>{
  if(!ensureMap()){$('locationText').textContent='Interactive map did not load. Please type a starting stop instead.';return}
