@@ -287,19 +287,30 @@ let locationRequestId=0;
 $('locate').onclick=()=>{
  if(!window.isSecureContext){$('locationText').textContent='Location requires HTTPS. Open the secure website.';return}
  if(!navigator.geolocation){$('locationText').textContent='Location is unavailable in this browser. Enter a starting stop manually.';return}
- const id=++locationRequestId;let finished=false;
+ const id=++locationRequestId;
  $('locate').disabled=true;
- $('locationText').textContent='Waiting for your device to provide a location… Check the browser permission prompt and your device location settings.';
- const finish=()=>{if(finished||id!==locationRequestId)return false;finished=true;clearTimeout(watchdog);$('locate').disabled=false;return true};
- const watchdog=setTimeout(()=>{if(!finish())return;$('locationText').textContent='Location is taking too long. Check that location services are enabled for your browser and device, then try again. You can also type a starting stop.'},15000);
- try{navigator.geolocation.getCurrentPosition(p=>{
+ $('locate').textContent='Locating…';
+ $('locationText').textContent='Finding your location and selecting the nearest bus stop. This can take a moment on the first try.';
+ // Show the last position immediately while obtaining a fresher GPS fix.
+ if(locationPoint&&network?.stops)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Last known location');
+ let done=false;
+ const finish=()=>{
+  if(done||id!==locationRequestId)return false;
+  done=true;clearTimeout(watchdog);$('locate').disabled=false;$('locate').textContent='◎ Use my current location';return true
+ };
+ const watchdog=setTimeout(()=>{
   if(!finish())return;
-  applyStartingCoordinates(p.coords.latitude,p.coords.longitude,'Device location');
- },e=>{
-  if(!finish())return;
-  $('locationText').textContent=e.code===1?'Location permission denied. Enable location for this site in browser settings and try again.':e.code===2?'Your device cannot determine its location. Check system location services, then retry.':'Location timed out. Check system location services and retry.';
- },{timeout:12000,maximumAge:60000,enableHighAccuracy:false})}
- catch(e){if(finish())$('locationText').textContent='Could not start location request: '+e.message}
+  $('locationText').textContent=locationPoint?'Showing last known location; a fresh GPS fix timed out. Tap again to retry.':'GPS is taking too long. Check location permissions and try again, or choose your position on the map.';
+ },30000);
+ try{
+  navigator.geolocation.getCurrentPosition(p=>{
+   if(!finish())return;
+   applyStartingCoordinates(p.coords.latitude,p.coords.longitude,'Device location');
+  },e=>{
+   if(!finish())return;
+   $('locationText').textContent=e.code===1?'Location permission denied. Allow location access in your browser and device settings.':e.code===2?'Device location unavailable. Check location services or choose your location on the map.':'GPS timed out. Try again or choose your location on the map.';
+  },{timeout:25000,maximumAge:15000,enableHighAccuracy:true});
+ }catch(e){if(finish())$('locationText').textContent='Could not start location request: '+e.message}
 };$('clearLoc').onclick=()=>{locationPoint=null;if(routeMap&&locationMarker){routeMap.removeLayer(locationMarker);locationMarker=null}$('locationText').textContent='Location cleared. Choose your boarding stop manually.'};
 function chosenStops(){if(!selected||$('board').value===''||$('exit').value==='')return null;const ai=Number($('board').value),bi=Number($('exit').value);if(bi<=ai)return null;return [network.stops[selected.stops[ai]],network.stops[selected.stops[bi]]]}let routeMap=null,routeLayer=null,locationMarker=null,placeMarker=null;
 function ensureMap(){if(typeof L==='undefined')return false;if(!routeMap){$('map').innerHTML='';routeMap=L.map('map',{scrollWheelZoom:false});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(routeMap);routeMap.setView([37.8715,-122.2585],13)}return true}
