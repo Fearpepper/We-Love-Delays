@@ -402,12 +402,10 @@ function showTransferMap(first,second){
  for(const [stop,label,color] of [[stopA,'Board','#16803b'],[stopX,'Get off to transfer','#d93838'],[stopY,'Board second bus','#2463b6'],[stopB,'Destination','#16803b']]){
   if(stop&&Number.isFinite(stop.lat)&&Number.isFinite(stop.lon)){L.circleMarker([stop.lat,stop.lon],{radius:8,color,fillColor:'#fff',fillOpacity:1,weight:3}).bindPopup(label+': '+stop.name).addTo(routeLayer);bounds.push([stop.lat,stop.lon])}
  }
- if(stopX&&stopY&&Number.isFinite(stopX.lat)&&Number.isFinite(stopX.lon)&&Number.isFinite(stopY.lat)&&Number.isFinite(stopY.lon)&&stopX.id!==stopY.id){
-  L.polyline([[stopX.lat,stopX.lon],[stopY.lat,stopY.lon]],{color:'#e49a16',weight:5,dashArray:'7 9',opacity:.95}).bindPopup('Approximate walking connection between stops. Straight-line only; check crossings and pedestrian access.').addTo(routeLayer);
- }
+ 
  if(bounds.length)routeMap.fitBounds(L.latLngBounds(bounds).pad(.18),{maxZoom:15});
  setTimeout(()=>routeMap.invalidateSize(),100);
- $('mapText').textContent='Red: first bus. Blue: second bus. Orange dashed: approximate walking transfer where stops differ. All lines connect stop coordinates, not road or pedestrian paths. Check crossings, accessibility and schedules.';
+ $('mapText').textContent='Red: first bus. Blue: second bus. Orange dashed: pedestrian paths where available. Bus lines connect published stop coordinates, not road geometry. Check crossings, accessibility and schedules.';
 }
 let activeNavigation=null,gpsWatchId=null;
 function navStopTracking(){
@@ -570,6 +568,24 @@ async function getWalkingJourney(legs){
   try{return await getPedestrianLeg(a,b)}catch(e){return null}
  }));
 }
+async function drawPedestrianPaths(legs){
+ if(!routeMap||!routeLayer||typeof L==='undefined')return;
+ const layer=routeLayer;
+ const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
+ const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
+ const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
+ const pairs=[{a:origin,b:first},...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),{a:last,b:destination}];
+ await Promise.all(pairs.map(async ({a,b})=>{
+  if(!a||!b||(a.lat===b.lat&&a.lon===b.lon))return;
+  try{
+   const data=await getPedestrianLeg(a,b);
+   if(layer!==routeLayer||!data||data.geometry?.type!=='LineString')return;
+   const points=(data.geometry.coordinates||[]).filter(p=>Array.isArray(p)&&p.length>=2&&p.every(Number.isFinite)).map(p=>[p[1],p[0]]);
+   if(points.length<2)return;
+   L.polyline(points,{color:'#e49a16',weight:5,dashArray:'7 7',opacity:.95}).bindPopup('Pedestrian path: '+data.minutes+' min · '+data.meters+' m. Accessibility not verified.').addTo(layer);
+  }catch(e){/* Leave the bus map visible if pedestrian routing fails. */}
+ }));
+}
 function chooseScheduledConnection(schedules,walks,arrivalDeadline){
  const now=Date.now(),buffer=5*60000,connectionBuffer=3*60000;
  if(!walks||walks.some(x=>!x||!Number.isFinite(x.minutes)))return null;
@@ -674,7 +690,7 @@ function findDirectTrips(){
     $('stopFilter').value='';$('pattern').value=String(index);$('pattern').onchange();
     $('board').value=String(x.start);boardChanged();$('exit').value=String(x.end);$('exit').onchange();$('preview').click();
     const fromStop=network.stops[x.p.stops[x.start]],toStop=network.stops[x.p.stops[x.end]];
-    setNavigation([x]);setAppView('guide');
+    drawPedestrianPaths([x]);setNavigation([x]);setAppView('guide');
     showSelectedRoute(out,'Bus '+routeName(x.p),['Board at '+(fromStop?.name||'starting stop'),'Get off at '+(toStop?.name||'destination stop')],[x]);
    })
   }
