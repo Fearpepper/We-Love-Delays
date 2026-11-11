@@ -144,7 +144,7 @@ def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
     if not all(37.0<=v<=38.5 for v in (a_lat,b_lat)) or not all(-123.5<=v<=-121.0 for v in (a_lon,b_lon)):
         raise ValueError('Pedestrian routing currently supports the East Bay area')
     params=urllib.parse.urlencode({'start':str(a_lon)+','+str(a_lat),'end':str(b_lon)+','+str(b_lat)})
-    url='https://api.openrouteservice.org/v2/directions/'+profile+'?'+params
+    url='https://api.heigit.org/openrouteservice/v2/directions/'+profile+'?'+params
     req=urllib.request.Request(url,headers={'Authorization':key,'Accept':'application/json','User-Agent':'WeLoveDelays/1.0'})
     try:
         with urllib.request.urlopen(req,timeout=12) as response:payload=json.load(response)
