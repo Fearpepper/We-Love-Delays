@@ -57,6 +57,21 @@ assert.doesNotMatch(html,/Report a 10-minute delay/,'no nonfunctional reporting'
 assert.match(app,/Date\.now\(\)-journey\.sampled>150000/,'stale predictions rejected for rewards');
 assert.match(app,/if\(journey\.demo\)\{/,'demo balance handled separately');
 assert.match(app,/Number\.isFinite\(journey\.delay\)/,'delay must be a finite number');
+const predictionStart=app.indexOf('function freshArrivalPrediction(');
+const predictionEnd=app.indexOf('function updateLiveDashboard(',predictionStart);
+assert(predictionStart>=0&&predictionEnd>predictionStart,'fresh 511 validation helper exists');
+const predictionCtx={Date,Number};vm.createContext(predictionCtx);
+vm.runInContext(app.slice(predictionStart,predictionEnd)+';this.fresh=freshArrivalPrediction;this.journeyFresh=isFreshJourneyPrediction;',predictionCtx);
+const clock=Date.now(),iso=offset=>new Date(clock+offset*60000).toISOString();
+const visit={recorded:iso(-1),aimed:iso(5),expected:iso(10)};
+assert.equal(predictionCtx.fresh(visit,clock).delayMinutes,5,'fresh provider prediction yields a five-minute delay');
+assert.equal(predictionCtx.fresh({...visit,recorded:iso(-7)},clock),null,'stale 511 vehicle reports are rejected');
+assert.equal(predictionCtx.fresh({...visit,recorded:iso(2)},clock),null,'future-dated 511 vehicle reports are rejected');
+assert.equal(predictionCtx.fresh({...visit,expected:iso(-4)},clock),null,'already departed predictions are rejected');
+assert.equal(predictionCtx.fresh({...visit,expected:''},clock),null,'missing live prediction is not treated as a schedule');
+assert.equal(predictionCtx.journeyFresh({demo:false,delay:5,sampled:clock,recorded:clock-60000},clock),true);
+assert.equal(predictionCtx.journeyFresh({demo:false,delay:5,sampled:clock,recorded:clock-360000},clock),false,'cached old provider data must not award points');
+
 console.log('Journey, rewards and UI contract tests passed');
 
 assert.match(html,/\/assets\/focus\.js/,'focused UI script loaded');
