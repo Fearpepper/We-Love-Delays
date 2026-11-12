@@ -16,6 +16,7 @@
    for(const [name,id] of Object.entries(tabs)){const tab=document.getElementById(id);tab.classList.toggle('active',name===view);tab.setAttribute('aria-pressed',String(name===view))}
    if(view==='map'&&typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120);
    window.scrollTo({top:0,behavior:'instant'});
+   requestAnimationFrame(()=>window.wldSyncGuideMap?.());
    return;
   }
   document.body.classList.add('wld-tabs');
@@ -28,6 +29,7 @@
    b.setAttribute('aria-pressed',String(name===view));
   }
   window.scrollTo({top:0,behavior:'instant'});
+  requestAnimationFrame(()=>window.wldSyncGuideMap?.());
   if(view==='map'&&typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),100);
  }
  window.wldSelectTab=selectTab;
