@@ -242,8 +242,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
-        if path.path in ('/assets/app.css','/assets/app.js','/assets/navigation.js'):
-            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8'}
+        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js'):
+            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8'}
             data=(ROOT/path.path.lstrip('/')).read_bytes()
             self.send_response(200)
             self.send_header('Content-Type',assets[path.path])
