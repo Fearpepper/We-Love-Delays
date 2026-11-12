@@ -99,7 +99,6 @@ def gtfs():
             if k not in patterns:patterns[k]={'route':t['route_id'],'direction':t.get('direction_id','0'),'headsign':t.get('trip_headsign',''),'stops':list(ids),'sample_trip':t['trip_id']}
         # Keep all distinct patterns to avoid inventing stop orders; truncate only very large route responses in browser.
         # Preserve scheduled stop times for each published pattern; filter by service calendar at request time.
-        service_by_trip={t['trip_id']:t.get('service_id','') for t in trips if t.get('trip_id') in bytrip}
         schedule={}
         for t in trips:
             tid=t.get('trip_id');seq=bytrip.get(tid,[])
@@ -107,7 +106,8 @@ def gtfs():
             key=(t['route_id'],t.get('direction_id','0'),tuple(x[1] for x in seq))
             entry=patterns.get(key)
             if entry is None:continue
-            schedule.setdefault(entry['sample_trip'],[]).append({'service':service_by_trip.get(tid,''),'times':[[row[2] or row[3],row[3] or row[2]] for row in seq]})
+            schedule.setdefault(entry['sample_trip'],[]).append((t.get('service_id',''),tuple((row[2] or row[3],row[3] or row[2]) for row in seq)))
+        # Compact immutable schedule entries avoid thousands of nested dictionaries.
         CACHE_SCHEDULE.clear()
         CACHE_SCHEDULE.update({'trips':schedule,'calendar':calendar,'exceptions':exceptions})
         active_routeids={k[0] for k in patterns}
@@ -140,12 +140,12 @@ def scheduled_journey(sample_trip,board,exit,at=None):
         day=(now+datetime.timedelta(days=offset)).date()
         date=day.strftime('%Y%m%d')
         for trip in CACHE_SCHEDULE.get('trips',{}).get(sample_trip,[]):
-            service=trip['service']
+            service=trip[0]
             exception=exceptions.get((service,date))
             cal=calendar.get(service)
             active=exception=='1' or (exception!='2' and cal is not None and cal.get('start_date','')<=date<=cal.get('end_date','') and cal.get(day.strftime('%A').lower())=='1')
             if not active:continue
-            rows=trip['times']
+            rows=trip[1]
             departure=seconds(rows[board][1]);arrival=seconds(rows[exit][0])
             if departure is None or arrival is None or arrival<departure:continue
             midnight=datetime.datetime.combine(day,datetime.time(),ZoneInfo('America/Los_Angeles'))
