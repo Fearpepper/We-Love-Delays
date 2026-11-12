@@ -62,3 +62,36 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
  .intro h1{font-size:clamp(36px,10vw,54px)}
 }
 @media(prefers-reduced-motion:reduce){.btn{transition:none}}
+
+/* Home dashboard, saved places and recent searches */
+.dashboard{margin-bottom:22px!important;background:linear-gradient(135deg,#fff 62%,#eef9f2 100%)!important}
+.dashboard-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.dashboard-heading h2{font-size:clamp(25px,3vw,36px);margin:6px 0}
+.dashboard-heading p{margin:0}
+.dashboard-mark{display:grid;place-items:center;width:58px;height:58px;border-radius:20px;background:#dff4e7;color:#087f4b;font-size:30px;font-weight:700}
+.dashboard-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:23px 0}
+.dashboard-shortcut{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:17px;border:1px solid #dcebe2;border-radius:16px;background:#fff;color:#1f3c2e;min-height:116px}
+.dashboard-shortcut>span{font-size:25px;color:#087f4b}
+.dashboard-shortcut strong{font-size:15px}
+.dashboard-shortcut small{font-size:12px;color:#65736e}
+.dashboard-shortcut:hover{border-color:#7fc69d;background:#f6fcf8}
+.dashboard-saved{padding-top:17px;border-top:1px solid #e0eae3;margin-top:17px}
+.dashboard-section-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.dashboard-section-heading h3{font-size:16px;margin:0}
+.dashboard-text-button{border:0;background:transparent;color:#087f4b;font-size:12px;font-weight:750;padding:8px}
+.saved-destinations{display:grid;gap:8px;margin-top:10px}
+.saved-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e0ebe4;border-radius:13px;gap:6px}
+.saved-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:11px 13px;border:0;background:transparent;color:#1f3c2e}
+.saved-open strong{font-size:13px;overflow-wrap:anywhere}
+.saved-open small{font-size:11px;color:#66796d;overflow-wrap:anywhere}
+.saved-remove{border:0;background:transparent;color:#7b5555;padding:12px;font-size:11px}
+@media(min-width:791px){body[data-desktop-view]:not([data-desktop-view="routes"]) .dashboard{display:none}}
+@media(max-width:790px){
+ body.wld-tabs[data-view]:not([data-view="routes"]) .dashboard{display:none!important}
+ body.wld-tabs .dashboard{margin:16px 14px 0!important;padding:21px 17px!important}
+ .dashboard-shortcuts{gap:8px}
+ .dashboard-shortcut{padding:12px 9px;min-height:105px}
+ .dashboard-shortcut strong{font-size:12px}
+ .dashboard-shortcut small{font-size:10px}
+ .dashboard-mark{width:44px;height:44px;font-size:23px}
+}
