@@ -54,7 +54,7 @@ assert.match(html,/src="\/assets\/dashboard\.js"/,'dashboard script loaded');
 assert.match(dashboard,/localStorage\.setItem/,'saved places persist locally');
 assert.doesNotMatch(html,/data-delay="(?:5|10|15)"/,'no manual delay reward buttons');
 assert.doesNotMatch(html,/Report a 10-minute delay/,'no nonfunctional reporting');
-assert.match(app,/Date\.now\(\)-journey\.sampled>150000/,'stale predictions rejected for rewards');
+assert.match(app,/now-j\.sampled<150000/,'stale locally sampled predictions rejected for rewards');
 assert.match(app,/if\(journey\.demo\)\{/,'demo balance handled separately');
 assert.match(app,/Number\.isFinite\(journey\.delay\)/,'delay must be a finite number');
 const predictionStart=app.indexOf('function freshArrivalPrediction(');
