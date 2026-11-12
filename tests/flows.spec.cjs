@@ -102,3 +102,36 @@ test('an older place lookup cannot erase newer stop suggestions',async({page})=>
  await expect(page.locator('#originSuggestions button').first()).toContainText('Alpha boarding');
  expect(errors).toEqual([]);
 });
+
+test('stale 511 reports cannot be shown as live or award prototype points',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/arrivals?**',async route=>{
+  const now=Date.now();
+  await route.fulfill({json:{arrivals:[{route:'51B',vehicle:'stale-bus',recorded:new Date(now-7*60000).toISOString(),aimed:new Date(now+4*60000).toISOString(),expected:new Date(now+9*60000).toISOString(),destination:'Beta'}]}});
+ });
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await plan(page);
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#delayPreview')).toContainText('not confirmed');
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripCompleteSummary')).toContainText('No points');
+ await page.locator('#tripViewRewards').click();
+ await expect(page.locator('#points')).toHaveText('0');
+ expect(errors).toEqual([]);
+});
+test('selected origin stop takes precedence over older GPS for walking',async({page})=>{
+ const errors=await setup(page);
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.evaluate(()=>{locationPoint={lat:37.90,lon:-122.34}});
+ const walkedFromGps=[];
+ await page.route('**/api/walk-route?**',async route=>{
+  const qs=new URL(route.request().url()).searchParams;
+  if(Math.abs(Number(qs.get('from_lat'))-37.90)<0.00001)walkedFromGps.push(route.request().url());
+  await route.fulfill({json:{available:true,minutes:2.5,meters:180,geometry:{type:'LineString',coordinates:[[-122.27,37.87],[-122.26,37.87]]}}});
+ });
+ await plan(page);
+ await expect(page.locator('#navSteps')).toContainText('Already at this stop · no walk required');
+ await expect(page.locator('#navSteps')).not.toContainText('Walking route unavailable until');
+ expect(walkedFromGps).toEqual([]);
+ expect(errors).toEqual([]);
+});

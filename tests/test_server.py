@@ -30,6 +30,43 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(visits[0]["vehicle"], "123")
         self.assertEqual(visits[0]["expected"], "2026-11-11T12:12:00Z")
 
+    def test_ors_route_reports_provider_metrics_and_correct_coordinate_order(self):
+        import io
+        import json
+        import os
+        from unittest.mock import patch
+        payload = {'features': [{'properties': {'summary': {'distance': 145.2, 'duration': 132}},
+                                 'geometry': {'type': 'LineString', 'coordinates': [[-122.27, 37.87], [-122.269, 37.871]]}}]}
+        sent = {}
+        def fake_fetch(request, timeout):
+            sent['url'] = request.full_url
+            sent['payload'] = json.loads(request.data)
+            return io.BytesIO(json.dumps(payload).encode())
+        with patch.dict(os.environ, {'ORS_API_KEY': 'test-key'}), patch('urllib.request.urlopen', side_effect=fake_fetch):
+            result = server.pedestrian_route(37.87, -122.27, 37.871, -122.269)
+        self.assertEqual(sent['payload']['coordinates'], [[-122.27, 37.87], [-122.269, 37.871]])
+        self.assertIn('/foot-walking/geojson', sent['url'])
+        self.assertEqual(result['minutes'], 2.2)
+        self.assertEqual(result['meters'], 145)
+        self.assertEqual(result['geometry']['type'], 'LineString')
+        self.assertFalse(result['accessibility_verified'])
+
+    def test_ors_rejects_wrong_endpoints_and_nonfinite_duration(self):
+        import io
+        import json
+        import os
+        from unittest.mock import patch
+        geometry = {'type': 'LineString', 'coordinates': [[-122.27, 37.87], [-122.20, 37.88]]}
+        payload = {'features': [{'properties': {'summary': {'distance': 145.2, 'duration': 132}}, 'geometry': geometry}]}
+        with patch.dict(os.environ, {'ORS_API_KEY': 'test-key'}), patch('urllib.request.urlopen', return_value=io.BytesIO(json.dumps(payload).encode())):
+            with self.assertRaisesRegex(RuntimeError, 'too far'):
+                server.pedestrian_route(37.87, -122.27, 37.871, -122.269)
+        geometry['coordinates'][-1] = [-122.269, 37.871]
+        payload['features'][0]['properties']['summary']['duration'] = float('nan')
+        with patch.dict(os.environ, {'ORS_API_KEY': 'test-key'}), patch('urllib.request.urlopen', return_value=io.BytesIO(json.dumps(payload).encode())):
+            with self.assertRaisesRegex(RuntimeError, 'metrics'):
+                server.pedestrian_route(37.87, -122.27, 37.871, -122.269)
+
     def test_head_health_check_does_not_fetch_gtfs(self):
         httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)

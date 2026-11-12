@@ -45,9 +45,23 @@ function renderRewardHistory(){
   el.append(line);
  }
 }
+// 511 provides both scheduled and predicted times. Never call a prediction live
+// unless the vehicle's own report is recent and the expected time is plausible.
+function freshArrivalPrediction(visit,now=Date.now()){
+ const recorded=Date.parse(visit?.recorded||'');
+ const expected=Date.parse(visit?.expected||'');
+ const aimed=Date.parse(visit?.aimed||'');
+ if(![recorded,expected,aimed].every(Number.isFinite))return null;
+ if(recorded>now+60000||now-recorded>300000)return null;
+ if(expected<now-120000||expected>now+14400000)return null;
+ return {recorded,expected,aimed,delayMinutes:Math.max(0,Math.round((expected-aimed)/60000))};
+}
+function isFreshJourneyPrediction(j,now=Date.now()){
+ return !!(j&&!j.demo&&Number.isFinite(j.delay)&&Number.isFinite(j.sampled)&&now-j.sampled<150000&&Number.isFinite(j.recorded)&&j.recorded<=now+60000&&now-j.recorded<=300000);
+}
 function updateLiveDashboard(){
  const active=!!journey;
- const fresh=!!(active&&!journey.demo&&journey.sampled&&Date.now()-journey.sampled<150000);
+ const fresh=isFreshJourneyPrediction(journey);
  const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
  $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · Destination prediction'):'Start a trip from Rewards to monitor delays.';
  $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':fresh?'Live prediction received':'Waiting for fresh prediction';
@@ -62,7 +76,7 @@ function updateDelayPreview(){
  const el=$('delayPreview');
  if(!journey){el.textContent='Start a selected trip to track delay rewards.';updateLiveDashboard();return}
  if(journey.demo){el.textContent='Simulation: '+delayDemo+' min · '+delayDemo*10+' fictional demo points.';updateLiveDashboard();return}
- el.textContent=journey.delay===null||!journey.sampled||Date.now()-journey.sampled>150000?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'Latest destination prediction: '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Not an observed arrival.';updateLiveDashboard();
+ el.textContent=!isFreshJourneyPrediction(journey)?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'511 destination prediction: scheduled '+fmt(journey.aimed)+' · predicted '+fmt(journey.expected)+' · '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Vehicle reported '+fmt(new Date(journey.recorded).toISOString())+'. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
  const j=journey;if(!j||j.demo||j.busy)return;j.busy=true;
@@ -70,16 +84,26 @@ async function sampleJourneyDelay(){
   const response=await api('/api/arrivals?code='+encodeURIComponent(j.exitCode));
   if(j!==journey)return;
   const norm=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();
-  const matches=response.arrivals.filter(x=>norm(x.route)===norm(j.routeId)&&x.expected&&x.aimed&&Number.isFinite(Date.parse(x.expected))&&Number.isFinite(Date.parse(x.aimed)));
-  const visit=j.vehicle?matches.find(x=>x.vehicle&&String(x.vehicle)===String(j.vehicle)):(matches.length===1?matches[0]:null);
-  const recorded=Date.parse(visit?.recorded);
-  if(!visit||!Number.isFinite(recorded)||Math.abs(Date.now()-recorded)>300000){
-   j.delay=null;j.sampled=null;$('journeyStatus').textContent=matches.length===0?'511 has no matching destination prediction for this bus right now. No delay points can be verified.':matches.length>1&&!j.vehicle?'511 reports multiple buses on this route; this app cannot safely identify your bus yet. No points awarded.':'511 has no recent matching prediction for this specific bus. No points awarded.';return;
+  const routeMatches=(response.arrivals||[]).filter(x=>norm(x.route)===norm(j.routeId));
+  const fresh=routeMatches.filter(x=>freshArrivalPrediction(x));
+  const visit=j.vehicle?fresh.find(x=>x.vehicle&&String(x.vehicle)===String(j.vehicle)):(fresh.length===1?fresh[0]:null);
+  const prediction=freshArrivalPrediction(visit);
+  if(!prediction){
+   j.delay=null;j.sampled=null;j.recorded=null;j.aimed=null;j.expected=null;
+   $('journeyStatus').textContent=routeMatches.length===0?'511 has no destination prediction for this route. No points can be verified.':fresh.length===0?'511 destination predictions are missing or stale. No points awarded.':fresh.length>1&&!j.vehicle?'511 reports multiple buses on this route; the prototype cannot identify your bus. No points awarded.':'No recent prediction for the previously matched vehicle. No points awarded.';
+   return;
   }
-  j.vehicle=visit.vehicle||j.vehicle;
-  j.delay=Math.max(0,Math.round((Date.parse(visit.expected)-Date.parse(visit.aimed))/60000));j.sampled=Date.now();
-  $('journeyStatus').textContent='Destination prediction: '+j.delay+' min late. Updated '+new Date().toLocaleTimeString()+'.';
- }catch(e){if(j===journey){j.delay=null;j.sampled=null;$('journeyStatus').textContent='Live tracking unavailable: '+e.message}}
+  // A missing vehicle identifier cannot be safely carried over to another bus.
+  if(!visit.vehicle){
+   j.delay=null;j.sampled=null;j.recorded=null;
+   $('journeyStatus').textContent='511 did not identify the vehicle. Trip delay cannot be attributed; no points awarded.';
+   return;
+  }
+  j.vehicle=String(visit.vehicle);
+  j.delay=prediction.delayMinutes;j.sampled=Date.now();j.recorded=prediction.recorded;
+  j.aimed=visit.aimed;j.expected=visit.expected;
+  $('journeyStatus').textContent='511 destination: scheduled '+fmt(visit.aimed)+', predicted '+fmt(visit.expected)+' ('+j.delay+' min late). Vehicle last reported '+fmt(visit.recorded)+'.';
+ }catch(e){if(j===journey){j.delay=null;j.sampled=null;j.recorded=null;$('journeyStatus').textContent='Live tracking unavailable: '+e.message}}
  finally{j.busy=false;if(j===journey)updateDelayPreview()}
 }
 function stopDelayMonitor(){if(window.wldDelayTimer){clearInterval(window.wldDelayTimer);window.wldDelayTimer=null}}
@@ -286,31 +310,41 @@ function routeChoice(out,title,detail,choose){
 }
 function estimateTripTiming(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint,destination=selectedPlaces.place;
+ const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  const walk=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000/75):null;
  const walkStart=walk(origin,first),walkEnd=walk(last,destination);
  let walkTransfer=0,transferKnown=true;
  for(let i=0;i<legs.length-1;i++){const a=network.stops[legs[i].p.stops[legs[i].end]],b=network.stops[legs[i+1].p.stops[legs[i+1].start]],v=walk(a,b);if(v===null)transferKnown=false;else walkTransfer+=v}
  return {walkStart,walkEnd,walkTransfer:transferKnown?walkTransfer:null};
 }
+// A deliberate place/stop selection always wins over a previously acquired GPS point.
+function walkingEndpoint(inputId){
+ const stopId=selectedStopIds[inputId];
+ return selectedPlaces[inputId]
+  ||(stopId&&network?.stops?.[stopId])
+  ||stopsForInput(inputId)[0]
+  ||(inputId==='originSearch'?locationPoint:null);
+}
 async function getPedestrianLeg(a,b){
  if(!a||!b||![a.lat,a.lon,b.lat,b.lon].every(Number.isFinite))return null;
+ if((a.id&&b.id&&a.id===b.id)||(Math.abs(a.lat-b.lat)<0.00001&&Math.abs(a.lon-b.lon)<0.00001))
+  return {available:true,minutes:0,meters:0,geometry:null,source:'Same stop'};
  const params=new URLSearchParams({from_lat:String(a.lat),from_lon:String(a.lon),to_lat:String(b.lat),to_lon:String(b.lon)});
  const data=await api('/api/walk-route?'+params.toString());
- if(!data.available||!Number.isFinite(data.minutes)||!Number.isFinite(data.meters))return null;
+ if(!data.available||!Number.isFinite(data.minutes)||!Number.isFinite(data.meters)||data.minutes<0||data.meters<0)return null;
  return data;
 }
 async function applyPedestrianTimes(legs,steps){
  const tasks=[];
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- tasks.push({step:steps.find(x=>x.kind==='walk-start'),a:selectedPlaces.originSearch||locationPoint,b:first});
+ tasks.push({step:steps.find(x=>x.kind==='walk-start'),a:walkingEndpoint('originSearch'),b:first});
  for(let k=0;k<legs.length-1;k++){
   tasks.push({step:steps.find(x=>x.kind==='walk-transfer'&&x.legIndex===k),a:network.stops[legs[k].p.stops[legs[k].end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]});
  }
- tasks.push({step:steps.find(x=>x.kind==='walk-end'),a:last,b:selectedPlaces.place});
+ tasks.push({step:steps.find(x=>x.kind==='walk-end'),a:last,b:walkingEndpoint('place')});
  await Promise.all(tasks.filter(x=>x.step).map(async x=>{
-  try{const data=await getPedestrianLeg(x.a,x.b);x.step.estimate=data?'Pedestrian route: '+data.minutes+' min · '+data.meters+' m (OpenRouteService; accessibility not verified)':'Walking route unavailable · distance and duration not verified'}
+  try{const data=await getPedestrianLeg(x.a,x.b);x.step.estimate=data?(data.source==='Same stop'?'Already at this stop · no walk required':'Pedestrian route: '+data.minutes+' min · '+data.meters+' m (OpenRouteService; accessibility not verified)'):'Walking route unavailable · distance and duration not verified'}
   catch(e){x.step.estimate='Walking route unavailable · '+e.message}
  }));
 }
@@ -326,8 +360,7 @@ async function getPublishedLegTimes(legs){
 async function getWalkingJourney(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null)||stopsForInput('originSearch')[0]||null;
- const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null)||stopsForInput('place')[0]||null;
+ const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  const tasks=[
   {a:origin,b:first},
   ...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),
@@ -335,7 +368,7 @@ async function getWalkingJourney(legs){
  ];
  return Promise.all(tasks.map(async ({a,b})=>{
   if(!a||!b)return null;
-  if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {minutes:0,meters:0};
+  if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {available:true,minutes:0,meters:0,geometry:null,source:'Same stop'};
   try{return await getPedestrianLeg(a,b)}catch(e){return {error:String(e.message||e).slice(0,180)}}
  }));
 }
@@ -343,8 +376,7 @@ async function drawPedestrianPaths(legs){
  if(!routeMap||!routeLayer||typeof L==='undefined')return;
  const layer=routeLayer;
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
- const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
+ const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  const pairs=[{a:origin,b:first},...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),{a:last,b:destination}];
  await Promise.all(pairs.map(async ({a,b})=>{
   if(!a||!b||(a.lat===b.lat&&a.lon===b.lon))return;
@@ -417,7 +449,7 @@ function appendTripTiming(panel,legs){
   if(!block.isConnected)return;
   schedules=s;walks=w;
   const descriptions=w.map((x,i)=>i===0?'First walk: ':i===w.length-1?'Final walk: ':'Transfer '+i+': ');
-  line.textContent=w.map((x,i)=>descriptions[i]+(x?x.minutes+' min / '+x.meters+' m':'unavailable')).join(' · ')+'. Accessibility not independently verified.';
+  line.textContent=w.map((x,i)=>descriptions[i]+(Number.isFinite(x?.minutes)&&Number.isFinite(x?.meters)?x.minutes+' min / '+x.meters+' m': 'unavailable')).join(' · ')+'. Walking times use ORS where a walk is required; accessibility not independently verified.';
   status.textContent='Published 511 AC Transit schedules checked; connections require reaching each stop before departure.';
   render();
  }).catch(e=>{if(block.isConnected)status.textContent='Journey schedule unavailable: '+e.message+'. No leave-by time will be estimated.'});
@@ -713,20 +745,70 @@ function drawRoute(){
  $('mapText').textContent='Showing '+segment.length+' ordered stops: '+stops[0].name+' → '+stops[1].name+'. Red line connects published stop coordinates; it is NOT the actual road geometry or a live vehicle position.';
 }
 $('preview').onclick=()=>{const stops=chosenStops();if(!stops){say('Choose a destination after your boarding stop.');return}drawRoute();say((demo?'Simulated':'Published')+' stop order shown on map. The line connects stops, not exact streets. This does not guarantee a departure at your chosen time.');$('startJourney').disabled=false;refreshArrivals()};
-async function refreshArrivals(){if(demo){$('arrivals').textContent='Demo mode: no real-time arrivals.';return}if(!selected||$('board').value==='')return;const s=network.stops[selected.stops[Number($('board').value)]];if(!s||!s.code){$('arrivals').textContent='No stop code available for live monitoring at this stop.';return}const currentRoute=$('route').value;const currentStop=s.id;$('arrivals').textContent='Checking live arrivals…';$('refresh').disabled=true;try{const j=await api('/api/arrivals?code='+encodeURIComponent(s.code));if(currentRoute!==$('route').value||currentStop!==selected.stops[Number($('board').value)])return;const routeName=network.routes.find(x=>x.id===currentRoute)?.name||'';const normalize=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();const a=j.arrivals.filter(x=>normalize(x.route)===normalize(currentRoute)||normalize(x.route)===normalize(routeName));$('arrivals').innerHTML='';if(!a.length){$('arrivals').textContent='No live predictions matched this route at this stop. This does not mean the bus is on time.';arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';return}a.slice(0,5).forEach(x=>{const div=document.createElement('div');div.className='stoprow';const title=document.createElement('strong');const predictedTime=x.expected?Date.parse(x.expected):NaN;const minutes=Number.isFinite(predictedTime)?Math.max(0,Math.ceil((predictedTime-Date.now())/60000)):null;title.textContent=(minutes===null?'Schedule only':minutes===0?'Due now':minutes+' min')+' · '+(x.destination||'AC Transit');const small=document.createElement('small');small.textContent='Scheduled '+fmt(x.aimed)+(x.expected?' · Predicted '+fmt(x.expected):' · No live prediction');div.append(title,small);$('arrivals').append(div)});$('arrivalUpdated').textContent='Predictions checked at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'. Refresh to update countdowns.';const first=a.find(x=>x.expected);$('scheduled').textContent=fmt(first?.aimed);$('predicted').textContent=fmt(first?.expected);arrivalDelay=first?.aimed&&first?.expected?Math.max(0,Math.round((Date.parse(first.expected)-Date.parse(first.aimed))/60000)):null;$('delay').textContent=arrivalDelay===null?'Unknown':arrivalDelay+' min'}catch(e){$('arrivals').textContent='Live arrivals unavailable: '+e.message;arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—'}finally{$('refresh').disabled=false}}$('refresh').onclick=refreshArrivals;
+async function refreshArrivals(){
+ if(demo){$('arrivals').textContent='Demo mode: no real-time arrivals.';return}
+ if(!selected||$('board').value==='')return;
+ const stop=network.stops[selected.stops[Number($('board').value)]];
+ if(!stop?.code){$('arrivals').textContent='No stop code available for live monitoring at this stop.';return}
+ const currentRoute=$('route').value,currentStop=stop.id;
+ $('arrivals').textContent='Checking 511 arrivals…';$('refresh').disabled=true;
+ try{
+  const result=await api('/api/arrivals?code='+encodeURIComponent(stop.code));
+  if(currentRoute!==$('route').value||currentStop!==selected.stops[Number($('board').value)])return;
+  const routeLabel=network.routes.find(x=>x.id===currentRoute)?.name||'';
+  const norm=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();
+  const now=Date.now();
+  const entries=(result.arrivals||[])
+   .filter(x=>norm(x.route)===norm(currentRoute)||norm(x.route)===norm(routeLabel))
+   .map(x=>{
+    const live=freshArrivalPrediction(x,now);
+    const aimed=Date.parse(x.aimed||'');
+    const scheduled=Number.isFinite(aimed)&&aimed>=now-120000&&aimed<=now+14400000?aimed:null;
+    return {x,live,scheduled,arrival:live?.expected??scheduled};
+   })
+   .filter(x=>Number.isFinite(x.arrival))
+   .sort((a,b)=>a.arrival-b.arrival);
+  $('arrivals').innerHTML='';
+  if(!entries.length){
+   $('arrivals').textContent='No upcoming scheduled or recent predicted arrivals matched this route. This does not mean the bus is on time.';
+   arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
+   $('arrivalUpdated').textContent='Checked 511 at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.';
+   return;
+  }
+  entries.slice(0,5).forEach(({x,live,scheduled,arrival})=>{
+   const div=document.createElement('div');div.className='stoprow';
+   const title=document.createElement('strong');
+   const minutes=Math.max(0,Math.ceil((arrival-now)/60000));
+   title.textContent=(live?'Predicted ':'Scheduled ')+(minutes===0?'due now':minutes+' min')+' · '+(x.destination||'AC Transit');
+   const small=document.createElement('small');
+   small.textContent=live?'Scheduled '+fmt(x.aimed)+' · predicted '+fmt(x.expected)+' · vehicle reported '+fmt(x.recorded):'Scheduled '+fmt(x.aimed)+' · live prediction unavailable or stale';
+   div.append(title,small);$('arrivals').append(div);
+  });
+  const first=entries.find(x=>x.live);
+  $('scheduled').textContent=fmt(first?.x.aimed);
+  $('predicted').textContent=fmt(first?.x.expected);
+  arrivalDelay=first?first.live.delayMinutes:null;
+  $('delay').textContent=arrivalDelay===null?'Unknown':arrivalDelay+' min';
+  $('arrivalUpdated').textContent='511 checked at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+(first?' · vehicle last reported '+fmt(first.x.recorded):' · schedule only; no fresh vehicle report')+'.';
+ }catch(e){
+  $('arrivals').textContent='511 arrivals unavailable: '+e.message;
+  arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
+ }finally{$('refresh').disabled=false}
+}
+$('refresh').onclick=refreshArrivals;
 $('startJourney').onclick=()=>{
  const stops=chosenStops();if(!stops)return;
  stopDelayMonitor();delayDemo=0;
  const exit=network.stops[selected.stops[Number($('exit').value)]],route=$('route').selectedOptions[0].textContent;
  if(!demo&&!exit?.code){$('journeyStatus').textContent='Destination stop has no live 511 stop code; delay cannot be tracked.';return}
- journey={demo,route,routeId:$('route').value,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,busy:false};
+ journey={demo,route,routeId:$('route').value,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
  $('finishJourney').disabled=false;updateDelayPreview();
  if(demo){$('journeyStatus').textContent='Simulation started. Demo points only.'}
  else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,70000)}
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
- if(!journey.demo&&(!Number.isFinite(journey.delay)||!journey.sampled||Date.now()-journey.sampled>150000)){
+ if(!journey.demo&&!isFreshJourneyPrediction(journey)){
   $('journeyStatus').textContent='Trip finished. No points awarded because 511 did not provide a verified matching delay prediction.';
   stopDelayMonitor();journey=null;updateDelayPreview();$('finishJourney').disabled=true;
   window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false}}));
