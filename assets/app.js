@@ -84,7 +84,7 @@ async function sampleJourneyDelay(){
  const j=journey;if(!j||j.demo||j.untracked||j.busy||document.hidden||!navigator.onLine)return;
  if(j.transfer){
   const boardIndex=activeNavigation?.steps.findIndex(x=>x.kind==='board'&&x.legIndex===j.finalLegIndex)??-1;
-  if(boardIndex<0||activeNavigation.progress<=boardIndex){j.delay=null;j.sampled=null;j.recorded=null;$('journeyStatus').textContent='Transfer trip started. Mark boarding the final bus complete to track its destination delay. Earlier-leg delays are not added.';updateDelayPreview();return;}
+  if(boardIndex<0||activeNavigation.progress<=boardIndex){j.delay=null;j.sampled=null;j.recorded=null;$('journeyStatus').textContent='Trip started. Mark boarding the final bus complete to track its destination delay. Earlier-leg delays are not added.';updateDelayPreview();return;}
  }
  j.busy=true;
  try{
