@@ -1,4 +1,4 @@
-const CACHE='wld-shell-v26';
+const CACHE='wld-shell-v27';
 const SHELL=['/','/index.html','/icon.svg','/manifest.webmanifest','/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));

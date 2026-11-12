@@ -23,6 +23,11 @@ assert.equal(choose(schedules,[null,{minutes:5},{minutes:4}],null),null,'unknown
 assert.equal(choose([[],schedules[1]],walks,null).length,0,'no scheduled departure');
 const alternatives=[[{departure:at(20),arrival:at(35)}],[{departure:at(45),arrival:at(90)},{departure:at(55),arrival:at(70)}]];
 assert.equal(choose(alternatives,walks,now+80*60000).chain[1].arrival,at(70),'try later transfer when first arrives too late');
+const express=[[{departure:at(20),arrival:at(80)},{departure:at(30),arrival:at(50)}]];
+assert.equal(choose(express,[{minutes:0},{minutes:0}],null).chain[0].arrival,at(50),'earliest arrival wins even when its bus departs later');
+assert.equal(choose(express,[{minutes:0},{minutes:0}],now+90*60000).chain[0].departure,at(30),'arrival deadline chooses latest feasible departure');
+const tied=[[{departure:at(30),arrival:at(70)},{departure:at(30),arrival:at(50)}]];
+assert.equal(choose(tied,[{minutes:0},{minutes:0}],now+90*60000).chain[0].arrival,at(50),'equal leave-by time chooses faster trip');
 assert.match(app,/async function findDirectTrips\(/,'route search is async');
 assert.match(app,/await Promise\.all\(\[resolveTypedLocation\('originSearch'\),resolveTypedLocation\('place'\)\]\)/,'typed locations are resolved');
 assert.doesNotMatch(html,/id="liveTripScreen"/,'redundant live trip screen removed');
