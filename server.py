@@ -242,6 +242,17 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
+        if path.path in ('/assets/app.css','/assets/app.js','/assets/navigation.js'):
+            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8'}
+            data=(ROOT/path.path.lstrip('/')).read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type',assets[path.path])
+            self.send_header('Content-Length',str(len(data)))
+            self.send_header('Cache-Control','no-cache')
+            self.end_headers()
+            try:self.wfile.write(data)
+            except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):pass
+            return
         if path.path in ('/manifest.webmanifest','/sw.js','/icon.svg'):
             assets={'/manifest.webmanifest':('manifest.webmanifest','application/manifest+json'),'/sw.js':('sw.js','text/javascript; charset=utf-8'),'/icon.svg':('icon.svg','image/svg+xml')}
             name,mime=assets[path.path]
