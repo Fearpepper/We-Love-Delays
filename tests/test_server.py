@@ -8,6 +8,48 @@ import server
 
 
 class BackendTests(unittest.TestCase):
+    def scheduled(self, trips, at, exceptions=None, calendar=None):
+        from unittest.mock import patch
+        pattern = {'sample_trip': 'pattern', 'stops': ['a', 'b']}
+        default_calendar = [{'service_id': 'weekday', 'start_date': '20260101',
+                             'end_date': '20261231', 'monday': '1', 'tuesday': '1',
+                             'wednesday': '1', 'thursday': '1', 'friday': '1',
+                             'saturday': '0', 'sunday': '0'}]
+        data = {'trips': {'pattern': trips}, 'calendar': calendar if calendar is not None else default_calendar,
+                'exceptions': exceptions or []}
+        with patch.object(server, 'gtfs', return_value={'patterns': [pattern]}), patch.dict(server.CACHE_SCHEDULE, data, clear=True):
+            return server.scheduled_journey('pattern', 0, 1, at)['trips']
+
+    def test_schedules_respect_weekdays_and_exclude_passed_departures(self):
+        def trip(start, end):
+            return ('weekday', ((start, start), (end, end)))
+        trips = [trip('10:00:00', '10:20:00'), trip('07:00:00', '07:20:00'), trip('09:00:00', '09:20:00')]
+        rows = self.scheduled(trips, '2026-11-09T08:00:00-08:00')
+        self.assertTrue(rows[0]['departure'].startswith('2026-11-09T09:00'))
+        self.assertTrue(rows[1]['departure'].startswith('2026-11-09T10:00'))
+        self.assertEqual(self.scheduled(trips, '2026-11-14T08:00:00-08:00'), [])
+
+    def test_service_calendar_removal_and_extra_service(self):
+        trips = [('weekday', (('09:00:00', '09:00:00'), ('09:20:00', '09:20:00')))]
+        removed = self.scheduled(trips, '2026-11-09T08:00:00-08:00',
+                                 [{'service_id': 'weekday', 'date': '20261109', 'exception_type': '2'}])
+        self.assertFalse(any(row['departure'].startswith('2026-11-09') for row in removed))
+        extra = self.scheduled(trips, '2026-11-14T08:00:00-08:00',
+                               [{'service_id': 'weekday', 'date': '20261114', 'exception_type': '1'}], calendar=[])
+        self.assertEqual(len(extra), 1)
+        self.assertTrue(extra[0]['departure'].startswith('2026-11-14T09:00'))
+
+    def test_previous_service_day_overnight_bus(self):
+        trips = [('weekday', (('25:00:00', '25:00:00'), ('25:20:00', '25:20:00')))]
+        rows = self.scheduled(trips, '2026-11-10T00:30:00-08:00')
+        self.assertTrue(rows[0]['departure'].startswith('2026-11-10T01:00'))
+        self.assertEqual(rows[0]['ride_minutes'], 20)
+
+    def test_invalid_schedule_times_do_not_become_usable_departures(self):
+        trips = [('weekday', (('09:99:00', '09:99:00'), ('10:50:00', '10:50:00'))),
+                 ('weekday', (('10:00:00', '10:00:00'), ('09:00:00', '09:00:00')))]
+        self.assertEqual(self.scheduled(trips, '2026-11-09T08:00:00-08:00'), [])
+
     def test_numeric_parsing(self):
         self.assertEqual(server.num("37.87"), 37.87)
         self.assertIsNone(server.num("not-a-number"))

@@ -461,8 +461,9 @@ function chooseScheduledConnection(schedules,walks,arrivalDeadline){
   }
  }
  if(!candidates.length)return [];
- candidates.sort((a,b)=>a.leave-b.leave||a.arrival-b.arrival);
- return arrivalDeadline===null?candidates[0]:candidates[candidates.length-1];
+ if(arrivalDeadline===null)candidates.sort((a,b)=>a.arrival-b.arrival||a.leave-b.leave);
+ else candidates.sort((a,b)=>b.leave-a.leave||a.arrival-b.arrival);
+ return candidates[0];
 }
 function appendTripTiming(panel,legs){
  if(!legs?.length)return;
@@ -556,8 +557,8 @@ async function findDirectTrips(){
  }
  // Rank candidate direct routes by practical convenience, not just stop count.
 // Distances here are straight-line approximations, not verified walking paths.
-const tripOrigin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
-const tripDestination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
+const tripOrigin=walkingEndpoint('originSearch');
+const tripDestination=walkingEndpoint('place');
 const safeWalk=(point,stop)=>point&&stop&&Number.isFinite(Number(point.lat))&&Number.isFinite(Number(point.lon))&&Number.isFinite(Number(stop.lat))&&Number.isFinite(Number(stop.lon))?distance(Number(point.lat),Number(point.lon),Number(stop.lat),Number(stop.lon))*1000:null;
 function directRank(x){
  const first=network.stops[x.p.stops[x.start]],last=network.stops[x.p.stops[x.end]];
@@ -593,7 +594,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    try{
     const [walks,schedules]=await Promise.all([getWalkingJourney([item.x]),getPublishedLegTimes([item.x])]);
     if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:walks?.find(w=>w?.error)?.error||'Pedestrian route unavailable for this pair of stops'};
-    const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival)));
+    const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival))&&Date.parse(t.arrival)>=Date.parse(t.departure));
     const feasible=valid.map(t=>{
      const leave=Date.parse(t.departure)-(walks[0].minutes+5)*60000;
      return {leave,arrival:Date.parse(t.arrival)+walks[1].minutes*60000,trip:t};

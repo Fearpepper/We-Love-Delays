@@ -129,6 +129,7 @@ def scheduled_journey(sample_trip,board,exit,at=None):
     def seconds(value):
         try:
             h,m,sec=map(int,value.split(':'))
+            if h<0 or not 0<=m<60 or not 0<=sec<60:return None
             return h*3600+m*60+sec
         except (ValueError,AttributeError):return None
     calendar={x.get('service_id'):x for x in CACHE_SCHEDULE.get('calendar',[])}

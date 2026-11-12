@@ -367,3 +367,11 @@ test('going offline removes provisional prediction credit and keeps written dire
  await expect(page.locator('#points')).toHaveText('0');
  expect(errors).toEqual([]);
 });
+
+test('route ranking uses the selected starting stop instead of an older GPS fix',async({page})=>{
+ const errors=await setup(page);
+ await page.evaluate(()=>{locationPoint={lat:40.7128,lon:-74.006};});
+ await plan(page);
+ await expect(page.locator('.route-choice small').first()).toContainText('~0 m to board');
+ expect(errors).toEqual([]);
+});
