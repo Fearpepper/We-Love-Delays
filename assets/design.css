@@ -423,3 +423,54 @@ body.desktop-guide .app-controls{display:flex!important}
 .guide-prediction-values strong{display:block;margin-top:4px;color:#003262;font-size:23px;font-variant-numeric:tabular-nums}
 .guide-prediction-values strong span{display:inline;font-size:inherit;color:inherit}
 .guide-prediction .hint{margin:7px 0;font-size:12px}
+
+/* Brighter Berkeley palette, with dark text on the soft color surfaces. */
+body{background:radial-gradient(ellipse at 0 0,#d6f5eb 0,transparent 48%),radial-gradient(ellipse at 100% 20%,#e6dcff 0,transparent 48%),#eef4ff!important;background-attachment:fixed!important}
+.top .logo{color:#003262!important}
+.top .heart{background:#087e70!important;color:#fff!important;box-shadow:0 5px 14px #087e7024}
+.top #feedStatus{background:#d9f7e6!important;border-color:#8cd5af!important;color:#135638!important}
+.app-controls{background:#e1ebff!important;border:1px solid #b6c9ed!important;box-shadow:0 6px 20px #263e7410!important}
+.app-controls button{color:#244363!important}
+.app-controls #appTrips.active{background:#fdb515!important;color:#003262!important}
+.app-controls #appMap.active{background:#bcebdc!important;color:#064e45!important}
+.app-controls #appGuide.active{background:#d9c9fa!important;color:#45266e!important}
+.app-controls #appRewards.active{background:#ffd7c3!important;color:#703314!important}
+.shell .grid>div:first-child>.card:first-child{background:linear-gradient(155deg,#fff 45%,#f0eaff 100%)!important;border:1px solid #c8d8ee!important;border-top:5px solid #fdb515!important;box-shadow:0 12px 32px #243e7310!important}
+.shell .grid>div:first-child>.card:first-child>h2{color:#003262!important}
+.field label{color:#244a69!important}
+#originSearch{background:#edfaf4!important;border-color:#75bea4!important;color:#163e35!important}
+#place{background:#f5efff!important;border-color:#b29bdc!important;color:#3e2e60!important}
+#originSearch::placeholder,#place::placeholder{color:#617287!important;opacity:1}
+#autoFind,#guideStartTrip{background:linear-gradient(110deg,#006b65,#0875a4)!important;border-color:#006b65!important;color:#fff!important;box-shadow:0 6px 16px #006b6524!important}
+.btn.alt{background:#e9f0ff!important;color:#173f69!important;border-color:#adc4e8!important}
+#guideFinishTrip,#tripPlanAgain{background:#003262!important;color:#fff!important;border-color:#003262!important}
+#cancelTrip{background:#fff0e6!important;color:#813c1d!important;border-color:#e8b79d!important}
+.focus-fold{background:#edf4ff!important;border-color:#c2d6ef!important}
+.focus-fold>summary{color:#244b74!important}
+.suggestions button:nth-child(odd){background:#f0faf5!important}
+.suggestions button:hover,.suggestions button:focus-visible{background:#dfedff!important;color:#003262!important}
+#autoResults .route-result-card{background:linear-gradient(110deg,#fff,#edf8f5)!important;border-color:#b5dace!important;border-left-color:#0b8b79!important;box-shadow:0 4px 13px #254e7010!important}
+#autoResults .route-result-card:nth-of-type(even){background:linear-gradient(110deg,#fff,#f2ecff)!important;border-left-color:#8966c4!important}
+#autoResults .route-result-card[aria-pressed="true"]{background:#fff2c8!important;border-color:#e0ab37!important}
+#autoResults .route-result-badge{background:#003262!important;color:#fff!important}
+#autoResults .route-result-timing{background:#e2edff!important;color:#244b72!important}
+.notice{background:#fff3cf!important;border-color:#e5c363!important;color:#624b12!important}
+.card:has(#points){background:linear-gradient(145deg,#fff5d9,#ffe6d8 65%,#f5e6ff)!important;border:1px solid #e8c29e!important;box-shadow:0 10px 28px #83542a10!important}
+#points{color:#874011!important}
+.guide-screen .guide-hero{background:linear-gradient(105deg,#d9f5e9,#e4e6ff)!important;border:1px solid #bbd9d3!important;border-radius:18px!important;padding:18px 20px!important;margin-bottom:16px!important}
+.guide-screen .guide-hero h1{color:#003262!important}
+.guide-map-column{background:#dff1ec!important;border-color:#9fcbbc!important}
+.guide-directions-column{background:#faf7ff!important;border-color:#d2c3eb!important}
+.guide-trip-controls{background:linear-gradient(120deg,#dceff9,#e5dcfa)!important;border:1px solid #b9cce8}
+.guide-prediction{background:#fff7dd!important;border-color:#e0c36e!important}
+.guide-prediction-values>div:first-child{background:#dfeeff!important}
+.guide-prediction-values>div:last-child{background:#ddf3e6!important}
+.guide-content .nav-step.active{background:#ffefb9!important;border-left-color:#bd7f00!important;color:#47380f!important}
+.guide-content .nav-step.done{background:#e5f5ed!important;border-left-color:#278464!important}
+.trip-complete{background:linear-gradient(145deg,#fff8dc,#e3f6eb 70%,#e5edff)!important;border-color:#afcdbb!important;box-shadow:0 12px 32px #245c4314!important}
+.trip-complete-symbol{background:#087e70!important;color:#fff!important}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #7853b2!important;outline-offset:3px!important}
+@media(max-width:790px){body.wld-tabs .app-controls{background:#e1ebff!important;border-top-color:#b6c9ed!important}.guide-screen .guide-hero{margin-left:6px!important;margin-right:6px!important}body{background-attachment:scroll!important}}
+/* Preserve the existing higher-contrast preference over decorative surfaces. */
+body.wld-high-contrast{background:#fff!important}
+body.wld-high-contrast .card,body.wld-high-contrast .guide-directions-column,body.wld-high-contrast .guide-trip-controls,body.wld-high-contrast .guide-prediction{background:#fff!important;border-color:#003262!important;color:#142536!important}
