@@ -45,9 +45,23 @@ function renderRewardHistory(){
   el.append(line);
  }
 }
+// 511 provides both scheduled and predicted times. Never call a prediction live
+// unless the vehicle's own report is recent and the expected time is plausible.
+function freshArrivalPrediction(visit,now=Date.now()){
+ const recorded=Date.parse(visit?.recorded||'');
+ const expected=Date.parse(visit?.expected||'');
+ const aimed=Date.parse(visit?.aimed||'');
+ if(![recorded,expected,aimed].every(Number.isFinite))return null;
+ if(recorded>now+60000||now-recorded>300000)return null;
+ if(expected<now-120000||expected>now+14400000)return null;
+ return {recorded,expected,aimed,delayMinutes:Math.max(0,Math.round((expected-aimed)/60000))};
+}
+function isFreshJourneyPrediction(j,now=Date.now()){
+ return !!(j&&!j.demo&&Number.isFinite(j.delay)&&Number.isFinite(j.sampled)&&now-j.sampled<150000&&Number.isFinite(j.recorded)&&j.recorded<=now+60000&&now-j.recorded<=300000);
+}
 function updateLiveDashboard(){
  const active=!!journey;
- const fresh=!!(active&&!journey.demo&&journey.sampled&&Date.now()-journey.sampled<150000);
+ const fresh=isFreshJourneyPrediction(journey);
  const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
  $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · Destination prediction'):'Start a trip from Rewards to monitor delays.';
  $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':fresh?'Live prediction received':'Waiting for fresh prediction';
@@ -62,7 +76,7 @@ function updateDelayPreview(){
  const el=$('delayPreview');
  if(!journey){el.textContent='Start a selected trip to track delay rewards.';updateLiveDashboard();return}
  if(journey.demo){el.textContent='Simulation: '+delayDemo+' min · '+delayDemo*10+' fictional demo points.';updateLiveDashboard();return}
- el.textContent=journey.delay===null||!journey.sampled||Date.now()-journey.sampled>150000?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'Latest destination prediction: '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Not an observed arrival.';updateLiveDashboard();
+ el.textContent=!isFreshJourneyPrediction(journey)?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'511 destination prediction: scheduled '+fmt(journey.aimed)+' · predicted '+fmt(journey.expected)+' · '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Vehicle reported '+fmt(new Date(journey.recorded).toISOString())+'. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
  const j=journey;if(!j||j.demo||j.busy)return;j.busy=true;
@@ -70,16 +84,26 @@ async function sampleJourneyDelay(){
   const response=await api('/api/arrivals?code='+encodeURIComponent(j.exitCode));
   if(j!==journey)return;
   const norm=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();
-  const matches=response.arrivals.filter(x=>norm(x.route)===norm(j.routeId)&&x.expected&&x.aimed&&Number.isFinite(Date.parse(x.expected))&&Number.isFinite(Date.parse(x.aimed)));
-  const visit=j.vehicle?matches.find(x=>x.vehicle&&String(x.vehicle)===String(j.vehicle)):(matches.length===1?matches[0]:null);
-  const recorded=Date.parse(visit?.recorded);
-  if(!visit||!Number.isFinite(recorded)||Math.abs(Date.now()-recorded)>300000){
-   j.delay=null;j.sampled=null;$('journeyStatus').textContent=matches.length===0?'511 has no matching destination prediction for this bus right now. No delay points can be verified.':matches.length>1&&!j.vehicle?'511 reports multiple buses on this route; this app cannot safely identify your bus yet. No points awarded.':'511 has no recent matching prediction for this specific bus. No points awarded.';return;
+  const routeMatches=(response.arrivals||[]).filter(x=>norm(x.route)===norm(j.routeId));
+  const fresh=routeMatches.filter(x=>freshArrivalPrediction(x));
+  const visit=j.vehicle?fresh.find(x=>x.vehicle&&String(x.vehicle)===String(j.vehicle)):(fresh.length===1?fresh[0]:null);
+  const prediction=freshArrivalPrediction(visit);
+  if(!prediction){
+   j.delay=null;j.sampled=null;j.recorded=null;j.aimed=null;j.expected=null;
+   $('journeyStatus').textContent=routeMatches.length===0?'511 has no destination prediction for this route. No points can be verified.':fresh.length===0?'511 destination predictions are missing or stale. No points awarded.':fresh.length>1&&!j.vehicle?'511 reports multiple buses on this route; the prototype cannot identify your bus. No points awarded.':'No recent prediction for the previously matched vehicle. No points awarded.';
+   return;
   }
-  j.vehicle=visit.vehicle||j.vehicle;
-  j.delay=Math.max(0,Math.round((Date.parse(visit.expected)-Date.parse(visit.aimed))/60000));j.sampled=Date.now();
-  $('journeyStatus').textContent='Destination prediction: '+j.delay+' min late. Updated '+new Date().toLocaleTimeString()+'.';
- }catch(e){if(j===journey){j.delay=null;j.sampled=null;$('journeyStatus').textContent='Live tracking unavailable: '+e.message}}
+  // A missing vehicle identifier cannot be safely carried over to another bus.
+  if(!visit.vehicle){
+   j.delay=null;j.sampled=null;j.recorded=null;
+   $('journeyStatus').textContent='511 did not identify the vehicle. Trip delay cannot be attributed; no points awarded.';
+   return;
+  }
+  j.vehicle=String(visit.vehicle);
+  j.delay=prediction.delayMinutes;j.sampled=Date.now();j.recorded=prediction.recorded;
+  j.aimed=visit.aimed;j.expected=visit.expected;
+  $('journeyStatus').textContent='511 destination: scheduled '+fmt(visit.aimed)+', predicted '+fmt(visit.expected)+' ('+j.delay+' min late). Vehicle last reported '+fmt(visit.recorded)+'.';
+ }catch(e){if(j===journey){j.delay=null;j.sampled=null;j.recorded=null;$('journeyStatus').textContent='Live tracking unavailable: '+e.message}}
  finally{j.busy=false;if(j===journey)updateDelayPreview()}
 }
 function stopDelayMonitor(){if(window.wldDelayTimer){clearInterval(window.wldDelayTimer);window.wldDelayTimer=null}}
@@ -719,14 +743,14 @@ $('startJourney').onclick=()=>{
  stopDelayMonitor();delayDemo=0;
  const exit=network.stops[selected.stops[Number($('exit').value)]],route=$('route').selectedOptions[0].textContent;
  if(!demo&&!exit?.code){$('journeyStatus').textContent='Destination stop has no live 511 stop code; delay cannot be tracked.';return}
- journey={demo,route,routeId:$('route').value,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,busy:false};
+ journey={demo,route,routeId:$('route').value,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
  $('finishJourney').disabled=false;updateDelayPreview();
  if(demo){$('journeyStatus').textContent='Simulation started. Demo points only.'}
  else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,70000)}
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
- if(!journey.demo&&(!Number.isFinite(journey.delay)||!journey.sampled||Date.now()-journey.sampled>150000)){
+ if(!journey.demo&&!isFreshJourneyPrediction(journey)){
   $('journeyStatus').textContent='Trip finished. No points awarded because 511 did not provide a verified matching delay prediction.';
   stopDelayMonitor();journey=null;updateDelayPreview();$('finishJourney').disabled=true;
   window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false}}));
