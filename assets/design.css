@@ -396,3 +396,14 @@ body.desktop-guide .app-controls{display:flex!important}
  .guide-map-host #map{height:40vh!important;min-height:270px!important}
  .guide-screen{padding-bottom:100px!important}
 }
+
+.guide-trip-controls{padding:12px;margin-bottom:14px;background:#f3f7fd;border-radius:14px}
+.guide-trip-controls .btn{width:100%;min-height:50px;font-size:17px}
+.guide-trip-controls .btn[hidden]{display:none!important}
+.trip-complete{max-width:560px;margin:30px auto;padding:38px 24px;text-align:center;background:#fff;border:1px solid #dce6f1;border-radius:22px}
+.trip-complete[hidden]{display:none!important}
+.trip-complete-symbol{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#e3f3e9;color:#16734a;font-size:34px;margin:0 auto 16px}
+.trip-complete h2{font-size:30px;color:#003262;margin:0 0 10px}
+.trip-complete p{color:#496174;line-height:1.5}
+.trip-complete-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.trip-complete-actions .btn{min-width:180px}
