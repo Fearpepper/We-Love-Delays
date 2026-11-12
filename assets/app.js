@@ -59,18 +59,20 @@ function freshArrivalPrediction(visit,now=Date.now()){
 function isFreshJourneyPrediction(j,now=Date.now()){
  return !!(j&&!j.demo&&Number.isFinite(j.delay)&&Number.isFinite(j.sampled)&&now-j.sampled<150000&&Number.isFinite(j.recorded)&&j.recorded<=now+60000&&now-j.recorded<=300000);
 }
+// The Guide shows all useful live-trip information; there is no separate dashboard.
 function updateLiveDashboard(){
  const active=!!journey;
+ const panel=$('guidePrediction');
+ if(panel)panel.hidden=!active;
  const fresh=isFreshJourneyPrediction(journey);
  const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
- $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · Destination prediction'):'Start a trip from Rewards to monitor delays.';
- $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':fresh?'Live prediction received':'Waiting for fresh prediction';
+ $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · 511 destination prediction'):'No active trip';
+ $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':fresh?'Fresh 511 vehicle prediction':'Awaiting a fresh 511 prediction';
  $('liveDelayValue').textContent=delay===null?'—':String(delay);
  $('livePointsValue').textContent=delay===null?'0':String(Math.max(0,delay)*10);
- $('liveProgressFill').style.width=delay===null?'0%':Math.min(100,Math.max(0,delay)*5)+'%';
- $('liveDataNote').textContent=!active?'No trip is being tracked.':journey.demo?'Demo minutes only. No transit data.':fresh?'Provisional delay based on a fresh 511 destination prediction.':'No fresh matching prediction. Points unavailable.';
- $('liveLastUpdate').textContent=journey?.sampled?'Last prediction: '+new Date(journey.sampled).toLocaleTimeString():'Updates require this page to remain open.';
- $('liveRefresh').disabled=!active||journey.demo;$('liveFinish').disabled=!active;
+ $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':fresh?'Provisional points based on a recent 511 prediction, not an observed arrival.':'No fresh matching 511 prediction. Provisional points are unavailable.';
+ $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':'511 predictions update while the trip remains open.';
+ $('liveRefresh').disabled=!active||journey.demo;
 }
 function updateDelayPreview(){
  const el=$('delayPreview');
@@ -853,8 +855,6 @@ $('finishJourney').onclick=()=>{
  window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned,verified:!demo,demo}}));
 };
 $('liveRefresh').onclick=()=>{if(journey&&!journey.demo)sampleJourneyDelay()};
-$('liveFinish').onclick=()=>{if(!journey)return;$('finishJourney').click();$('liveActionStatus').textContent=$('journeyStatus').textContent;updateLiveDashboard()};
-$('liveGoTrips').onclick=()=>document.getElementById('appTrips').click();
 updateLiveDashboard();
 load();
 

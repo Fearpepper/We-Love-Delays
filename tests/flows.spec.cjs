@@ -37,9 +37,15 @@ test('direct journey completes once and wallet persists prediction points',async
  await page.locator('#navAdvance').click();
  await expect(page.locator('#navNext')).toContainText('Wait for and board');
  await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#guidePrediction')).toBeVisible();
+ await expect(page.locator('#liveRefresh')).toBeEnabled();
+ await expect(page.locator('#liveTrackingState')).toContainText('Fresh 511 vehicle prediction');
+ await expect(page.locator('#liveDelayValue')).toHaveText('5');
+ await expect(page.locator('#livePointsValue')).toHaveText('50');
  await expect(page.locator('#guideTripFeedback')).toContainText(/Checking|Destination/);
  await expect(page.locator('#delayPreview')).toContainText('5 min late');
  await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#guidePrediction')).toBeHidden();
  await expect(page.locator('#tripComplete')).toBeVisible();
  await expect(page.locator('#guideEmpty')).toBeHidden();
  await expect(page.locator('#tripCompleteSummary')).toContainText('50 prototype points');

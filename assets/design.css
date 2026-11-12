@@ -201,7 +201,7 @@ body{background:linear-gradient(140deg,#d8e9ff 0%,#e9e2ff 48%,#ffe9b7 100%)}
 .guide-content{margin:18px 0;padding:23px;border:1px solid #bdd8f0;border-radius:23px;background:linear-gradient(140deg,#dceeff,#ece4ff)}
 .guide-content .navigation-panel{display:block!important;margin:0!important}
 .guide-disclaimer{font-size:12px;color:#536b82;margin:15px 5px}
-body.desktop-guide .shell,body.desktop-guide .live-screen{display:none!important}
+body.desktop-guide .shell{display:none!important}
 @media(max-width:790px){
  .guide-screen{margin:0;padding:16px 14px calc(112px + env(safe-area-inset-bottom,0px))}
  .guide-hero{padding:23px 19px}
@@ -410,3 +410,16 @@ body.desktop-guide .app-controls{display:flex!important}
 
 /* Reset the legacy fixed-nav offset now that desktop tabs are sticky. */
 @media(min-width:791px){.app-controls{left:auto!important;right:auto!important;transform:none!important;width:calc(100% - 28px)!important}}
+
+/* Compact live prediction belongs to Guide, where riders start/finish trips. */
+.guide-prediction{margin-top:12px;padding:14px;border:1px solid #dce6f1;border-radius:14px;background:#fff}
+.guide-prediction[hidden]{display:none!important}
+.guide-prediction-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.guide-prediction-header strong{color:#003262;font-size:14px}
+.guide-prediction-header .btn{width:auto!important;min-height:36px!important;padding:7px 12px!important;font-size:13px!important}
+.guide-prediction-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.guide-prediction-values>div{background:#f4f7fc;border-radius:10px;padding:12px;min-width:0}
+.guide-prediction-values span{display:block;color:#50677c;font-size:12px}
+.guide-prediction-values strong{display:block;margin-top:4px;color:#003262;font-size:23px;font-variant-numeric:tabular-nums}
+.guide-prediction-values strong span{display:inline;font-size:inherit;color:inherit}
+.guide-prediction .hint{margin:7px 0;font-size:12px}
