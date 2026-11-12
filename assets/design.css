@@ -187,3 +187,25 @@ body{background:linear-gradient(140deg,#d8e9ff 0%,#e9e2ff 48%,#ffe9b7 100%)}
  body.wld-tabs .app-controls{background:#d8e9ff!important;border-top-color:#a9c9eb!important}
  body.wld-tabs .app-controls button.active{background:#ffe4a0!important;color:#003262!important}
 }
+
+/* Dedicated, colorful journey Guide screen */
+.guide-screen{max-width:960px;margin:110px auto 90px;padding:0 22px;color:#003262}
+.guide-screen[hidden],.guide-empty[hidden],.guide-content[hidden]{display:none!important}
+.guide-hero{border:1px solid #b5cdef;border-radius:25px;padding:29px;background:linear-gradient(115deg,#cbe4ff,#e9dfff 58%,#ffe4a5)}
+.guide-hero h1{font-size:clamp(28px,5vw,43px);letter-spacing:-1.3px;margin:7px 0}
+.guide-hero p{margin:0;color:#395a7b}
+.guide-empty{margin:18px 0;padding:35px 24px;text-align:center;border:1px solid #bdd8f0;border-radius:23px;background:linear-gradient(135deg,#d9eeff,#eee4ff)}
+.guide-empty h2{margin:10px 0 4px;font-size:25px}
+.guide-empty p{max-width:460px;margin:0 auto 20px;color:#425c7b}
+.guide-illustration{display:grid;place-items:center;width:68px;height:68px;border-radius:23px;background:#ffe2a0;color:#003262;font-size:38px;margin:auto}
+.guide-content{margin:18px 0;padding:23px;border:1px solid #bdd8f0;border-radius:23px;background:linear-gradient(140deg,#dceeff,#ece4ff)}
+.guide-content .navigation-panel{display:block!important;margin:0!important}
+.guide-disclaimer{font-size:12px;color:#536b82;margin:15px 5px}
+body.desktop-guide .shell,body.desktop-guide .live-screen{display:none!important}
+@media(max-width:790px){
+ .guide-screen{margin:0;padding:16px 14px calc(112px + env(safe-area-inset-bottom,0px))}
+ .guide-hero{padding:23px 19px}
+ .guide-empty{padding:28px 18px}
+ body.wld-tabs[data-view="guide"] .shell{display:none!important}
+ body.wld-tabs[data-view]:not([data-view="guide"]) .guide-screen{display:none!important}
+}
