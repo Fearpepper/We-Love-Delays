@@ -130,7 +130,7 @@ test('selected origin stop takes precedence over older GPS for walking',async({p
   await route.fulfill({json:{available:true,minutes:2.5,meters:180,geometry:{type:'LineString',coordinates:[[-122.27,37.87],[-122.26,37.87]]}}});
  });
  await plan(page);
- await expect(page.locator('#navSteps')).toContainText('At or very near the stop');
+ await expect(page.locator('#navSteps')).toContainText('Already at this stop · no walk required');
  await expect(page.locator('#navSteps')).not.toContainText('Walking route unavailable until');
  expect(walkedFromGps).toEqual([]);
  expect(errors).toEqual([]);
