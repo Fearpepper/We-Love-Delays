@@ -3,9 +3,13 @@
 (function(){
  const tabs={routes:'appTrips',map:'appMap',rewards:'appRewards',guide:'appGuide',live:'appLive'};
  function selectTab(view){
+  const guide=document.getElementById('guideScreen');
+  if(guide)guide.hidden=view!=='guide';
+  if(view==='guide'&&typeof window.wldUpdateGuide==='function')window.wldUpdateGuide();
   if(window.innerWidth>790){
    document.body.dataset.desktopView=view;
    document.body.classList.toggle('desktop-live',view==='live');
+   document.body.classList.toggle('desktop-guide',view==='guide');
    document.getElementById('liveTripScreen').hidden=view!=='live';
    for(const [name,id] of Object.entries(tabs)){const tab=document.getElementById(id);tab.classList.toggle('active',name===view);tab.setAttribute('aria-pressed',String(name===view))}
    if(view==='map'&&typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120);
