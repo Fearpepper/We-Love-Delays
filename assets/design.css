@@ -257,3 +257,37 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
 #manualRouteDetails summary{color:#003262}
 
 .route-result-timing{display:block;width:100%;padding:9px 11px;border-radius:10px;background:#fff0c1;color:#003262;font-size:12px;font-weight:750}
+
+/* Immersive active journey: the real map and next directions take priority. */
+.guide-screen:has(#guideContent:not([hidden])){max-width:1500px;margin-top:90px}
+.guide-screen:has(#guideContent:not([hidden])) .guide-hero{padding:17px 24px}
+.guide-screen:has(#guideContent:not([hidden])) .guide-hero h1{font-size:27px}
+.guide-content{padding:14px!important}
+.guide-navigation-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr);gap:16px;align-items:start}
+.guide-map-column{position:sticky;top:90px;background:linear-gradient(145deg,#cde5ff,#e7e2ff);border-radius:18px;padding:14px;border:1px solid #a7c8ea}
+.guide-map-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;color:#003262}
+.guide-map-title span{font-size:12px;color:#355c80}
+.guide-map-host{min-height:470px}
+.guide-map-host #map{width:100%!important;height:clamp(470px,65vh,760px)!important;min-height:470px!important;border-radius:14px;overflow:hidden}
+.guide-map-expand{margin-top:11px}
+.guide-directions-column{min-width:0}
+.guide-directions-column .navigation-panel{padding:18px!important}
+.guide-directions-column #navNext{font-size:20px;font-weight:800;line-height:1.4;color:#003262;background:#ffe7aa;padding:16px;border-radius:14px}
+.guide-directions-column #navSteps{max-height:none!important;overflow:visible!important}
+.guide-map-expanded .guide-navigation-layout{grid-template-columns:minmax(0,1fr)}
+.guide-map-expanded .guide-map-column{position:relative;top:0}
+.guide-map-expanded .guide-map-host #map{height:70vh!important}
+@media(max-width:790px){
+ .guide-screen:has(#guideContent:not([hidden])){margin-top:0;padding:8px 8px 100px}
+ .guide-screen:has(#guideContent:not([hidden])) .guide-hero{padding:13px 16px;border-radius:17px}
+ .guide-screen:has(#guideContent:not([hidden])) .guide-hero h1{font-size:22px}
+ .guide-screen:has(#guideContent:not([hidden])) .guide-hero p{font-size:12px}
+ .guide-content{padding:8px!important;margin:9px 0!important}
+ .guide-navigation-layout{grid-template-columns:minmax(0,1fr);gap:9px}
+ .guide-map-column{position:relative;top:0;padding:8px;border-radius:14px}
+ .guide-map-host{min-height:0}
+ .guide-map-host #map{height:43vh!important;min-height:280px!important}
+ .guide-directions-column .navigation-panel{padding:12px!important}
+ .guide-directions-column #navNext{font-size:18px;padding:13px}
+ .guide-map-expanded .guide-map-host #map{height:68vh!important}
+}
