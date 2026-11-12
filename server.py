@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Local-only Berkeley bus prototype. Python standard library only."""
-import csv, datetime, io, json, os, pathlib, resource, sys, threading, time, urllib.parse, urllib.request, zipfile
+import csv, datetime, io, json, math, os, pathlib, resource, sys, threading, time, urllib.parse, urllib.request, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parent
 HOST=os.getenv('HOST','0.0.0.0'); PORT=int(os.getenv('PORT','10000'))
@@ -162,7 +162,7 @@ def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
     if not key:raise RuntimeError('Pedestrian routing is not configured (ORS_API_KEY missing).')
     if profile not in ('foot-walking','wheelchair'):raise ValueError('Unsupported pedestrian profile')
     coords=[a_lat,a_lon,b_lat,b_lon]
-    if not all(__import__('math').isfinite(v) and -180<=v<=180 for v in coords):raise ValueError('Invalid coordinates')
+    if not all(math.isfinite(v) and -180<=v<=180 for v in coords):raise ValueError('Invalid coordinates')
     if not all(37.0<=v<=38.5 for v in (a_lat,b_lat)) or not all(-123.5<=v<=-121.0 for v in (a_lon,b_lon)):
         raise ValueError('Pedestrian routing currently supports the East Bay area')
     # POST GeoJSON is the documented directions endpoint and avoids GET content-negotiation issues.
@@ -179,7 +179,19 @@ def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
         feature=features[0];summary=(feature.get('properties') or {}).get('summary') or {}
         geometry=feature.get('geometry') or {}
         seconds=float(summary['duration']);meters=float(summary['distance'])
-        if not (0<=seconds<=86400 and 0<=meters<=100000):raise ValueError('Invalid pedestrian route metrics')
+        if not (math.isfinite(seconds) and math.isfinite(meters) and 0<=seconds<=86400 and 0<=meters<=100000):
+            raise ValueError('Invalid pedestrian route metrics')
+        path=geometry.get('coordinates') or []
+        if geometry.get('type')!='LineString' or not isinstance(path,list) or not 2<=len(path)<=10000:
+            raise ValueError('Invalid ORS pedestrian route geometry')
+        if any(not isinstance(p,list) or len(p)<2 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in p[:2]) or not (-180<=p[0]<=180 and -90<=p[1]<=90) for p in path):
+            raise ValueError('Invalid ORS pedestrian route coordinates')
+        # ORS occasionally snaps to a distant path. Do not show a line starting or
+        # ending far away from the chosen stop/place as though it were a valid walk.
+        def endpoint_gap(p,lat,lon):
+            return math.hypot((p[1]-lat)*111320,(p[0]-lon)*111320*math.cos(math.radians(lat)))
+        if endpoint_gap(path[0],a_lat,a_lon)>350 or endpoint_gap(path[-1],b_lat,b_lon)>350:
+            raise ValueError('Pedestrian path starts or ends too far from the selected location')
         return {'available':True,'minutes':round(seconds/60,1),'meters':round(meters),'geometry':geometry,'source':'OpenRouteService '+profile,'accessibility_verified':False}
     except urllib.error.HTTPError as exc:
         detail=exc.read(1200).decode('utf-8','replace')
@@ -276,7 +288,13 @@ class Handler(BaseHTTPRequestHandler):
                 data=gtfs()
                 return self.respond(200,{'ok':True,'routes':len(data['routes']),'patterns':len(data['patterns']),'stops':len(data['stops']),'updated':data['updated']})
             if path.path=='/api/walk-route':
-                return self.respond(200,pedestrian_route(float(q.get('from_lat',['nan'])[0]),float(q.get('from_lon',['nan'])[0]),float(q.get('to_lat',['nan'])[0]),float(q.get('to_lon',['nan'])[0]),q.get('profile',['foot-walking'])[0]))
+                a_lat=float(q.get('from_lat',['nan'])[0]);a_lon=float(q.get('from_lon',['nan'])[0])
+                b_lat=float(q.get('to_lat',['nan'])[0]);b_lon=float(q.get('to_lon',['nan'])[0])
+                profile=q.get('profile',['foot-walking'])[0]
+                # A trip can request the same pedestrian leg many times (rank, Guide,
+                # map). Cache provider results briefly to respect API quotas.
+                key='walk:'+':'.join(f'{x:.6f}' for x in (a_lat,a_lon,b_lat,b_lon))+':'+profile
+                return self.respond(200,cached(key,300,lambda:pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile)))
             if path.path=='/api/scheduled-journey':return self.respond(200,scheduled_journey(q.get('trip',[''])[0],int(q.get('board',['-1'])[0]),int(q.get('exit',['-1'])[0])))
             if path.path=='/api/arrivals':return self.respond(200,{'arrivals':arrivals(q.get('code',[''])[0]),'fetched':int(time.time())})
             return self.respond(404,{'error':'Not found'})
