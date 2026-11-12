@@ -26,7 +26,7 @@
   const routes=network.routes.filter(r=>legs.some(l=>l.p.route===r.id)).map(r=>({id:r.id,name:r.name}));
   const data={version:1,startedAt,legs,stops,routes,progress:activeNavigation.progress,vehicle:journey.vehicle};
   try{localStorage.setItem(key,JSON.stringify(data));recovery.textContent='Active bus trip saved on this device. Reopening restores bus directions, not GPS following or old predictions.';cancel.hidden=false;}
-  catch{document.getElementById('guideTripFeedback').textContent='Trip started, but browser storage is unavailable. Keep this page open; the trip cannot recover after a refresh.';}
+  catch{cancel.hidden=false;recovery.textContent='Browser storage is unavailable. Keep this page open; the trip cannot recover after a refresh.';}
  }
  function updateAlternatives(){
   const legs=activeNavigation?.legs;if(!legs?.length)return;

@@ -345,3 +345,25 @@ test('saved bus directions open before a slow transit network download completes
  await expect(page.locator('#guideFinishTrip')).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+test('unavailable browser storage is explained without blocking trip controls',async({page})=>{
+ await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='wld-active-trip-v1')throw new DOMException('Storage blocked','QuotaExceededError');return set.call(this,key,value);};});
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#tripRecoveryStatus')).toContainText('storage is unavailable');
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await page.locator('#cancelTrip').click();
+ await expect(page.locator('#tripComplete')).toContainText('Trip cancelled');
+ expect(errors).toEqual([]);
+});
+test('going offline removes provisional prediction credit and keeps written directions',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#livePointsValue')).toHaveText('50');
+ await page.context().setOffline(true);
+ await expect(page.locator('#connectionStatus')).toBeVisible();
+ await expect(page.locator('#connectionStatus')).toContainText('Offline');
+ await expect(page.locator('#livePointsValue')).toHaveText('0');
+ await expect(page.locator('#navSteps')).toContainText('Beta transfer');
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#points')).toHaveText('0');
+ expect(errors).toEqual([]);
+});
