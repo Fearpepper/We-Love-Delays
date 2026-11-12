@@ -351,3 +351,48 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
 .guide-screen:has(#guideContent:not([hidden])) .guide-hero p{display:none}
 .guide-screen:has(#guideContent:not([hidden])) .guide-disclaimer{font-size:11px}
 @media(max-width:790px){.dashboard{padding:8px 12px!important}.dashboard .focus-fold{margin:0}.guide-map-host #map{height:42vh!important}}
+
+/* Clean-room minimal layout: ONE screen at a time. */
+#welcome{display:none!important}
+.dashboard{display:none!important}
+.app-map-sheet{display:none!important}
+body{background:#f6f8fc!important}
+.shell{max-width:860px!important;margin:0 auto!important;padding:14px 16px 80px!important}
+.top{margin:0 0 16px!important;padding:4px 0!important;box-shadow:none!important;background:transparent!important}
+.top .logo{font-size:21px!important}
+.top #feedStatus{font-size:10px!important;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-controls{position:sticky!important;top:0!important;z-index:800!important;max-width:860px!important;margin:0 auto!important;padding:9px 14px!important;background:#f6f8fc!important;border-bottom:1px solid #e5eaf2!important;box-shadow:none!important}
+.app-controls button:not(.secondary-tab){max-width:none!important;min-height:43px!important;border-radius:10px!important}
+.shell .grid{display:block!important}
+.shell .grid>div{display:block!important}
+.shell .grid>div:first-child>.card:first-child{padding:24px!important;background:#fff!important;border:1px solid #e7ebf1!important;border-radius:20px!important;box-shadow:none!important}
+.shell .grid>div:first-child>.card:first-child>.eyebrow{display:none!important}
+.shell .grid>div:first-child>.card:first-child>h2{font-size:30px!important;margin:0 0 16px!important;color:#003262!important}
+.shell .grid>div:first-child>.card:first-child>p.muted{display:none!important}
+.shell .grid>div:first-child>.card:first-child .field{margin:0 0 16px!important}
+.shell .grid>div:first-child>.card:first-child .field label{font-size:12px!important;letter-spacing:.02em!important}
+.shell .grid>div:first-child>.card:first-child #autoResults{max-width:100%!important}
+.shell .grid>div:first-child>.card:first-child #autoResults .route-choice{margin-bottom:9px!important}
+.shell .grid>div:nth-child(2)>.card:first-child{display:none!important}
+body:not(.wld-tabs):not(.desktop-guide) .guide-screen{display:none!important}
+body.desktop-guide .shell{display:none!important}
+body.desktop-guide .guide-screen{display:block!important;max-width:1100px!important;margin:12px auto 70px!important}
+body.desktop-guide .app-controls{display:flex!important}
+.guide-screen .guide-hero{padding:8px 14px!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.guide-screen .guide-hero .eyebrow{display:none!important}
+.guide-screen .guide-hero h1{font-size:26px!important;color:#003262!important}
+.guide-screen .guide-content{border:0!important;box-shadow:none!important}
+.guide-navigation-layout{grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr)!important}
+.guide-map-host #map{height:60vh!important;min-height:380px!important}
+.guide-map-column{background:#fff!important;border:1px solid #e7ebf1!important;box-shadow:none!important}
+.guide-directions-column{background:#fff!important;border:1px solid #e7ebf1!important;border-radius:16px!important;padding:12px!important}
+.guide-disclaimer{font-size:11px!important;max-width:700px!important;margin:10px auto!important}
+@media(max-width:790px){
+ .shell{padding:8px 10px 95px!important}
+ .app-controls{position:fixed!important;top:auto!important;bottom:0!important;width:100%!important;max-width:none!important;border-top:1px solid #e5eaf2!important;border-bottom:0!important}
+ .shell .grid>div:first-child>.card:first-child{padding:18px!important}
+ .shell .grid>div:first-child>.card:first-child>h2{font-size:26px!important}
+ .guide-navigation-layout{grid-template-columns:minmax(0,1fr)!important}
+ .guide-map-host #map{height:40vh!important;min-height:270px!important}
+ .guide-screen{padding-bottom:100px!important}
+}
