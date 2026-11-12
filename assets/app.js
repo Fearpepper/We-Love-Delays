@@ -62,7 +62,7 @@ function updateDelayPreview(){
  const el=$('delayPreview');
  if(!journey){el.textContent='Start a selected trip to track delay rewards.';updateLiveDashboard();return}
  if(journey.demo){el.textContent='Simulation: '+delayDemo+' min · '+delayDemo*10+' fictional demo points.';updateLiveDashboard();return}
- el.textContent=journey.delay===null||!journey.sampled||Date.now()-journey.sampled>150000?'No fresh matching destination prediction. Points are unavailable until a new prediction arrives.':'Latest destination prediction: '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Not an observed arrival.';updateLiveDashboard();
+ el.textContent=journey.delay===null||!journey.sampled||Date.now()-journey.sampled>150000?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'Latest destination prediction: '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
  const j=journey;if(!j||j.demo||j.busy)return;j.busy=true;
@@ -74,7 +74,7 @@ async function sampleJourneyDelay(){
   const visit=j.vehicle?matches.find(x=>x.vehicle&&String(x.vehicle)===String(j.vehicle)):(matches.length===1?matches[0]:null);
   const recorded=Date.parse(visit?.recorded);
   if(!visit||!Number.isFinite(recorded)||Math.abs(Date.now()-recorded)>300000){
-   j.delay=null;j.sampled=null;$('journeyStatus').textContent='No fresh, unambiguous prediction for the selected bus at the destination stop.';return;
+   j.delay=null;j.sampled=null;$('journeyStatus').textContent=matches.length===0?'511 has no matching destination prediction for this bus right now. No delay points can be verified.':matches.length>1&&!j.vehicle?'511 reports multiple buses on this route; this app cannot safely identify your bus yet. No points awarded.':'511 has no recent matching prediction for this specific bus. No points awarded.';return;
   }
   j.vehicle=visit.vehicle||j.vehicle;
   j.delay=Math.max(0,Math.round((Date.parse(visit.expected)-Date.parse(visit.aimed))/60000));j.sampled=Date.now();
@@ -321,8 +321,8 @@ async function getPublishedLegTimes(legs){
 async function getWalkingJourney(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
- const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
+ const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null)||stopsForInput('originSearch')[0]||null;
+ const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null)||stopsForInput('place')[0]||null;
  const tasks=[
   {a:origin,b:first},
   ...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),
@@ -512,7 +512,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   const results=await Promise.all(candidateCards.map(async item=>{
    try{
     const [walks,schedules]=await Promise.all([getWalkingJourney([item.x]),getPublishedLegTimes([item.x])]);
-    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:'Pedestrian route could not be calculated; verify ORS_API_KEY on Render'};
+    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:'Pedestrian route unavailable for this pair of stops'};
     const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival)));
     const feasible=valid.map(t=>{
      const leave=Date.parse(t.departure)-(walks[0].minutes+5)*60000;
