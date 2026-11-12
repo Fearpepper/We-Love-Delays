@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parent
 HOST=os.getenv('HOST','0.0.0.0'); PORT=int(os.getenv('PORT','10000'))
 KEY=os.getenv('SF511_API_KEY','').strip()
-CACHE={}; LOCK=threading.Lock(); CACHE_SCHEDULE={}
+CACHE={}; LOCK=threading.Lock(); CACHE_SCHEDULE={}; GTFS_LOAD_LOCK=threading.Lock()
 def upstream(path, params, binary=False):
     if not KEY: raise RuntimeError('No 511 API token configured. See README.md.')
     query=urllib.parse.urlencode(dict(params,api_key=KEY))
@@ -20,9 +20,20 @@ def upstream(path, params, binary=False):
 def cached(key,ttl,fn):
     with LOCK:
         if key in CACHE and time.time()-CACHE[key][0]<ttl:return CACHE[key][1]
-    val=fn()
-    with LOCK:CACHE[key]=(time.time(),val)
-    return val
+    gate=GTFS_LOAD_LOCK if key=='gtfs' else None
+    if gate:gate.acquire()
+    try:
+        with LOCK:
+            if key in CACHE and time.time()-CACHE[key][0]<ttl:return CACHE[key][1]
+        val=fn()
+        with LOCK:
+            if len(CACHE)>160:
+                oldest=sorted((k for k in CACHE if k!='gtfs'),key=lambda k:CACHE[k][0])
+                for k in oldest[:max(0,len(CACHE)-120)]:CACHE.pop(k,None)
+            CACHE[key]=(time.time(),val)
+        return val
+    finally:
+        if gate:gate.release()
 def places(query):
     """Search OSM locations near Berkeley, with a backup provider."""
     query=query.strip()
