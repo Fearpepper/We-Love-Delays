@@ -17,7 +17,8 @@
  }
  function update(){
   const active=!panel.classList.contains('hidden');
-  empty.hidden=active;content.hidden=!active;
+  empty.hidden=active||Boolean($('tripComplete')&&!$('tripComplete').hidden);content.hidden=!active;
+  if(active&&$('tripComplete'))$('tripComplete').hidden=true;
   syncMap();
  }
  window.wldUpdateGuide=update;
