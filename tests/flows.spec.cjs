@@ -9,6 +9,7 @@ async function setup(page,delayed=true,networkReady=Promise.resolve()){
   let data={};
   if(path==='/api/status')data={configured:true};
   if(path==='/api/network'){await networkReady;data=network;}
+  if(path==='/api/alerts')data={alerts:[],fetched:Math.floor(Date.now()/1000)};
   if(path==='/api/places')data={places:[]};
   if(path==='/api/arrivals')data={arrivals:delayed?[{route:'51B',vehicle:'test-bus',recorded:new Date().toISOString(),aimed:new Date(Date.now()+600000).toISOString(),expected:new Date(Date.now()+900000).toISOString()}]:[]};
   if(path==='/api/scheduled-journey')data={trips:[]};
@@ -374,4 +375,47 @@ test('route ranking uses the selected starting stop instead of an older GPS fix'
  await plan(page);
  await expect(page.locator('.route-choice small').first()).toContainText('~0 m to board');
  expect(errors).toEqual([]);
+});
+
+test('service alerts respect route, stop, direction and active periods and render safely',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[
+  {title:'Boarding stop closed',description:'Use next stop <script>alert(1)</script>',selectors:[{route:'51B',stop:'a',direction:0}],periods:[]},
+  {title:'Other route only',selectors:[{route:'6'}],periods:[]},
+  {title:'Reverse direction only',selectors:[{route:'51B',direction:1}],periods:[]},
+  {title:'Expired notice',selectors:[],periods:[{end:1}]},
+  {title:'Agency-wide update',selectors:[],periods:[]}
+ ]}}));
+ await page.reload();await plan(page);
+ const panel=page.locator('#guideServiceAlerts');
+ await expect(panel).toContainText('Boarding stop closed');
+ await expect(panel).toContainText('Agency-wide update');
+ await expect(panel).not.toContainText('Other route only');
+ await expect(panel).not.toContainText('Reverse direction only');
+ await expect(panel).not.toContainText('Expired notice');
+ await panel.locator('summary').first().click();
+ await expect(panel).toContainText('<script>alert(1)</script>');
+ await page.context().setOffline(true);
+ await expect(panel).toContainText('may be outdated');
+ expect(errors).toEqual([]);
+});
+test('failed alert feed keeps directions usable and shows an official fallback',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/alerts',route=>route.fulfill({status:502,json:{error:'Provider unavailable'}}));
+ await page.reload();await plan(page);
+ await expect(page.locator('#guideServiceAlerts')).toContainText('Alerts unavailable');
+ await expect(page.locator('#guideServiceAlerts a')).toHaveAttribute('href','https://www.actransit.org/alert');
+ await page.locator('#guideStartTrip').click();await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();expect(errors).toEqual([]);
+});
+test('transfer results check connection feasibility before selection',async({page})=>{
+ const errors=await setup(page);
+ const now=Date.now();
+ await page.route('**/api/scheduled-journey?*',route=>{
+  const second=new URL(route.request().url()).searchParams.get('trip')==='two';
+  route.fulfill({json:{trips:[{departure:new Date(now+(second?30:10)*60000).toISOString(),arrival:new Date(now+(second?40:20)*60000).toISOString()}]}});
+ });
+ await plan(page,'Gamma destination');
+ await expect(page.locator('.route-choice .route-timing')).toContainText('Scheduled arrival');
+ await expect(page.locator('#guideStartTrip')).toBeEnabled();expect(errors).toEqual([]);
 });
