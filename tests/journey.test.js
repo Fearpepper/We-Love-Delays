@@ -56,7 +56,7 @@ assert.doesNotMatch(html,/data-delay="(?:5|10|15)"/,'no manual delay reward butt
 assert.doesNotMatch(html,/Report a 10-minute delay/,'no nonfunctional reporting');
 assert.match(app,/now-j\.sampled<150000/,'stale locally sampled predictions rejected for rewards');
 assert.match(app,/if\(journey\.demo\)\{/,'demo balance handled separately');
-assert.match(app,/Number\.isFinite\(journey\.delay\)/,'delay must be a finite number');
+assert.match(app,/Number\.isFinite\(j\.delay\)/,'delay must be a finite number');
 const predictionStart=app.indexOf('function freshArrivalPrediction(');
 const predictionEnd=app.indexOf('function updateLiveDashboard(',predictionStart);
 assert(predictionStart>=0&&predictionEnd>predictionStart,'fresh 511 validation helper exists');
