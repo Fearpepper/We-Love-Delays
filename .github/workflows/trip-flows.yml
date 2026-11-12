@@ -1,0 +1,38 @@
+name: Trip flow regression tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  flows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm install --no-save @playwright/test
+      - run: npx playwright install --with-deps chromium
+      - run: python server.py > /tmp/wld-server.log 2>&1 &
+      - name: Test local changes with controlled transit responses
+        env:
+          BASE_URL: http://127.0.0.1:10000
+          DEVICE: ${{ matrix.device }}
+        run: npx playwright test tests/flows.spec.cjs --reporter=line
+      - name: Audit live Render journey
+        env:
+          DEVICE: ${{ matrix.device }}
+        run: npx playwright test tests/live-audit.spec.cjs --reporter=line
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trip-flows-${{ matrix.device }}
+          path: test-results/

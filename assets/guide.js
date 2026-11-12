@@ -19,6 +19,10 @@
   const active=!panel.classList.contains('hidden');
   empty.hidden=active||Boolean($('tripComplete')&&!$('tripComplete').hidden);content.hidden=!active;
   if(active&&$('tripComplete'))$('tripComplete').hidden=true;
+  const tracking=Boolean($('finishJourney')&&!$('finishJourney').disabled);
+  setTracking(tracking);
+  if(start){start.disabled=!tracking&&Boolean($('startJourney')?.disabled);}
+  if(feedback&&active&&!tracking){feedback.textContent=start?.disabled?'Trip tracking is unavailable for this route. You can still follow the directions.':'';}
   syncMap();
  }
  window.wldUpdateGuide=update;
@@ -51,8 +55,9 @@
   update();
   if(complete){
    complete.hidden=false;
+   empty.hidden=true;
    const earned=event.detail?.earned||0;
-   summary.textContent=earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
+   summary.textContent=event.detail?.demo?'Simulation complete. '+earned+' demo-only points; your saved prototype balance was unchanged.':earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
    complete.scrollIntoView({behavior:'smooth',block:'start'});
   }
   window.wldSelectTab?.('guide');
@@ -65,5 +70,7 @@
  $('tripViewRewards')?.addEventListener('click',()=>window.wldSelectTab?.('rewards'));
  const observer=new MutationObserver(update);
  observer.observe(panel,{attributes:true,attributeFilter:['class']});
+ if($('startJourney'))observer.observe($('startJourney'),{attributes:true,attributeFilter:['disabled']});
+ if($('finishJourney'))observer.observe($('finishJourney'),{attributes:true,attributeFilter:['disabled']});
  update();
 })();

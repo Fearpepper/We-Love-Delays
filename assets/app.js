@@ -119,7 +119,12 @@ function say(s){$('message').textContent=s}function option(sel,label,value){cons
 async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location');say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}}
 function populateRoutes(){const r=$('route'),filter=$('routeFilter').value.trim().toLowerCase(),previous=r.value;reset(r,'Select an AC Transit bus route');const routes=(network.routes||[]).filter(x=>(x.name+' '+(x.description||'')).toLowerCase().includes(filter));routes.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).forEach(x=>option(r,x.name+(x.description?' · '+x.description:''),x.id));r.disabled=!routes.length;if(routes.some(x=>x.id===previous))r.value=previous;else {reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true}if(!routes.length)say('No routes match this filter. Clear the filter or try a different route number.')} $('routeFilter').oninput=()=>{if(network)populateRoutes()};
 
-function populateStopSuggestions(){/* Suggestions are generated while typing, so no huge datalist is needed. */}
+function populateStopSuggestions(){
+ // Refresh text entered while the route network was still loading.
+ for(const id of ['originSearch','place']){
+  if($(id).value.trim()&&!selectedStopIds[id]&&!selectedPlaces[id])$(id).dispatchEvent(new Event('input',{bubbles:true}));
+ }
+}
 function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const all=Object.values(network.stops);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
 const selectedPlaces={originSearch:null,place:null};const selectedStopIds={originSearch:null,place:null};
 function attachAutocomplete(inputId,listId){
@@ -134,7 +139,7 @@ function attachAutocomplete(inputId,listId){
    const choices=[...matches.slice(0,5),...places.slice(0,5).map(p=>({...p,type:'place'}))];
    for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;selectedStopIds[inputId]=item.type==='stop'?item.id:null;list.innerHTML='';field.focus();if(item.type==='place'&&ensureMap()){if(placeMarker)routeMap.removeLayer(placeMarker);placeMarker=L.marker([item.lat,item.lon]).bindPopup(item.name).addTo(routeMap);routeMap.setView([item.lat,item.lon],15);$('mapText').textContent='Pin: '+item.name+'. Nearby transit stops will be used for route search.'}};list.append(btn)}
   };
-  draw();if(q.length>=3){timer=setTimeout(async()=>{try{const data=await api('/api/places?q='+encodeURIComponent(q));draw(data.places||[]);if(!(data.places||[]).length&&!matches.length){list.textContent='No nearby places found. Try a more specific name.'}}catch(e){if(current===request){const note=document.createElement('div');note.className='hint';note.style.padding='10px';note.textContent='Business suggestions unavailable: '+e.message;list.append(note)}}},650)}
+  draw();if(q.length>=3){timer=setTimeout(async()=>{try{const data=await api('/api/places?q='+encodeURIComponent(q));if(current!==request)return;draw(data.places||[]);if(!(data.places||[]).length&&!matches.length){list.textContent='No nearby places found. Try a more specific name.'}}catch(e){if(current===request){const note=document.createElement('div');note.className='hint';note.style.padding='10px';note.textContent='Business suggestions unavailable: '+e.message;list.append(note)}}},650)}
  });
  field.addEventListener('keydown',e=>{if(e.key==='Escape')list.innerHTML='';if(e.key==='ArrowDown'&&list.firstElementChild){e.preventDefault();list.firstElementChild.focus()}});
  list.addEventListener('keydown',e=>{if(e.key==='ArrowDown'&&document.activeElement.nextElementSibling){e.preventDefault();document.activeElement.nextElementSibling.focus()}if(e.key==='Escape'){list.innerHTML='';field.focus()}});
@@ -268,7 +273,7 @@ $('navStop').onclick=()=>{navStopTracking();$('navStatus').textContent='GPS foll
 window.addEventListener('pagehide',navStopTracking);
 function routeChoice(out,title,detail,choose){
  const btn=document.createElement('button');btn.type='button';btn.className='route-choice route-result-card';btn.setAttribute('aria-pressed','false');
- const badge=document.createElement('span');badge.className='route-result-badge';badge.textContent=/transfer/i.test(title)?'1 transfer':'Direct bus';btn.append(badge);
+ const badge=document.createElement('span');badge.className='route-result-badge';badge.textContent=/transfer|→/i.test(title)?'1 transfer':'Direct bus';btn.append(badge);
  const label=document.createElement('strong');label.textContent=title;btn.append(label);
  const sub=document.createElement('small');sub.textContent=detail+' · Tap to select';btn.append(sub);
  const foot=document.createElement('span');foot.className='route-result-foot';foot.textContent='View directions  ↗';btn.append(foot);

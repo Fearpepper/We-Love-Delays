@@ -351,7 +351,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;l
  body[data-desktop-view="guide"] .shell>.grid>div:first-child>.card:first-child>.muted{display:none!important}
 }
 /* Landing screen must never show app navigation until Plan a trip is selected. */
-body:has(#welcome:not(.off)) .app-controls{display:none!important}
-body:has(#welcome:not(.off)) .live-screen{display:none!important}
+
+
 
 .map .leaflet-container{height:100%;width:100%;z-index:0}.map{position:relative}.map .leaflet-control-container{z-index:1}
