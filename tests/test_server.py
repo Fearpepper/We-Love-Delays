@@ -29,6 +29,7 @@ class BackendTests(unittest.TestCase):
     def test_alert_feed_failure_is_not_reported_as_no_disruptions(self):
         with self.assertRaises(RuntimeError):server.normalize_alerts({'error':'quota exceeded'})
         self.assertEqual(server.normalize_alerts({'entity':[]})['alerts'],[])
+        self.assertEqual(server.normalize_alerts({'header':{'gtfs_realtime_version':'2.0'}})['alerts'],[])
 
     def test_concurrent_provider_requests_share_success_and_failure(self):
         from concurrent.futures import ThreadPoolExecutor

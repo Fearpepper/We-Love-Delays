@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parent
 HOST=os.getenv('HOST','0.0.0.0'); PORT=int(os.getenv('PORT','10000'))
 KEY=os.getenv('SF511_API_KEY','').strip()
-CACHE={}; INFLIGHT={}; LOCK=threading.Lock(); CACHE_SCHEDULE={}; GTFS_LOAD_LOCK=threading.Lock()
+CACHE={}; INFLIGHT={}; LOCK=threading.Lock(); CACHE_SCHEDULE={}
 def upstream(path, params, binary=False):
     if not KEY: raise RuntimeError('No 511 API token configured. See README.md.')
     query=urllib.parse.urlencode(dict(params,api_key=KEY))
@@ -53,6 +53,8 @@ def cached(key,ttl,fn):
 
 def normalize_alerts(payload):
     """Normalize GTFS-RT JSON while preserving selector AND semantics."""
+    if isinstance(payload,dict) and isinstance(payload.get('header'),dict) and 'entity' not in payload:
+        payload=dict(payload,entity=[])
     if not isinstance(payload,dict) or not isinstance(payload.get('entity'),list):
         raise RuntimeError('511 returned an unsupported service-alert feed.')
     def field(obj,snake,camel):return obj.get(snake,obj.get(camel))
@@ -88,7 +90,9 @@ def normalize_alerts(payload):
                               'direction':field(item,'direction_id','directionId') if field(item,'direction_id','directionId') is not None else field(trip,'direction_id','directionId'),
                               'trip':str(field(trip,'trip_id','tripId') or '')})
         url=text(alert.get('url'))
-        if urllib.parse.urlsplit(url).scheme not in ('https','http'):url=''
+        try:
+            if urllib.parse.urlsplit(url).scheme not in ('https','http'):url=''
+        except ValueError:url=''
         out.append({'id':str(entity.get('id','')),'title':title or 'Service update','description':description,
                     'url':url,'selectors':selectors,'effect':str(alert.get('effect','UNKNOWN_EFFECT')),
                     'periods':periods(field(alert,'communication_period','communicationPeriod') or field(alert,'active_period','activePeriod'))})
