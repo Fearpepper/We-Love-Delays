@@ -299,3 +299,27 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
 .guide-trip-actions{padding:15px;margin-bottom:12px;border-radius:16px;background:#fff1c7;border:1px solid #e8bb57}
 #guideStartTrip{width:100%;font-size:18px;padding:15px!important}
 #guideTripFeedback{margin:9px 0 0}
+
+/* Focused navigation: three clear destinations, optional tools remain accessible. */
+.app-controls .secondary-tab{display:none!important}
+.app-controls{justify-content:center!important;gap:8px!important}
+.app-controls button:not(.secondary-tab){flex:1;max-width:230px}
+.dashboard-shortcuts .secondary-shortcut{display:none!important}
+.dashboard-shortcuts{grid-template-columns:minmax(0,1fr)!important}
+.dashboard-shortcut#quickPlan{max-width:100%!important}
+.dashboard-heading .dashboard-mark{display:none}
+.dashboard{padding:20px!important}
+.dashboard-heading h2{font-size:clamp(24px,4vw,31px)!important}
+.dashboard-heading p{font-size:13px}
+#manualRouteDetails:not([open]){margin-top:12px!important}
+#manualRouteDetails>summary{font-size:13px!important;color:#506981!important}
+#autoResults:empty{display:none}
+#autoResults .notice{margin:8px 0!important}
+#autoResults .route-result-card{padding:13px 15px!important;margin:7px 0!important;gap:5px!important}
+#autoResults .route-result-card strong{font-size:16px}
+#autoResults .route-result-timing{font-size:12px;padding:7px 9px}
+#autoResults .route-result-foot{font-size:12px}
+#autoResults .route-result-card small{font-size:12px}
+.reward-milestones{display:none!important}
+#exportRewards,#importRewards{font-size:12px!important;min-height:38px!important;padding:7px 12px!important}
+@media(max-width:790px){.dashboard{margin-bottom:10px!important}.app-controls{gap:2px!important}.app-controls button:not(.secondary-tab){min-width:0!important;padding:8px!important}}
