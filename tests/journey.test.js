@@ -25,8 +25,9 @@ const alternatives=[[{departure:at(20),arrival:at(35)}],[{departure:at(45),arriv
 assert.equal(choose(alternatives,walks,now+80*60000).chain[1].arrival,at(70),'try later transfer when first arrives too late');
 assert.match(app,/async function findDirectTrips\(/,'route search is async');
 assert.match(app,/await Promise\.all\(\[resolveTypedLocation\('originSearch'\),resolveTypedLocation\('place'\)\]\)/,'typed locations are resolved');
-assert.match(html,/id="liveTripScreen"/,'dedicated live trip screen exists');
-assert.match(html,/id="appLive"/,'live trip tab exists');
+assert.doesNotMatch(html,/id="liveTripScreen"/,'redundant live trip screen removed');
+assert.doesNotMatch(html,/id="appLive"/,'redundant live trip tab removed');
+assert.match(html,/id="guidePrediction"/,'Guide contains predicted delay summary');
 assert.match(app+'\n'+navigation,/navigator\.serviceWorker\.register\('\/sw\.js'\)/,'PWA registration exists');
 const ids=[...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1]);
 assert.equal(new Set(ids).size,ids.length,'HTML IDs are unique');
@@ -38,7 +39,9 @@ assert.match(design,/--berkeley-blue:#003262/,'Berkeley blue design token presen
 assert.match(design,/--california-gold:#fdb515/,'California gold design token present');
 assert.match(html,/href="\/assets\/design\.css"/,'new design stylesheet linked');
 assert.match(html,/id="appRewards"/,'rewards navigation retained');
-assert.match(html,/id="appLive"/,'live tracking navigation retained');
+assert.match(html,/id="liveRefresh"/,'Guide retains live prediction refresh control');
+assert.match(html,/id="liveDelayValue"/,'Guide retains provisional delay value');
+assert.match(html,/id="livePointsValue"/,'Guide retains provisional points value');
 assert.match(html,/id="savedDestinations"/,'saved destinations region exists');
 assert.match(html,/id="recentTrips"/,'recent searches region exists');
 assert.match(html,/id="guideScreen"/,'dedicated guide screen exists');
