@@ -370,7 +370,7 @@ async function rankTransferOptions(out,heading,options){
  }
  await Promise.all([worker(),worker()]);
  if(!heading.isConnected||options.some(x=>!x.card.isConnected))return;
- results.sort((a,b)=>(a.match?.arrival??Infinity)-(b.match?.arrival??Infinity));
+ results.sort((a,b)=>(a.match?.arrival??Infinity)-(b.match?.arrival??Infinity)||options.indexOf(a)-options.indexOf(b));
  const anchor=document.createComment('transfer results');options[0]?.card.before(anchor);
  for(const item of results)anchor.before(item.card);
  anchor.remove();

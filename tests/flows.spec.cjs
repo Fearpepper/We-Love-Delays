@@ -419,3 +419,15 @@ test('transfer results check connection feasibility before selection',async({pag
  await expect(page.locator('.route-choice .route-timing')).toContainText('Scheduled arrival');
  await expect(page.locator('#guideStartTrip')).toBeEnabled();expect(errors).toEqual([]);
 });
+
+test('failed transit download can retry without reloading the page',async({page})=>{
+ const errors=await setup(page);
+ let unavailable=true;
+ await page.route('**/api/network',route=>unavailable?route.fulfill({status:503,json:{error:'Temporarily unavailable'}}):route.fulfill({json:network}));
+ await page.reload();
+ await expect(page.locator('#retryNetwork')).toBeVisible();
+ unavailable=false;await page.locator('#retryNetwork').click();
+ await expect(page.locator('#retryNetwork')).toBeHidden();
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await plan(page);await expect(page.locator('#guideStartTrip')).toBeEnabled();expect(errors).toEqual([]);
+});
