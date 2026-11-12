@@ -97,7 +97,6 @@ def scheduled_journey(sample_trip,board,exit,at=None):
     pattern=next((p for p in data['patterns'] if p.get('sample_trip')==sample_trip),None)
     if not pattern:raise ValueError('Unknown published trip pattern')
     if not (0<=board<exit<len(pattern['stops'])):raise ValueError('Invalid boarding or exit stop')
-    now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-8)))
     # Use America/Los_Angeles for DST-aware service dates.
     from zoneinfo import ZoneInfo
     now=datetime.datetime.now(ZoneInfo('America/Los_Angeles'))
@@ -224,8 +223,11 @@ class Handler(BaseHTTPRequestHandler):
             if path.path=='/api/scheduled-journey':return self.respond(200,scheduled_journey(q.get('trip',[''])[0],int(q.get('board',['-1'])[0]),int(q.get('exit',['-1'])[0])))
             if path.path=='/api/arrivals':return self.respond(200,{'arrivals':arrivals(q.get('code',[''])[0]),'fetched':int(time.time())})
             return self.respond(404,{'error':'Not found'})
-        except (RuntimeError,ValueError) as e:return self.respond(502,{'error':str(e)})
-        except Exception as e:return self.respond(500,{'error':'Unexpected server error: '+str(e)})
+        except ValueError as e:return self.respond(400,{'error':str(e)})
+        except RuntimeError as e:return self.respond(502,{'error':str(e)})
+        except Exception as e:
+            print('[server error]',repr(e))
+            return self.respond(500,{'error':'Unexpected server error. Please try again.'})
 if __name__=='__main__':
     print('We Love Delays — Berkeley web server')
     print('Listening on %s:%s'%(HOST,PORT))
