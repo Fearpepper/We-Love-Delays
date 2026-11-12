@@ -754,7 +754,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   timedOptions.push({card,legs:[t.first,t.second]});
  }
  await rankTransferOptions(out,heading,timedOptions);
- }finally{findingTrip=false;button.disabled=false}
+ }finally{findingTrip=false;button.disabled=false;window.dispatchEvent(new Event('wld:planning-idle'))}
 }
 $('autoFind').onclick=()=>findDirectTrips();
 function setDemo(){demo=true;network={routes:[{id:'51B',name:'51B',description:'Demo: Berkeley corridor'},{id:'6',name:'6',description:'Demo: Telegraph Avenue'}],stops:{a:{id:'a',name:'Downtown Berkeley BART',code:'',lat:37.8695,lon:-122.2686},b:{id:'b',name:'UC Berkeley / Bancroft Way',code:'',lat:37.8688,lon:-122.2586},c:{id:'c',name:'College Ave / Ashby Ave',code:'',lat:37.8564,lon:-122.2534},d:{id:'d',name:'Rockridge BART',code:'',lat:37.8447,lon:-122.2514}},patterns:[{route:'51B',direction:'0',headsign:'Rockridge (simulated)',stops:['a','b','c','d']},{route:'51B',direction:'1',headsign:'Downtown Berkeley (simulated)',stops:['d','c','b','a']},{route:'6',direction:'0',headsign:'Telegraph Avenue (simulated)',stops:['a','b','c']}]};$('feedStatus').textContent='● Berkeley demonstration';populateRoutes();populateStopSuggestions();say('Demo mode is simulated. Routes, stop sequences, and delays shown here are illustrative, not live service.');$('arrivals').textContent='Demo mode: no real-time arrivals.';$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—'}

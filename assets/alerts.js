@@ -20,11 +20,16 @@ function alertHasCurrentImpact(alert,now=Date.now()/1000){
  const replanButton=document.createElement('button');replanButton.className='btn alt';replanButton.type='button';replanButton.textContent='Find alternatives avoiding these notices';
  const replanResults=document.createElement('div');replanResults.id='replanResults';
  replanner.append(replanTitle,replanStatus,replanButton,replanResults);
- let data=null,error='',pending=null,lastAttempt=0,replanKey='',replanning=false;
+ let data=null,error='',pending=null,lastAttempt=0,replanKey='',replanning=false,waiting=false;
  const severe=new Set(['1','2','3','4','6','9','NO_SERVICE','REDUCED_SERVICE','SIGNIFICANT_DELAYS','DETOUR','STOP_MOVED','MODIFIED_SERVICE']);
  function affected(){const legs=activeNavigation?.legs;return !legs?.length?[]:(data?.alerts||[]).filter(a=>severe.has(a.effect)&&relevant(a,legs)&&(!a.periods?.length||a.periods.some(p=>(!p.start||p.start<=Date.now()/1000)&&(!p.end||p.end>Date.now()/1000))));}
  async function replan(){
-  if(replanning||!navigator.onLine||!activeNavigation)return;
+  if(replanning||waiting||!navigator.onLine||!activeNavigation)return;
+  if(findingTrip){
+   waiting=true;const selectedTrip=activeNavigation;
+   replanStatus.textContent='Waiting for the current route search to finish before checking alternatives…';
+   window.addEventListener('wld:planning-idle',()=>{waiting=false;if(activeNavigation===selectedTrip)replan();},{once:true});return;
+  }
   if(journey){replanStatus.textContent='You are traveling. Open Plan and choose your current starting stop before searching; your active trip stays saved.';setAppView('routes');return;}
   const notices=affected();if(!notices.length)return;
   replanning=true;replanButton.disabled=true;
@@ -36,7 +41,7 @@ function alertHasCurrentImpact(alert,now=Date.now()/1000){
  replanButton.addEventListener('click',replan);
  function updateReplan(){
   const notices=affected();replanner.hidden=!notices.length;
-  const key=JSON.stringify([activeNavigation?.legs.map(l=>[l.p.route,l.start,l.end]),notices.map(a=>a.id)]);
+  const key=JSON.stringify([activeNavigation?.legs.map(l=>[l.p.route,l.p.stops.slice(l.start,l.end+1)]),notices.map(a=>[a.id,a.effect,a.periods,a.impact_periods,a.selectors,alertHasCurrentImpact(a)])]);
   if(key!==replanKey){replanKey=key;replanResults.replaceChildren();replanStatus.textContent='A notice may affect this route. Notices without machine-readable impact times require checking the published dates. Your current route is kept.';
    if(!journey&&!error&&navigator.onLine&&data&&Date.now()/1000-data.fetched<900&&notices.some(a=>alertHasCurrentImpact(a)))queueMicrotask(replan);
   }
