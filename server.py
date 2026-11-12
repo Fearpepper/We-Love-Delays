@@ -204,7 +204,17 @@ def arrivals(code):
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,fmt,*args):print('[web]',fmt%args)
     def respond(self,code,obj):
-        data=json.dumps(obj,ensure_ascii=False).encode();self.send_response(code);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data)
+        data=json.dumps(obj,ensure_ascii=False,separators=(',',':')).encode()
+        try:
+            self.send_response(code)
+            self.send_header('Content-Type','application/json; charset=utf-8')
+            self.send_header('Content-Length',str(len(data)))
+            self.send_header('Cache-Control','no-store')
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):
+            # Client disconnected before the response finished. Not a server failure.
+            return
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
         if path.path in ('/manifest.webmanifest','/sw.js','/icon.svg'):
@@ -236,6 +246,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(404,{'error':'Not found'})
         except ValueError as e:return self.respond(400,{'error':str(e)})
         except RuntimeError as e:return self.respond(502,{'error':str(e)})
+        except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):
+            return
         except Exception as e:
             print('[server error]',repr(e))
             return self.respond(500,{'error':'Unexpected server error. Please try again.'})
