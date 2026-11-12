@@ -4,7 +4,6 @@
  const tabs={routes:'appTrips',map:'appMap',rewards:'appRewards',guide:'appGuide',live:'appLive'};
  const visibleTabs={routes:'appTrips',guide:'appGuide',rewards:'appRewards'};
  function selectTab(view){
-  if(view==='map'){view='guide';}
   if(view==='live'){view='guide';}
   const guide=document.getElementById('guideScreen');
   if(guide)guide.hidden=view!=='guide';
