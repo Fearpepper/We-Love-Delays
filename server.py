@@ -56,7 +56,7 @@ def normalize_alerts(payload):
     # 511's JSON serializer uses PascalCase and plural repeated-field names;
     # protobuf JSON uses camelCase or snake_case. Canonicalize all three.
     aliases={'entities':'entity','activeperiods':'activeperiod','informedentities':'informedentity',
-             'communicationperiods':'communicationperiod','translations':'translation'}
+             'communicationperiods':'communicationperiod','impactperiods':'impactperiod','translations':'translation'}
     def canonical(value):
         if isinstance(value,list):return [canonical(x) for x in value]
         if isinstance(value,dict):
@@ -109,6 +109,7 @@ def normalize_alerts(payload):
         except ValueError:url=''
         out.append({'id':str(entity.get('id','')),'title':title or 'Service update','description':description,
                     'url':url,'selectors':selectors,'effect':str(alert.get('effect','UNKNOWN_EFFECT')),
+                    'impact_periods':periods(field(alert,'impact_period','impactPeriod')),
                     'periods':periods(field(alert,'communication_period','communicationPeriod') or field(alert,'active_period','activePeriod'))})
     return {'alerts':out,'fetched':int(time.time()),'source':'511 / AC Transit'}
 

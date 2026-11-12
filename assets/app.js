@@ -66,11 +66,11 @@ function updateLiveDashboard(){
  if(panel)panel.hidden=!active;
  const fresh=isFreshJourneyPrediction(journey);
  const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
- $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':journey.untracked?' · Route guide':' · 511 destination prediction'):'No active trip';
+ $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':journey.untracked?' · Route guide':journey.transfer?' · Final bus destination prediction':' · 511 destination prediction'):'No active trip';
  $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':journey.untracked?'Trip in progress · delay rewards unavailable':fresh?'Fresh 511 vehicle prediction':'Awaiting a fresh 511 prediction';
  $('liveDelayValue').textContent=delay===null?'—':String(delay);
  $('livePointsValue').textContent=delay===null?'0':String(Math.max(0,delay)*10);
- $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':journey.untracked?'Follow the route directions. This trip can be completed, but delay rewards are not supported for it.':fresh?'Provisional points based on a recent 511 prediction, not an observed arrival.':'No fresh matching 511 prediction. Provisional points are unavailable.';
+ $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':journey.untracked?'Follow the route directions. This trip can be completed, but delay rewards are not supported for it.':fresh?(journey.transfer?'Transfer points use the final bus prediction only. Earlier-leg delays are not added. This is not an observed arrival.':'Provisional points based on a recent 511 prediction, not an observed arrival.'):'No fresh matching 511 prediction. Provisional points are unavailable.';
  $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':journey?.untracked?'Delay prediction tracking is not supported for this route.':'511 predictions update while the trip remains open.';
  $('liveRefresh').disabled=!active||journey.demo||journey.untracked;
 }
@@ -81,7 +81,12 @@ function updateDelayPreview(){
  el.textContent=!isFreshJourneyPrediction(journey)?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'511 destination prediction: scheduled '+fmt(journey.aimed)+' · predicted '+fmt(journey.expected)+' · '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Vehicle reported '+fmt(new Date(journey.recorded).toISOString())+'. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
- const j=journey;if(!j||j.demo||j.untracked||j.busy||document.hidden||!navigator.onLine)return;j.busy=true;
+ const j=journey;if(!j||j.demo||j.untracked||j.busy||document.hidden||!navigator.onLine)return;
+ if(j.transfer){
+  const boardIndex=activeNavigation?.steps.findIndex(x=>x.kind==='board'&&x.legIndex===j.finalLegIndex)??-1;
+  if(boardIndex<0||activeNavigation.progress<=boardIndex){j.delay=null;j.sampled=null;j.recorded=null;$('journeyStatus').textContent='Transfer trip started. Mark boarding the final bus complete to track its destination delay. Earlier-leg delays are not added.';updateDelayPreview();return;}
+ }
+ j.busy=true;
  try{
   const response=await api('/api/arrivals?code='+encodeURIComponent(j.exitCode));
   if(j!==journey||!navigator.onLine)return;
@@ -301,6 +306,7 @@ $('navAdvance').onclick=()=>{
  if(!activeNavigation)return;
  if(activeNavigation.progress<activeNavigation.steps.length)activeNavigation.progress++;
  renderNavigation();
+ if(journey?.transfer)sampleJourneyDelay();
  if(activeNavigation.progress===activeNavigation.steps.length){
   if(!journey)$('startJourney').click();
   $('finishJourney').click();
@@ -308,7 +314,9 @@ $('navAdvance').onclick=()=>{
  }
  $('navStatus').textContent='Step marked complete manually. Confirm boarding, alighting and pedestrian access yourself; GPS cannot verify these actions.';
 };
-function updateNavigationPosition(lat,lon,accuracy){
+function updateNavigationPosition(lat,lon,accuracy,timestamp=Date.now()){
+ if(![lat,lon,accuracy,timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||Date.now()-timestamp>30000||timestamp>Date.now()+5000){$('navStatus').textContent='GPS fix unavailable or outdated. Written directions remain available.';return;}
+ window.dispatchEvent(new CustomEvent('wld:gps-fix',{detail:{accuracy,timestamp}}));
  locationPoint={lat,lon};showLocationOnMap();
  if(!activeNavigation)return;
  const steps=activeNavigation.steps;
@@ -331,7 +339,7 @@ $('navStart').onclick=()=>{
  $('navStatus').textContent='Requesting GPS permission… Keep this page open while following your journey.';
  $('navStart').disabled=true;$('navStop').disabled=false;
  gpsWatchId=navigator.geolocation.watchPosition(
-  p=>updateNavigationPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy),
+  p=>updateNavigationPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy,p.timestamp),
   e=>{navStopTracking();$('navStatus').textContent='Location tracking stopped: '+(e.message||'check browser location permissions')+'. You can still follow the written directions.'},
   {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
  );
@@ -347,6 +355,7 @@ function routeChoice(out,title,detail,choose){
  btn.onclick=()=>{
   out.querySelectorAll('.route-choice').forEach(x=>{x.setAttribute('aria-pressed','false');x.querySelector('small').textContent=x.querySelector('small').textContent.replace(' · Selected','')});
   btn.setAttribute('aria-pressed','true');sub.textContent=detail+' · Selected';
+  if(out.id==='replanResults'&&journey)window.wldCancelTrip?.();
   choose();
  };
  out.append(btn);return btn;
@@ -553,10 +562,10 @@ async function resolveTypedLocation(id){
  }catch(e){console.warn('Place lookup unavailable:',e)}
 }
 let findingTrip=false;
-async function findDirectTrips(){
+async function findDirectTrips(options={}){
  if(findingTrip)return;
  findingTrip=true;const button=$('autoFind');button.disabled=true;
- const out=$('autoResults');out.textContent='Finding nearby stops and bus routes…';
+ const out=options.target||$('autoResults');out.textContent='Finding nearby stops and bus routes…';
  try{
  if(!network){out.textContent='Routes have not loaded yet. Check the live-data status.';return}
  await Promise.all([resolveTypedLocation('originSearch'),resolveTypedLocation('place')]);
@@ -569,7 +578,7 @@ async function findDirectTrips(){
  out.innerHTML='';
  const from=new Set(a.map(s=>s.id)),to=new Set(b.map(s=>s.id));
  const direct=[],firstLegs=[],lastLegs=[],seen=new Set();
- const patternsWithStops=network.patterns.filter(p=>p.stops?.length>1);
+ const patternsWithStops=network.patterns.filter(p=>p.stops?.length>1&&(!options.avoid||!options.avoid.some(a=>alertAffectsLeg(a,{p,start:0,end:p.stops.length-1}))));
  for(const p of patternsWithStops){
   let start=-1;
   for(let i=0;i<p.stops.length;i++){
@@ -747,7 +756,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
  await rankTransferOptions(out,heading,timedOptions);
  }finally{findingTrip=false;button.disabled=false}
 }
-$('autoFind').onclick=findDirectTrips;
+$('autoFind').onclick=()=>findDirectTrips();
 function setDemo(){demo=true;network={routes:[{id:'51B',name:'51B',description:'Demo: Berkeley corridor'},{id:'6',name:'6',description:'Demo: Telegraph Avenue'}],stops:{a:{id:'a',name:'Downtown Berkeley BART',code:'',lat:37.8695,lon:-122.2686},b:{id:'b',name:'UC Berkeley / Bancroft Way',code:'',lat:37.8688,lon:-122.2586},c:{id:'c',name:'College Ave / Ashby Ave',code:'',lat:37.8564,lon:-122.2534},d:{id:'d',name:'Rockridge BART',code:'',lat:37.8447,lon:-122.2514}},patterns:[{route:'51B',direction:'0',headsign:'Rockridge (simulated)',stops:['a','b','c','d']},{route:'51B',direction:'1',headsign:'Downtown Berkeley (simulated)',stops:['d','c','b','a']},{route:'6',direction:'0',headsign:'Telegraph Avenue (simulated)',stops:['a','b','c']}]};$('feedStatus').textContent='● Berkeley demonstration';populateRoutes();populateStopSuggestions();say('Demo mode is simulated. Routes, stop sequences, and delays shown here are illustrative, not live service.');$('arrivals').textContent='Demo mode: no real-time arrivals.';$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—'}
 $('route').onchange=()=>{reset($('pattern'),'Choose direction / pattern');reset($('board'),'Choose a direction first');reset($('exit'),'Choose a boarding stop first');selected=null;$('preview').disabled=true;const route=$('route').value;if(!route)return;patterns=network.patterns.filter(p=>p.route===route);patterns.sort((a,b)=>a.direction.localeCompare(b.direction)||b.stops.length-a.stops.length);patterns.forEach((p,i)=>option($('pattern'),(p.headsign||'Direction '+p.direction)+' · '+p.stops.length+' stops'+(i?' · variant '+(i+1):''),String(i)));$('pattern').disabled=!patterns.length;say(patterns.length?'Choose a direction. Some routes have multiple stop patterns.':'No ordered trip patterns available for this route.')};
 $('pattern').onchange=()=>{reset($('board'),'Choose a boarding stop');reset($('exit'),'Choose a boarding stop first');selected=$('pattern').value===''?null:patterns[Number($('pattern').value)];if(!selected)return;populateBoarding();nearest()};
@@ -877,18 +886,19 @@ $('startJourney').onclick=()=>{
  const legs=activeNavigation?.legs;
  const stops=chosenStops();if(!legs?.length&&!stops)return;
  stopDelayMonitor();delayDemo=0;
- const leg=legs?.length===1?legs[0]:null;
+ const leg=legs?.length?legs[legs.length-1]:null;
  const exit=legs?.length?network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]]:stops[1];
  const routeId=leg?leg.p.route:$('route').value;
  const route=legs?.length?legs.map(x=>'Bus '+routeName(x.p)).join(' → '):$('route').selectedOptions[0].textContent;
- const untracked=Boolean(legs?.length>1||!exit?.code);
- journey={demo,untracked,route,routeId,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
+ const untracked=Boolean(!exit?.code);
+ journey={demo,untracked,transfer:Boolean(legs?.length>1),finalLegIndex:legs?.length?legs.length-1:0,route,routeId,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
  $('finishJourney').disabled=false;updateDelayPreview();
  if(demo){$('journeyStatus').textContent='Simulation started. Demo points only.'}
  else if(untracked){$('journeyStatus').textContent='Trip started. Follow the directions and finish when you arrive. Delay rewards are unavailable for this route.'}
  else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,145000)}
  window.wldUpdateGuide?.();
  window.dispatchEvent(new Event('wld:trip-started'));
+ if(journey?.transfer)$('guideTripFeedback').textContent='Trip started. Transfer rewards track the final bus only after you mark boarding complete.';
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
@@ -904,7 +914,7 @@ $('finishJourney').onclick=()=>{
   $('journeyStatus').textContent='Simulation completed: +'+earned+' demo-only points ('+demoPoints+' this session). Your saved prototype balance was not changed.';
  }else{
   points+=earned;
-  rewardHistory.unshift({earned,minutes:delay,route:journey.route+' (511 prediction)',time:new Date().toISOString(),basis:'destination_prediction'});
+  rewardHistory.unshift({earned,minutes:delay,route:journey.route+(journey.transfer?' (final bus prediction)':' (511 prediction)'),time:new Date().toISOString(),basis:journey.transfer?'final_bus_prediction':'destination_prediction'});
   rewardHistory=rewardHistory.slice(0,20);
   try{localStorage.setItem('wld-berkeley-points',String(points));localStorage.setItem(REWARD_HISTORY_KEY,JSON.stringify(rewardHistory))}catch(e){}
   $('points').textContent=points;renderRewardHistory();

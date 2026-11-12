@@ -12,5 +12,6 @@ jobs:
         with:
           node-version: '22'
       - run: node tests/journey.test.js
+      - run: node tests/shell.test.cjs
       - run: python -m py_compile server.py
       - run: python -m unittest discover -s tests -p 'test_*.py'

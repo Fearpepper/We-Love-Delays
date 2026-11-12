@@ -431,3 +431,51 @@ test('failed transit download can retry without reloading the page',async({page}
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await plan(page);await expect(page.locator('#guideStartTrip')).toBeEnabled();expect(errors).toEqual([]);
 });
+
+test('transfer rewards wait for final-bus boarding and use only its delay',async({page})=>{
+ const errors=await setup(page);await plan(page,'Gamma destination');
+ await page.route('**/api/arrivals?*',route=>route.fulfill({json:{arrivals:[{route:'6',vehicle:'last-bus',recorded:new Date().toISOString(),aimed:new Date(Date.now()+600000).toISOString(),expected:new Date(Date.now()+720000).toISOString()}]}}));
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#livePointsValue')).toHaveText('0');
+ // reach, board first bus, leave first bus, board final bus
+ for(let i=0;i<4;i++)await page.locator('#navAdvance').click();
+ await expect(page.locator('#livePointsValue')).toHaveText('20');
+ await expect(page.locator('#liveDataNote')).toContainText('final bus prediction only');
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#points')).toHaveText('20');
+ await page.reload();await page.locator('#appRewards').click();
+ await expect(page.locator('#rewardHistory')).toContainText('final bus prediction');
+ expect(errors).toEqual([]);
+});
+test('stale or inaccurate GPS fixes cannot advance walking progress',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ const before=await page.evaluate(()=>activeNavigation.progress);
+ await page.evaluate(()=>updateNavigationPosition(37.87,-122.27,5,Date.now()-60000));
+ expect(await page.evaluate(()=>activeNavigation.progress)).toBe(before);
+ await expect(page.locator('#navStatus')).toContainText('outdated');
+ await page.evaluate(()=>updateNavigationPosition(37.87,-122.27,150,Date.now()));
+ expect(await page.evaluate(()=>activeNavigation.progress)).toBe(before);
+ await expect(page.locator('#gpsDiagnostics')).toContainText('accuracy is low');
+ await page.evaluate(()=>updateNavigationPosition(37.87,-122.27,5,Date.now()));
+ expect(await page.evaluate(()=>activeNavigation.progress)).toBe(before+1);
+ await expect(page.locator('#navNext')).toContainText('Wait for and board');
+ expect(errors).toEqual([]);
+});
+test('current disruption automatically searches alternatives without replacing the trip',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'closed',title:'51B closed now',description:'Use another bus',effect:'NO_SERVICE',selectors:[{route:'51B'}],periods:[{start:Math.floor(Date.now()/1000)-60,end:Math.floor(Date.now()/1000)+3600}]}]}}));
+ await page.reload();await plan(page);
+ await expect(page.locator('#replanPanel')).toBeVisible();
+ await expect(page.locator('#replanStatus')).toContainText('search complete');
+ await expect(page.locator('#replanResults')).not.toContainText('Bus 51B');
+ await expect(page.locator('#guideStartTrip')).toBeVisible();
+ await expect(page.locator('#navSteps')).toContainText('Bus 51B');
+ expect(errors).toEqual([]);
+});
+test('undated disruption offers review instead of automatically assuming it applies now',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'future',title:'Future detour',effect:'DETOUR',selectors:[{route:'51B'}],periods:[]}]}}));
+ await page.reload();await plan(page);
+ await expect(page.locator('#replanStatus')).toContainText('published dates');
+ await expect(page.locator('#replanResults')).toBeEmpty();expect(errors).toEqual([]);
+});

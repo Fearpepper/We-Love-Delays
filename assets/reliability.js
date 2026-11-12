@@ -14,6 +14,22 @@
  const retry=document.createElement('button');retry.id='retryNetwork';retry.type='button';retry.className='btn alt';retry.textContent='Retry loading transit data';retry.hidden=true;
  document.getElementById('message').after(retry);
  retry.addEventListener('click',async()=>{retry.disabled=true;try{await load()}finally{retry.disabled=false;retry.hidden=Boolean(network&&network!==recoveredNetwork)}});
+ const startup=document.createElement('p');startup.id='startupStatus';startup.className='hint';startup.hidden=true;
+ document.getElementById('message').after(startup);
+ const startupTimer=setTimeout(()=>{if(!window.wldNetworkReady){startup.hidden=false;startup.textContent='Opening saved app screens while the free server wakes. Live routes and predictions still need the server; this can take about a minute.';}},2500);
+ window.addEventListener('wld:network-ready',()=>{clearTimeout(startupTimer);startup.hidden=true;});
+ const gps=document.createElement('p');gps.id='gpsDiagnostics';gps.className='hint';gps.setAttribute('role','status');
+ gps.textContent='GPS is optional. No location history is stored. Keep the app open while following your trip.';
+ document.getElementById('navStart').closest('.actions')?.after(gps);
+ let lastFix=null;
+ window.addEventListener('wld:trip-finished',()=>{lastFix=null;gps.textContent='GPS following ended with this trip.';});
+ window.addEventListener('wld:route-selected',()=>{lastFix=null;gps.textContent='GPS is optional. Start following to check reception and accuracy.';});
+ window.addEventListener('wld:gps-fix',event=>{lastFix=event.detail;gps.textContent=event.detail.accuracy>60?'GPS accuracy is low (±'+Math.round(event.detail.accuracy)+' m). Walking steps will not advance automatically. Move outdoors or follow written directions.':'GPS received · accuracy ±'+Math.round(event.detail.accuracy)+' m. Boarding and leaving buses still require your confirmation.';});
+ document.getElementById('navStart').addEventListener('click',async()=>{
+  try{const permission=await navigator.permissions?.query({name:'geolocation'});if(permission?.state==='denied')gps.textContent='Location permission is blocked. Enable it in this site’s browser settings, then try again. Written directions still work.';}catch{}
+ });
+ document.getElementById('navStop').addEventListener('click',()=>{lastFix=null;gps.textContent='GPS paused. No further location fixes are requested while paused.';});
+ setInterval(()=>{if(lastFix&&Date.now()-lastFix.timestamp>30000)gps.textContent='GPS has not updated for over 30 seconds. Position may be outdated. Keep this page visible or follow written directions.';},15000);
  const alternatives=document.createElement('div');alternatives.className='actions';
  const planner=document.createElement('a');planner.className='btn alt';planner.textContent='Check trip in Google Maps';planner.target='_blank';planner.rel='noopener noreferrer';
  const alerts=document.createElement('a');alerts.className='btn alt';alerts.textContent='Official service alerts';alerts.href='https://www.actransit.org/alert';alerts.target='_blank';alerts.rel='noopener noreferrer';
