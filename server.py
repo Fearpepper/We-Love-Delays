@@ -197,6 +197,18 @@ class Handler(BaseHTTPRequestHandler):
         data=json.dumps(obj,ensure_ascii=False).encode();self.send_response(code);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data)
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
+        if path.path in ('/manifest.webmanifest','/sw.js','/icon.svg'):
+            assets={'/manifest.webmanifest':('manifest.webmanifest','application/manifest+json'),'/sw.js':('sw.js','text/javascript; charset=utf-8'),'/icon.svg':('icon.svg','image/svg+xml')}
+            name,mime=assets[path.path]
+            data=(ROOT/name).read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type',mime)
+            self.send_header('Content-Length',str(len(data)))
+            self.send_header('Cache-Control','no-cache')
+            if path.path=='/sw.js':self.send_header('Service-Worker-Allowed','/')
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if path.path in ('/','/index.html'):
             data=(ROOT/'index.html').read_bytes();self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data);return
         try:
