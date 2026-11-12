@@ -11,6 +11,7 @@ function scrollMobileView(view){
  return true;
 }
 function setAppView(view){
+ if(view==='guide'&&typeof window.wldSelectTab==='function'){window.wldSelectTab('guide');return;}
  if(scrollMobileView(view))return;
  const map=view==='map'||view==='guide';
  document.body.classList.toggle('app-map-mode',map);
@@ -475,8 +476,8 @@ async function findDirectTrips(){
  }
  // Rank candidate direct routes by practical convenience, not just stop count.
 // Distances here are straight-line approximations, not verified walking paths.
-const tripOrigin=selectedPlaces.originSearch||locationPoint;
-const tripDestination=selectedPlaces.place;
+const tripOrigin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
+const tripDestination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
 const safeWalk=(point,stop)=>point&&stop&&Number.isFinite(Number(point.lat))&&Number.isFinite(Number(point.lon))&&Number.isFinite(Number(stop.lat))&&Number.isFinite(Number(stop.lon))?distance(Number(point.lat),Number(point.lon),Number(stop.lat),Number(stop.lon))*1000:null;
 function directRank(x){
  const first=network.stops[x.p.stops[x.start]],last=network.stops[x.p.stops[x.end]];
@@ -526,7 +527,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   results.sort((a,b)=>(a.arrival??Infinity)-(b.arrival??Infinity)||a.ranking.score-b.ranking.score);
   const verified=results.filter(r=>Number.isFinite(r.arrival)).length;
   heading.textContent=verified?'Recommended buses · earliest feasible scheduled arrival first':'Direct bus options · estimated convenience order';
-  rankingNotice.textContent=verified?verified+' of '+results.length+' options have a feasible 511 schedule and ORS walking route. Scheduled times are not live predictions.':'Actual journey times unavailable. Options remain sorted by approximate walking convenience and stop count.';
+  rankingNotice.textContent=verified?verified+' of '+results.length+' options have a feasible 511 schedule and ORS walking route. Scheduled times are not live predictions.':'Could not confirm a catchable scheduled journey for these options. You can still explore each route; check the details for walking and departure availability.';
   const fmt=ms=>new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   for(const r of results){
    if(!r.card.isConnected)continue;
