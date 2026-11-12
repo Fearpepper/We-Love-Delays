@@ -7,9 +7,10 @@
  content.appendChild(panel);
  function update(){
   const hasRoute=!panel.classList.contains('hidden');
-  empty.hidden=hasRoute;content.hidden=!hasRoute;
+  empty.hidden=hasRoute;content.hidden=!hasRoute;syncMap();
  }
  window.wldUpdateGuide=update;
+ window.wldSyncGuideMap=syncMap;
  $('guidePlanTrip').addEventListener('click',()=>{
   if(typeof window.wldSelectTab==='function')window.wldSelectTab('routes');
   const input=$('originSearch');if(input)input.focus({preventScroll:true});
