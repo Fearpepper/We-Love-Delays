@@ -695,3 +695,39 @@ $('liveFinish').onclick=()=>{if(!journey)return;$('finishJourney').click();$('li
 $('liveGoTrips').onclick=()=>document.getElementById('appTrips').click();
 updateLiveDashboard();
 load();
+
+/* Always-available alternatives to third-party business geocoding. */
+(function(){
+ const manual=$('manualRoutePicker'),details=$('manualRouteDetails');
+ if(manual&&details)manual.addEventListener('click',()=>{
+  if(typeof window.wldSelectTab==='function')window.wldSelectTab('routes');
+  details.open=true;
+  details.scrollIntoView({behavior:'smooth',block:'start'});
+  if(network)$('routeFilter').focus({preventScroll:true});
+ });
+ const picker=$('destinationMapPicker');
+ if(picker)picker.addEventListener('click',()=>{
+  if(!network){$('autoResults').textContent='Bus stops are still loading. Please try again shortly.';return}
+  if(typeof window.wldSelectTab==='function')window.wldSelectTab('map');
+  if(!ensureMap()){$('autoResults').textContent='Map unavailable. Choose a destination bus stop by name or select a route manually.';return}
+  $('autoResults').textContent='Tap your destination on the map. We will use nearby AC Transit stops.';
+  routeMap.invalidateSize();
+  routeMap.once('click',e=>{
+   const lat=e.latlng.lat,lon=e.latlng.lng;
+   if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+   const nearest=Object.values(network.stops).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon))
+    .map(p=>({p,d:distance(lat,lon,p.lat,p.lon)})).sort((a,b)=>a.d-b.d)[0];
+   if(!nearest||nearest.d>1.2){
+    $('autoResults').textContent='No AC Transit stop within 1.2 km of that point. Choose somewhere closer to a bus stop.';
+    if(typeof window.wldSelectTab==='function')window.wldSelectTab('routes');
+    return;
+   }
+   selectedStopIds.place=null;
+   selectedPlaces.place={name:'Map-selected destination',lat,lon};
+   $('place').value='📍 Map-selected destination near '+nearest.p.name;
+   $('destinationSuggestions').innerHTML='';
+   $('autoResults').textContent='Destination selected near '+nearest.p.name+'. Tap Find my bus route to compare options.';
+   if(typeof window.wldSelectTab==='function')window.wldSelectTab('routes');
+  });
+ });
+})();
