@@ -330,3 +330,18 @@ test('cancelling clears recovery without awarding provisional points',async({pag
  expect(await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'))).toBeNull();
  expect(errors).toEqual([]);
 });
+
+test('saved bus directions open before a slow transit network download completes',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#tripRecoveryStatus')).toContainText('saved on this device');
+ let release;const gate=new Promise(resolve=>{release=resolve});
+ await page.route('**/api/network',async route=>{await gate;await route.fulfill({json:network});});
+ await page.reload();
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#navSteps')).toContainText('Beta transfer');
+ release();
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ expect(errors).toEqual([]);
+});

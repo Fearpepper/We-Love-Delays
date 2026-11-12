@@ -2,7 +2,7 @@
 (function(){
  'use strict';
  const key='wld-active-trip-v1',maxAge=12*60*60*1000;
- let restoring=false,startedAt=null,lastPoll=0;
+ let restoring=false,startedAt=null,lastPoll=0,recoveredNetwork=null;
  const recovery=document.createElement('p');recovery.id='tripRecoveryStatus';recovery.className='hint';recovery.setAttribute('role','status');
  const cancel=document.createElement('button');cancel.type='button';cancel.className='btn alt';cancel.textContent='Cancel trip';cancel.id='cancelTrip';cancel.hidden=true;
  cancel.addEventListener('click',()=>window.wldCancelTrip?.());
@@ -52,7 +52,7 @@
   const offline=!network;
   restoring=true;
   try{
-   if(!network){network={stops:saved.stops,routes:saved.routes,patterns:saved.legs.map(l=>l.p)};document.getElementById('feedStatus').textContent='Saved trip only · live routes unavailable';}
+   if(!network){network={stops:saved.stops,routes:saved.routes,patterns:saved.legs.map(l=>l.p)};recoveredNetwork=network;document.getElementById('feedStatus').textContent='Saved trip only · live routes unavailable';}
    else{
     for(const [id,s] of Object.entries(saved.stops))if(!network.stops[id])network.stops[id]=s;
     for(const r of saved.routes)if(!network.routes.some(x=>x.id===r.id))network.routes.push(r);
@@ -116,11 +116,16 @@
  window.addEventListener('wld:progress',save);
  window.addEventListener('wld:trip-finished',clear);
  window.addEventListener('wld:route-selected',()=>{if(!restoring)clear();updateAlternatives();});
- window.addEventListener('wld:network-ready',restore);
+ window.addEventListener('wld:network-ready',()=>{
+  if(journey&&recoveredNetwork){
+   if(network!==recoveredNetwork){recoveredNetwork=null;connection();}
+   else{document.getElementById('feedStatus').textContent='Saved trip only · live routes unavailable';status.hidden=false;status.textContent='Saved bus directions restored. Live transit data is unavailable; use official sources before boarding.';}
+  }else restore();
+ });
  window.addEventListener('pagehide',save);
  window.addEventListener('offline',connection);
- window.addEventListener('online',()=>{connection();lastPoll=0;tick();});
+ window.addEventListener('online',()=>{connection();lastPoll=0;if(!network||network===recoveredNetwork)load();tick();});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastPoll=0;connection();tick();}});
  setInterval(tick,15000);
- connection();if(window.wldNetworkReady)restore();
+ connection();restore();
 })();
