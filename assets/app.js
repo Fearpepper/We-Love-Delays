@@ -66,12 +66,12 @@ function updateLiveDashboard(){
  if(panel)panel.hidden=!active;
  const fresh=isFreshJourneyPrediction(journey);
  const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
- $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · 511 destination prediction'):'No active trip';
+ $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':journey.untracked?' · Route guide':' · 511 destination prediction'):'No active trip';
  $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':journey.untracked?'Trip in progress · delay rewards unavailable':fresh?'Fresh 511 vehicle prediction':'Awaiting a fresh 511 prediction';
  $('liveDelayValue').textContent=delay===null?'—':String(delay);
  $('livePointsValue').textContent=delay===null?'0':String(Math.max(0,delay)*10);
  $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':journey.untracked?'Follow the route directions. This trip can be completed, but delay rewards are not supported for it.':fresh?'Provisional points based on a recent 511 prediction, not an observed arrival.':'No fresh matching 511 prediction. Provisional points are unavailable.';
- $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':'511 predictions update while the trip remains open.';
+ $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':journey?.untracked?'Delay prediction tracking is not supported for this route.':'511 predictions update while the trip remains open.';
  $('liveRefresh').disabled=!active||journey.demo||journey.untracked;
 }
 function updateDelayPreview(){
@@ -566,7 +566,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
     $('routeFilter').value='';populateRoutes();$('route').value=x.p.route;$('route').onchange();
     const index=patterns.indexOf(x.p);if(index<0)return;
     $('stopFilter').value='';$('pattern').value=String(index);$('pattern').onchange();
-    $('board').value=String(x.start);boardChanged();$('exit').value=String(x.end);$('exit').onchange();$('preview').click();
+    $('board').value=String(x.start);boardChanged();$('exit').value=String(x.end);$('exit').onchange();drawRoute();refreshArrivals();
     const fromStop=network.stops[x.p.stops[x.start]],toStop=network.stops[x.p.stops[x.end]];
     drawPedestrianPaths([x]);setNavigation([x]);setAppView('guide');
     showSelectedRoute(out,'Bus '+routeName(x.p),['Board at '+(fromStop?.name||'starting stop'),'Get off at '+(toStop?.name||'destination stop')],[x]);
@@ -776,7 +776,7 @@ function drawRoute(){
  setTimeout(()=>routeMap.invalidateSize(),100);
  $('mapText').textContent='Showing '+segment.length+' ordered stops: '+stops[0].name+' → '+stops[1].name+'. Red line connects published stop coordinates; it is NOT the actual road geometry or a live vehicle position.';
 }
-$('preview').onclick=()=>{const stops=chosenStops();if(!stops){say('Choose a destination after your boarding stop.');return}drawRoute();say((demo?'Simulated':'Published')+' stop order shown on map. The line connects stops, not exact streets. This does not guarantee a departure at your chosen time.');$('startJourney').disabled=false;refreshArrivals()};
+$('preview').onclick=()=>{const stops=chosenStops();if(!stops){say('Choose a destination after your boarding stop.');return}drawRoute();say((demo?'Simulated':'Published')+' stop order shown on map. The line connects stops, not exact streets. This does not guarantee a departure at your chosen time.');$('startJourney').disabled=false;refreshArrivals();setNavigation([{p:selected,start:Number($('board').value),end:Number($('exit').value)}]);setAppView('guide')};
 async function refreshArrivals(){
  if(demo){$('arrivals').textContent='Demo mode: no real-time arrivals.';return}
  if(!selected||$('board').value==='')return;
