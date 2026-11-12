@@ -15,6 +15,26 @@ async function setup(page,delayed=true,networkReady=Promise.resolve()){
   if(path==='/api/walk-route')data={available:false};
   await route.fulfill({json:data});
  });
+
+test('an older place lookup cannot erase newer stop suggestions',async({page})=>{
+ const errors=await setup(page);
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ let release,started;
+ const pending=new Promise(resolve=>{release=resolve});
+ const requested=new Promise(resolve=>{started=resolve});
+ await page.route('**/api/places?**',async route=>{
+  if(new URL(route.request().url()).searchParams.get('q')==='zzzz'){started();await pending;}
+  await route.fulfill({json:{places:[]}});
+ });
+ await page.locator('#originSearch').fill('zzzz');
+ await requested;
+ await page.locator('#originSearch').fill('Alpha boarding');
+ await expect(page.locator('#originSuggestions button').first()).toContainText('Alpha boarding');
+ const oldResponse=page.waitForResponse(r=>r.url().includes('/api/places?q=zzzz'));
+ release();await oldResponse;
+ await expect(page.locator('#originSuggestions button').first()).toContainText('Alpha boarding');
+ expect(errors).toEqual([]);
+});
  await page.goto('/');
  await expect(page.locator('#feedStatus')).toContainText('connected');
  return errors;
