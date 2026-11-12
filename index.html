@@ -469,7 +469,12 @@ function attachAutocomplete(inputId,listId){
 function stopsForInput(id){
  if(selectedStopIds[id]&&network.stops[selectedStopIds[id]])return [network.stops[selectedStopIds[id]]];
  const place=selectedPlaces[id];if(!place)return matchStops($(id).value);
- return Object.values(network.stops).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon)).map(s=>({s,d:distance(place.lat,place.lon,s.lat,s.lon)})).filter(x=>x.d<=0.8).sort((a,b)=>a.d-b.d).slice(0,12).map(x=>x.s);
+ const candidates=Object.values(network.stops).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon))
+  .map(s=>({s,d:distance(Number(place.lat),Number(place.lon),s.lat,s.lon)}))
+  .filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
+ // Search up to a 1.2 km walk-radius for stops. Keep the closest 25 candidates
+ // so a nearby but unserved stop doesn't hide a usable bus corridor.
+ return candidates.filter(x=>x.d<=1.2).slice(0,25).map(x=>x.s);
 }
 attachAutocomplete('originSearch','originSuggestions');attachAutocomplete('place','destinationSuggestions');
 function routeName(p){return network.routes.find(r=>r.id===p.route)?.name||p.route}
@@ -753,7 +758,14 @@ async function resolveTypedLocation(id){
   const data=await api('/api/places?q='+encodeURIComponent(value));
   const places=(data.places||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
   const exact=places.find(p=>p.name?.trim().toLowerCase()===value.toLowerCase());
-  const place=exact||(places.length===1?places[0]:null);
+  // A typed address or business name may have several nearby search hits.
+  // Prefer a close textual match, but never silently choose an unrelated result.
+  const normalize=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const needle=normalize(value);
+  const ranked=places.map(p=>({p,name:normalize(p.name),detail:normalize(p.detail)}))
+   .filter(x=>x.name===needle||x.name.includes(needle)||needle.includes(x.name)&&x.name.length>=5||x.detail.includes(needle))
+   .sort((a,b)=>Number(b.name===needle)-Number(a.name===needle));
+  const place=exact||ranked[0]?.p||(places.length===1?places[0]:null);
   if(place&&$(id).value.trim()===value)selectedPlaces[id]=place;
  }catch(e){console.warn('Place lookup unavailable:',e)}
 }
