@@ -135,3 +135,32 @@ test('selected origin stop takes precedence over older GPS for walking',async({p
  expect(walkedFromGps).toEqual([]);
  expect(errors).toEqual([]);
 });
+
+test('Guide focuses on the selected direct trip, not a distant GPS point',async({page})=>{
+ const errors=await setup(page);
+ await page.evaluate(()=>{locationPoint={lat:40.7128,lon:-74.006}});
+ await plan(page);
+ await expect(page.locator('#guideMapHost #map')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>typeof routeMap!=='undefined'&&routeMap?routeMap.getZoom():null)).toBeGreaterThanOrEqual(12);
+ await expect.poll(()=>page.evaluate(()=>routeMap?.getCenter()?.lat??0)).toBeGreaterThan(37.85);
+ const before=await page.evaluate(()=>({lat:routeMap.getCenter().lat,lon:routeMap.getCenter().lng,zoom:routeMap.getZoom()}));
+ expect(before.lat).toBeLessThan(37.9);
+ expect(before.lon).toBeGreaterThan(-122.30);
+ expect(before.lon).toBeLessThan(-122.23);
+ await page.locator('#guideStartTrip').click();
+ await expect.poll(()=>page.evaluate(()=>routeMap?.getZoom()||0)).toBeGreaterThanOrEqual(12);
+ const after=await page.evaluate(()=>({lat:routeMap.getCenter().lat,lon:routeMap.getCenter().lng}));
+ expect(after.lat).toBeGreaterThan(37.85);
+ expect(after.lon).toBeGreaterThan(-122.30);
+ expect(errors).toEqual([]);
+});
+test('Guide fits both bus legs of a transfer on the map',async({page})=>{
+ const errors=await setup(page);
+ await plan(page,'Gamma destination');
+ await expect(page.locator('#guideMapHost #map')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>routeMap?.getZoom()||0)).toBeGreaterThanOrEqual(12);
+ // Guide moves the map after the click; wait for the subsequent route fit.
+ await expect.poll(()=>page.evaluate(()=>routeMap?.getBounds().contains([37.87,-122.27])&&routeMap?.getBounds().contains([37.87,-122.25]))).toBe(true);
+ expect(await page.evaluate(()=>routeMap.getZoom())).toBeGreaterThanOrEqual(12);
+ expect(errors).toEqual([]);
+});

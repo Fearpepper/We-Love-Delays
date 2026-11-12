@@ -7,10 +7,16 @@
  if(!panel||!content||!empty)return;
  const originalMapParent=map?.parentElement,originalMapNext=map?.nextSibling;
  (directions||content).appendChild(panel);
- function resize(){try{if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),180)}catch(e){}}
+ function resize(){
+ // Recalculate zoom after the map is moved into the visible Guide container.
+ try{if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>{
+   routeMap.invalidateSize({pan:false});
+   if(map.parentElement===mapHost)window.wldFocusSelectedTripMap?.();
+  },180)}catch(e){}
+ }
  function syncMap(){
   if(!map||!mapHost||!originalMapParent)return;
-  const view=document.body.dataset.desktopView||document.body.dataset.view||'routes';
+  const view=window.innerWidth>790?(document.body.dataset.desktopView||'routes'):(document.body.dataset.view||'routes');
   const show=view==='guide'&&!panel.classList.contains('hidden');
   if(show&&map.parentElement!==mapHost){mapHost.appendChild(map);resize()}
   if(!show&&map.parentElement===mapHost){originalMapParent.insertBefore(map,originalMapNext);resize()}
@@ -42,6 +48,7 @@
   feedback.textContent=message;
   // The original start action enables Finish when tracking actually begins.
   setTracking(Boolean($('finishJourney')&&!$('finishJourney').disabled));
+  setTimeout(()=>window.wldFocusSelectedTripMap?.(),100);
  });
  finish?.addEventListener('click',()=>{
   const original=$('finishJourney');
