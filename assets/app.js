@@ -331,7 +331,7 @@ async function getWalkingJourney(legs){
  return Promise.all(tasks.map(async ({a,b})=>{
   if(!a||!b)return null;
   if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {minutes:0,meters:0};
-  try{return await getPedestrianLeg(a,b)}catch(e){return null}
+  try{return await getPedestrianLeg(a,b)}catch(e){return {error:String(e.message||e).slice(0,180)}}
  }));
 }
 async function drawPedestrianPaths(legs){
@@ -512,7 +512,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   const results=await Promise.all(candidateCards.map(async item=>{
    try{
     const [walks,schedules]=await Promise.all([getWalkingJourney([item.x]),getPublishedLegTimes([item.x])]);
-    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:'Pedestrian route unavailable for this pair of stops'};
+    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:walks?.find(w=>w?.error)?.error||'Pedestrian route unavailable for this pair of stops'};
     const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival)));
     const feasible=valid.map(t=>{
      const leave=Date.parse(t.departure)-(walks[0].minutes+5)*60000;
