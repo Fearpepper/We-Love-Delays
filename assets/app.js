@@ -310,29 +310,39 @@ function routeChoice(out,title,detail,choose){
 }
 function estimateTripTiming(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint,destination=selectedPlaces.place;
+ const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  const walk=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000/75):null;
  const walkStart=walk(origin,first),walkEnd=walk(last,destination);
  let walkTransfer=0,transferKnown=true;
  for(let i=0;i<legs.length-1;i++){const a=network.stops[legs[i].p.stops[legs[i].end]],b=network.stops[legs[i+1].p.stops[legs[i+1].start]],v=walk(a,b);if(v===null)transferKnown=false;else walkTransfer+=v}
  return {walkStart,walkEnd,walkTransfer:transferKnown?walkTransfer:null};
 }
+// A deliberate place/stop selection always wins over a previously acquired GPS point.
+function walkingEndpoint(inputId){
+ const stopId=selectedStopIds[inputId];
+ return selectedPlaces[inputId]
+  ||(stopId&&network?.stops?.[stopId])
+  ||stopsForInput(inputId)[0]
+  ||(inputId==='originSearch'?locationPoint:null);
+}
 async function getPedestrianLeg(a,b){
  if(!a||!b||![a.lat,a.lon,b.lat,b.lon].every(Number.isFinite))return null;
+ if((a.id&&b.id&&a.id===b.id)||(Math.abs(a.lat-b.lat)<0.00001&&Math.abs(a.lon-b.lon)<0.00001))
+  return {available:true,minutes:0,meters:0,geometry:null,source:'Same stop'};
  const params=new URLSearchParams({from_lat:String(a.lat),from_lon:String(a.lon),to_lat:String(b.lat),to_lon:String(b.lon)});
  const data=await api('/api/walk-route?'+params.toString());
- if(!data.available||!Number.isFinite(data.minutes)||!Number.isFinite(data.meters))return null;
+ if(!data.available||!Number.isFinite(data.minutes)||!Number.isFinite(data.meters)||data.minutes<0||data.meters<0)return null;
  return data;
 }
 async function applyPedestrianTimes(legs,steps){
  const tasks=[];
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- tasks.push({step:steps.find(x=>x.kind==='walk-start'),a:selectedPlaces.originSearch||locationPoint,b:first});
+ tasks.push({step:steps.find(x=>x.kind==='walk-start'),a:walkingEndpoint('originSearch'),b:first});
  for(let k=0;k<legs.length-1;k++){
   tasks.push({step:steps.find(x=>x.kind==='walk-transfer'&&x.legIndex===k),a:network.stops[legs[k].p.stops[legs[k].end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]});
  }
- tasks.push({step:steps.find(x=>x.kind==='walk-end'),a:last,b:selectedPlaces.place});
+ tasks.push({step:steps.find(x=>x.kind==='walk-end'),a:last,b:walkingEndpoint('place')});
  await Promise.all(tasks.filter(x=>x.step).map(async x=>{
   try{const data=await getPedestrianLeg(x.a,x.b);x.step.estimate=data?'Pedestrian route: '+data.minutes+' min · '+data.meters+' m (OpenRouteService; accessibility not verified)':'Walking route unavailable · distance and duration not verified'}
   catch(e){x.step.estimate='Walking route unavailable · '+e.message}
@@ -350,8 +360,7 @@ async function getPublishedLegTimes(legs){
 async function getWalkingJourney(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null)||stopsForInput('originSearch')[0]||null;
- const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null)||stopsForInput('place')[0]||null;
+ const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  const tasks=[
   {a:origin,b:first},
   ...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),
@@ -359,7 +368,7 @@ async function getWalkingJourney(legs){
  ];
  return Promise.all(tasks.map(async ({a,b})=>{
   if(!a||!b)return null;
-  if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {minutes:0,meters:0};
+  if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {available:true,minutes:0,meters:0,geometry:null,source:'Same stop'};
   try{return await getPedestrianLeg(a,b)}catch(e){return {error:String(e.message||e).slice(0,180)}}
  }));
 }
@@ -367,8 +376,7 @@ async function drawPedestrianPaths(legs){
  if(!routeMap||!routeLayer||typeof L==='undefined')return;
  const layer=routeLayer;
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
- const origin=selectedPlaces.originSearch||locationPoint||(selectedStopIds.originSearch?network.stops[selectedStopIds.originSearch]:null);
- const destination=selectedPlaces.place||(selectedStopIds.place?network.stops[selectedStopIds.place]:null);
+ const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  const pairs=[{a:origin,b:first},...legs.slice(0,-1).map((leg,k)=>({a:network.stops[leg.p.stops[leg.end]],b:network.stops[legs[k+1].p.stops[legs[k+1].start]]})),{a:last,b:destination}];
  await Promise.all(pairs.map(async ({a,b})=>{
   if(!a||!b||(a.lat===b.lat&&a.lon===b.lon))return;
@@ -441,7 +449,7 @@ function appendTripTiming(panel,legs){
   if(!block.isConnected)return;
   schedules=s;walks=w;
   const descriptions=w.map((x,i)=>i===0?'First walk: ':i===w.length-1?'Final walk: ':'Transfer '+i+': ');
-  line.textContent=w.map((x,i)=>descriptions[i]+(x?x.minutes+' min / '+x.meters+' m':'unavailable')).join(' · ')+'. Accessibility not independently verified.';
+  line.textContent=w.map((x,i)=>descriptions[i]+(Number.isFinite(x?.minutes)&&Number.isFinite(x?.meters)?x.minutes+' min / '+x.meters+' m': 'unavailable')).join(' · ')+'. Walking times use ORS where a walk is required; accessibility not independently verified.';
   status.textContent='Published 511 AC Transit schedules checked; connections require reaching each stop before departure.';
   render();
  }).catch(e=>{if(block.isConnected)status.textContent='Journey schedule unavailable: '+e.message+'. No leave-by time will be estimated.'});
