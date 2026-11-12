@@ -200,6 +200,25 @@ function showTransferMap(first,second){
  $('mapText').textContent='Red: first bus. Blue: second bus. Orange dashed: pedestrian paths where available. Bus lines connect published stop coordinates, not road geometry. Check crossings, accessibility and schedules.';
 }
 let activeNavigation=null,gpsWatchId=null;
+// Fit only the stops on the selected journey. A stale GPS point must not
+// force a Berkeley trip into a world-scale view.
+function focusSelectedTripMap(){
+ if(typeof L==='undefined'||!routeMap||!activeNavigation?.legs?.length)return false;
+ const mapElement=$('map'),rect=mapElement?.getBoundingClientRect();
+ if(!rect||rect.width<100||rect.height<100)return false;
+ const points=[];
+ for(const leg of activeNavigation.legs){
+  for(const id of leg.p.stops.slice(leg.start,leg.end+1)){
+   const stop=network?.stops?.[id];
+   if(stop&&Number.isFinite(stop.lat)&&Number.isFinite(stop.lon))points.push([stop.lat,stop.lon]);
+  }
+ }
+ if(!points.length)return false;
+ routeMap.invalidateSize({pan:false});
+ routeMap.fitBounds(L.latLngBounds(points),{padding:[32,32],maxZoom:16,animate:false});
+ return true;
+}
+window.wldFocusSelectedTripMap=focusSelectedTripMap;
 function navStopTracking(){
  if(gpsWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null}
  $('navStart').disabled=false;$('navStop').disabled=true;
@@ -225,6 +244,10 @@ function setNavigation(legs){
  if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  activeNavigation={legs,steps,progress:0};
+ // Guide moves the Leaflet element into its own container after route selection.
+ // Refit only once that container has measured dimensions.
+ const currentTrip=activeNavigation;
+ setTimeout(()=>{if(activeNavigation===currentTrip)focusSelectedTripMap()},250);
  $('navigationPanel').classList.remove('hidden');
  $('navTitle').textContent=legs.length===1?'Direct bus directions':'Transfer directions';
  $('navStatus').textContent='Checking real walking paths against published AC Transit departures. GPS is not street-by-street navigation.';
@@ -740,7 +763,7 @@ function drawRoute(){
  const points=segment.map(p=>[p.lat,p.lon]);
  L.polyline(points,{color:'#d93838',weight:5,opacity:.9}).addTo(routeLayer);
  segment.forEach((p,i)=>{if(i===0||i===segment.length-1){L.circleMarker([p.lat,p.lon],{radius:9,color:i===0?'#16803b':'#d93838',fillColor:'#fff',fillOpacity:1,weight:3}).bindPopup((i===0?'Board: ':'Exit: ')+p.name).addTo(routeLayer)}});
- if(locationPoint)points.push([locationPoint.lat,locationPoint.lon]);routeMap.fitBounds(L.latLngBounds(points).pad(.17),{maxZoom:15});
+ routeMap.fitBounds(L.latLngBounds(points),{padding:[32,32],maxZoom:16,animate:false});
  setTimeout(()=>routeMap.invalidateSize(),100);
  $('mapText').textContent='Showing '+segment.length+' ordered stops: '+stops[0].name+' → '+stops[1].name+'. Red line connects published stop coordinates; it is NOT the actual road geometry or a live vehicle position.';
 }
