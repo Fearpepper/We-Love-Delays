@@ -67,12 +67,19 @@ test('missing predictions complete without points and allow another trip',async(
  await expect(page.locator('#points')).toHaveText('0');
  expect(errors).toEqual([]);
 });
-test('transfer is labeled accurately and unavailable tracking is disabled',async({page})=>{
+test('transfer can start and finish without unsupported reward tracking',async({page})=>{
  const errors=await setup(page);await plan(page,'Gamma destination');
  await expect(page.locator('#navTitle')).toHaveText('Transfer directions');
  await expect(page.locator('.route-result-badge').first()).toHaveText('1 transfer');
- await expect(page.locator('#guideStartTrip')).toBeDisabled();
- await expect(page.locator('#guideTripFeedback')).toContainText('tracking is unavailable');
+ await expect(page.locator('#guideStartTrip')).toBeEnabled();
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#guideTripFeedback')).toContainText('Trip started');
+ const steps=await page.locator('#navSteps .nav-step').count();
+ for(let i=0;i<steps;i++)await page.locator('#navAdvance').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();
+ await expect(page.locator('#guideContent')).toBeHidden();
+ await expect(page.locator('#points')).toHaveText('0');
+ await page.locator('#tripPlanAgain').click();
  await page.locator('#appTrips').click();
  await expect(page.locator('#originSearch')).toBeVisible();
  expect(errors).toEqual([]);
@@ -168,5 +175,19 @@ test('Guide fits both bus legs of a transfer on the map',async({page})=>{
  // Guide moves the map after the click; wait for the subsequent route fit.
  await expect.poll(()=>page.evaluate(()=>routeMap?.getBounds().contains([37.87,-122.27])&&routeMap?.getBounds().contains([37.87,-122.25]))).toBe(true);
  expect(await page.evaluate(()=>routeMap.getZoom())).toBeGreaterThanOrEqual(12);
+ expect(errors).toEqual([]);
+});
+
+test('last direction step completes a direct trip and cannot award twice',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#delayPreview')).toContainText('5 min late');
+ const steps=await page.locator('#navSteps .nav-step').count();
+ for(let i=0;i<steps;i++)await page.locator('#navAdvance').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();
+ await expect(page.locator('#points')).toHaveText('50');
+ await page.locator('#tripPlanAgain').click();await plan(page);
+ await expect(page.locator('#guideStartTrip')).toBeEnabled();
+ await expect(page.locator('#points')).toHaveText('50');
  expect(errors).toEqual([]);
 });
