@@ -97,3 +97,10 @@ assert.match(guide,/guideFinishTrip/,'guide connects finish action');
 assert.match(app,/const demo=Boolean\(journey\.demo\)/,'finish captures simulation status before clearing journey');
 assert.match(guide,/guideMapHost/,'guide uses real map host');
 assert.match(html,/id="guideDirectionsHost"/,'guide has directions host');
+
+const alertCode=fs.readFileSync('assets/alerts.js','utf8').split('/* One agency feed')[0];
+const alertCtx={Date};vm.createContext(alertCtx);vm.runInContext(alertCode,alertCtx);
+assert.equal(alertCtx.alertHasCurrentImpact({periods:[{start:1,end:100}],impact_periods:[{start:200,end:300}]},50),false,'future impact must not be treated as current because notice is published');
+assert.equal(alertCtx.alertHasCurrentImpact({impact_periods:[{start:1,end:100}]},50),true);
+assert.equal(alertCtx.alertHasCurrentImpact({periods:[]},50),false,'undated notice requires review');
+assert.equal(alertCtx.alertAffectsLeg({selectors:[{route:'51B',stop:'c'}]},{p:{route:'51B',stops:['a','b','c']},start:0,end:1}),false,'stop selectors must match selected segment');

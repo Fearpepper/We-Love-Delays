@@ -30,10 +30,11 @@ class BackendTests(unittest.TestCase):
         result=server.normalize_alerts({'Header':{'GtfsRealtimeVersion':'2.0'},'Entities':[
             {'Id':'test','Alert':{'HeaderText':{'Translations':[{'Text':'Detour','Language':'en'}]},
              'InformedEntities':[{'RouteId':'51B','StopId':'a'}],
-             'ActivePeriods':[{'Start':100,'End':200}]}}]})
+             'ActivePeriods':[{'Start':100,'End':200}],'ImpactPeriods':[{'Start':300,'End':400}]}}]})
         self.assertEqual(result['alerts'][0]['title'],'Detour')
         self.assertEqual(result['alerts'][0]['selectors'][0]['route'],'51B')
         self.assertEqual(result['alerts'][0]['periods'][0]['end'],200)
+        self.assertEqual(result['alerts'][0]['impact_periods'][0]['start'],300)
 
     def test_alert_feed_failure_is_not_reported_as_no_disruptions(self):
         with self.assertRaises(RuntimeError):server.normalize_alerts({'error':'quota exceeded'})

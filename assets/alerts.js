@@ -1,20 +1,55 @@
+function alertAffectsLeg(alert,leg){
+ return !alert.selectors?.length||alert.selectors.some(s=>
+  (!s.route||s.route===String(leg.p.route))&&
+  (s.direction===null||s.direction===undefined||String(s.direction)===String(leg.p.direction))&&
+  (!s.stop||leg.p.stops.slice(leg.start,leg.end+1).includes(s.stop)));
+}
+function alertHasCurrentImpact(alert,now=Date.now()/1000){
+ const periods=alert.impact_periods?.length?alert.impact_periods:alert.periods;
+ return Boolean(periods?.length&&periods.some(p=>(!p.start||p.start<=now)&&(!p.end||p.end>now)));
+}
 /* One agency feed shared by planner and Guide; no location sent to this API. */
 (function(){
  'use strict';
  const planner=document.getElementById('serviceAlerts');
  const guide=document.createElement('section');guide.id='guideServiceAlerts';guide.className='notice';guide.setAttribute('aria-label','Service alerts for this journey');
  document.getElementById('guideTripControls').after(guide);
- let data=null,error='',pending=null,lastAttempt=0;
+ const replanner=document.createElement('section');replanner.className='notice';replanner.id='replanPanel';replanner.hidden=true;guide.after(replanner);
+ const replanTitle=document.createElement('strong');replanTitle.textContent='Options around a disruption';
+ const replanStatus=document.createElement('p');replanStatus.id='replanStatus';replanStatus.className='hint';
+ const replanButton=document.createElement('button');replanButton.className='btn alt';replanButton.type='button';replanButton.textContent='Find alternatives avoiding these notices';
+ const replanResults=document.createElement('div');replanResults.id='replanResults';
+ replanner.append(replanTitle,replanStatus,replanButton,replanResults);
+ let data=null,error='',pending=null,lastAttempt=0,replanKey='',replanning=false,waiting=false;
+ const severe=new Set(['1','2','3','4','6','9','NO_SERVICE','REDUCED_SERVICE','SIGNIFICANT_DELAYS','DETOUR','STOP_MOVED','MODIFIED_SERVICE']);
+ function affected(){const legs=activeNavigation?.legs;return !legs?.length?[]:(data?.alerts||[]).filter(a=>severe.has(a.effect)&&relevant(a,legs)&&(!a.periods?.length||a.periods.some(p=>(!p.start||p.start<=Date.now()/1000)&&(!p.end||p.end>Date.now()/1000))));}
+ async function replan(){
+  if(replanning||waiting||!navigator.onLine||!activeNavigation)return;
+  if(findingTrip){
+   waiting=true;const selectedTrip=activeNavigation;
+   replanStatus.textContent='Waiting for the current route search to finish before checking alternatives…';
+   window.addEventListener('wld:planning-idle',()=>{waiting=false;if(activeNavigation===selectedTrip)replan();},{once:true});return;
+  }
+  if(journey){replanStatus.textContent='You are traveling. Open Plan and choose your current starting stop before searching; your active trip stays saved.';setAppView('routes');return;}
+  const notices=affected();if(!notices.length)return;
+  replanning=true;replanButton.disabled=true;
+  replanStatus.textContent='Searching from your selected origin, avoiding reported affected patterns. Review notice dates and new schedules. Your selected route stays available.';
+  try{await findDirectTrips({target:replanResults,avoid:notices});replanStatus.textContent='Alternative search complete from your selected origin. Options avoid matching affected patterns; they are not a guarantee of normal service. Select a card to replace your route.';}
+  catch(e){replanStatus.textContent='Alternative search unavailable. Check the official planner.';}
+  finally{replanning=false;replanButton.disabled=false;}
+ }
+ replanButton.addEventListener('click',replan);
+ function updateReplan(){
+  const notices=affected();replanner.hidden=!notices.length;
+  const key=JSON.stringify([activeNavigation?.legs.map(l=>[l.p.route,l.p.stops.slice(l.start,l.end+1)]),notices.map(a=>[a.id,a.effect,a.periods,a.impact_periods,a.selectors,alertHasCurrentImpact(a)])]);
+  if(key!==replanKey){replanKey=key;replanResults.replaceChildren();replanStatus.textContent='A notice may affect this route. Notices without machine-readable impact times require checking the published dates. Your current route is kept.';
+   if(!journey&&!error&&navigator.onLine&&data&&Date.now()/1000-data.fetched<900&&notices.some(a=>alertHasCurrentImpact(a)))queueMicrotask(replan);
+  }
+ }
+
  function relevant(alert,legs){
   if(!legs?.length)return true;
-  return !alert.selectors?.length||alert.selectors.some(s=>legs.some(leg=>{
-   if(s.route&&s.route!==String(leg.p.route))return false;
-   if(s.direction!==null&&s.direction!==undefined&&String(s.direction)!==String(leg.p.direction))return false;
-   if(s.stop&&!leg.p.stops.slice(leg.start,leg.end+1).includes(s.stop))return false;
-   // Patterns contain many scheduled trips. Trip-specific alerts may apply;
-   // retain them rather than falsely report the journey unaffected.
-   return true;
-  }));
+  return legs.some(leg=>alertAffectsLeg(alert,leg));
  }
  function renderPanel(panel,legs){
   panel.replaceChildren();
@@ -34,7 +69,7 @@
   if(alerts.length>20){const more=document.createElement('p');more.textContent='Showing 20 of '+alerts.length+' alerts. See the official list for all updates.';panel.append(more)}
   const official=document.createElement('a');official.href='https://www.actransit.org/alert';official.target='_blank';official.rel='noopener noreferrer';official.textContent='Check official AC Transit updates ↗';panel.append(official);
  }
- function render(){renderPanel(planner,null);renderPanel(guide,typeof activeNavigation!=='undefined'?activeNavigation?.legs:null)}
+ function render(){renderPanel(planner,null);renderPanel(guide,typeof activeNavigation!=='undefined'?activeNavigation?.legs:null);updateReplan()}
  async function refresh(){
   render();
   if(document.hidden||!navigator.onLine||pending||Date.now()-lastAttempt<600000)return;
