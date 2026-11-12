@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Local-only Berkeley bus prototype. Python standard library only."""
-import csv, datetime, io, json, os, pathlib, threading, time, urllib.parse, urllib.request, zipfile
+import csv, datetime, io, json, os, pathlib, resource, sys, threading, time, urllib.parse, urllib.request, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parent
 HOST=os.getenv('HOST','0.0.0.0'); PORT=int(os.getenv('PORT','10000'))
@@ -64,8 +64,12 @@ def places(query):
     except Exception as exc:
         raise RuntimeError('Place search providers are unavailable. Try an AC Transit stop name instead.') from exc
     return out[:8]
+def memory_mb():
+    # Linux ru_maxrss is KiB; reports peak resident memory without paid metrics.
+    return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,1)
 def gtfs():
     def get():
+        print('[memory] GTFS load started; peak RSS:',memory_mb(),'MB',flush=True)
         raw=upstream('datafeeds',{'operator_id':'AC'},True)
         try:
             with zipfile.ZipFile(io.BytesIO(raw)) as z:
@@ -108,6 +112,7 @@ def gtfs():
         CACHE_SCHEDULE.update({'trips':schedule,'calendar':calendar,'exceptions':exceptions})
         active_routeids={k[0] for k in patterns}
         stopmap={s['stop_id']:{'id':s['stop_id'],'name':s.get('stop_name','Stop'), 'code':s.get('stop_code',''),'lat':num(s.get('stop_lat')),'lon':num(s.get('stop_lon'))} for s in stops if s.get('location_type','0') in ('','0')}
+        print('[memory] GTFS parsed; peak RSS:',memory_mb(),'MB; trips:',len(bytrip),'patterns:',len(patterns),flush=True)
         return {'routes':[{'id':r['route_id'],'name':r.get('route_short_name') or r.get('route_long_name') or r['route_id'],'description':r.get('route_long_name','')} for r in routes if r['route_id'] in routeids and r['route_id'] in active_routeids], 'stops':stopmap,'patterns':list(patterns.values()),'updated':int(time.time())}
     return cached('gtfs',12*3600,get)
 def scheduled_journey(sample_trip,board,exit,at=None):
@@ -262,4 +267,5 @@ if __name__=='__main__':
     print('We Love Delays — Berkeley web server')
     print('Listening on %s:%s'%(HOST,PORT))
     print('511 token:', 'configured' if KEY else 'MISSING (see README.md)')
+    print('[memory] startup peak RSS:',memory_mb(),'MB',flush=True)
     ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
