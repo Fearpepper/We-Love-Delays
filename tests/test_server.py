@@ -26,6 +26,15 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(alert['url'],'')
         self.assertGreater(result['fetched'],0)
 
+    def test_511_pascal_case_plural_json_alerts(self):
+        result=server.normalize_alerts({'Header':{'GtfsRealtimeVersion':'2.0'},'Entities':[
+            {'Id':'test','Alert':{'HeaderText':{'Translations':[{'Text':'Detour','Language':'en'}]},
+             'InformedEntities':[{'RouteId':'51B','StopId':'a'}],
+             'ActivePeriods':[{'Start':100,'End':200}]}}]})
+        self.assertEqual(result['alerts'][0]['title'],'Detour')
+        self.assertEqual(result['alerts'][0]['selectors'][0]['route'],'51B')
+        self.assertEqual(result['alerts'][0]['periods'][0]['end'],200)
+
     def test_alert_feed_failure_is_not_reported_as_no_disruptions(self):
         with self.assertRaises(RuntimeError):server.normalize_alerts({'error':'quota exceeded'})
         self.assertEqual(server.normalize_alerts({'entity':[]})['alerts'],[])

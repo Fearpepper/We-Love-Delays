@@ -53,11 +53,25 @@ def cached(key,ttl,fn):
 
 def normalize_alerts(payload):
     """Normalize GTFS-RT JSON while preserving selector AND semantics."""
+    # 511's JSON serializer uses PascalCase and plural repeated-field names;
+    # protobuf JSON uses camelCase or snake_case. Canonicalize all three.
+    aliases={'entities':'entity','activeperiods':'activeperiod','informedentities':'informedentity',
+             'communicationperiods':'communicationperiod','translations':'translation'}
+    def canonical(value):
+        if isinstance(value,list):return [canonical(x) for x in value]
+        if isinstance(value,dict):
+            result={}
+            for key,item in value.items():
+                key=str(key).replace('_','').lower()
+                result[aliases.get(key,key)]=canonical(item)
+            return result
+        return value
+    payload=canonical(payload)
     if isinstance(payload,dict) and isinstance(payload.get('header'),dict) and 'entity' not in payload:
         payload=dict(payload,entity=[])
     if not isinstance(payload,dict) or not isinstance(payload.get('entity'),list):
-        raise RuntimeError('511 returned an unsupported service-alert feed.')
-    def field(obj,snake,camel):return obj.get(snake,obj.get(camel))
+        raise RuntimeError('511 returned an unsupported service-alert feed ('+(', '.join(list(payload)[:6]) if isinstance(payload,dict) else type(payload).__name__)+').')
+    def field(obj,snake,camel):return obj.get(snake.replace('_','').lower())
     def text(value):
         if not isinstance(value,dict):return ''
         rows=[x for x in value.get('translation',[]) if isinstance(x,dict) and isinstance(x.get('text'),str)]
@@ -75,7 +89,7 @@ def normalize_alerts(payload):
         return result
     out=[]
     for entity in payload['entity']:
-        if not isinstance(entity,dict) or entity.get('is_deleted',entity.get('isDeleted',False)):continue
+        if not isinstance(entity,dict) or entity.get('isdeleted',False):continue
         alert=entity.get('alert')
         if not isinstance(alert,dict):continue
         title=text(field(alert,'header_text','headerText'))
