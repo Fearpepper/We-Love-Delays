@@ -456,7 +456,7 @@ async function findDirectTrips(){
  const a=stopsForInput('originSearch'),b=stopsForInput('place');
  if(!a.length||!b.length){
   const missing=[!a.length?'starting location':null,!b.length?'destination':null].filter(Boolean).join(' and ');
-  out.textContent='Could not match your '+missing+' to an AC Transit stop or nearby place. Try a full stop name, choose a suggestion, or use a more specific address.';
+  out.textContent='Could not match your '+missing+' to an AC Transit stop or nearby place. Choose a stop suggestion, pick a destination on the map, or use Choose a bus route below.';
   return
  }
  out.innerHTML='';
