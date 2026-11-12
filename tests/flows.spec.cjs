@@ -159,12 +159,8 @@ test('Guide fits both bus legs of a transfer on the map',async({page})=>{
  await plan(page,'Gamma destination');
  await expect(page.locator('#guideMapHost #map')).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>routeMap?.getZoom()||0)).toBeGreaterThanOrEqual(12);
- const viewport=await page.evaluate(()=>({
-  first:routeMap.getBounds().contains([37.87,-122.27]),
-  last:routeMap.getBounds().contains([37.87,-122.25]),
-  zoom:routeMap.getZoom()
- }));
- expect(viewport.first).toBe(true);
- expect(viewport.last).toBe(true);
+ // Guide moves the map after the click; wait for the subsequent route fit.
+ await expect.poll(()=>page.evaluate(()=>routeMap?.getBounds().contains([37.87,-122.27])&&routeMap?.getBounds().contains([37.87,-122.25]))).toBe(true);
+ expect(await page.evaluate(()=>routeMap.getZoom())).toBeGreaterThanOrEqual(12);
  expect(errors).toEqual([]);
 });
