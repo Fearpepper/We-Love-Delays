@@ -227,6 +227,19 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):
             # Client disconnected before the response finished. Not a server failure.
             return
+    def do_HEAD(self):
+        # Lightweight health check: respond without loading GTFS or sending a body.
+        path=urllib.parse.urlsplit(self.path).path
+        if path in ('/','/index.html','/health'):
+            self.send_response(200)
+            self.send_header('Content-Type','text/html; charset=utf-8' if path!='/health' else 'application/json; charset=utf-8')
+            self.send_header('Content-Length','0')
+            self.send_header('Cache-Control','no-store')
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.send_header('Content-Length','0')
+            self.end_headers()
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
         if path.path in ('/manifest.webmanifest','/sw.js','/icon.svg'):
