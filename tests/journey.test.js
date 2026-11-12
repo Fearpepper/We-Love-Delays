@@ -25,7 +25,7 @@ assert.match(app,/async function findDirectTrips\(/,'route search is async');
 assert.match(app,/await Promise\.all\(\[resolveTypedLocation\('originSearch'\),resolveTypedLocation\('place'\)\]\)/,'typed locations are resolved');
 assert.match(html,/id="liveTripScreen"/,'dedicated live trip screen exists');
 assert.match(html,/id="appLive"/,'live trip tab exists');
-assert.match(app,/navigator\.serviceWorker\.register\('\/sw\.js'\)/,'PWA registration exists');
+assert.match(app+'\n'+navigation,/navigator\.serviceWorker\.register\('\/sw\.js'\)/,'PWA registration exists');
 const ids=[...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1]);
 assert.equal(new Set(ids).size,ids.length,'HTML IDs are unique');
 assert.match(html,/href="\/assets\/app\.css"/,'external stylesheet linked');
