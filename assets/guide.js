@@ -62,9 +62,10 @@
   update();
   if(complete){
    complete.hidden=false;
+   complete.querySelector('h2').textContent=event.detail?.cancelled?'Trip cancelled':'Trip finished!';
    empty.hidden=true;
    const earned=event.detail?.earned||0;
-   summary.textContent=event.detail?.demo?'Simulation complete. '+earned+' demo-only points; your saved prototype balance was unchanged.':earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
+   summary.textContent=event.detail?.cancelled?'Trip cancelled. No points were awarded.':event.detail?.demo?'Simulation complete. '+earned+' demo-only points; your saved prototype balance was unchanged.':earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
    complete.scrollIntoView({behavior:'smooth',block:'start'});
   }
   window.wldSelectTab?.('guide');

@@ -81,7 +81,7 @@ function updateDelayPreview(){
  el.textContent=!isFreshJourneyPrediction(journey)?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'511 destination prediction: scheduled '+fmt(journey.aimed)+' · predicted '+fmt(journey.expected)+' · '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Vehicle reported '+fmt(new Date(journey.recorded).toISOString())+'. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
- const j=journey;if(!j||j.demo||j.untracked||j.busy)return;j.busy=true;
+ const j=journey;if(!j||j.demo||j.untracked||j.busy||document.hidden||!navigator.onLine)return;j.busy=true;
  try{
   const response=await api('/api/arrivals?code='+encodeURIComponent(j.exitCode));
   if(j!==journey)return;
@@ -141,8 +141,17 @@ $('rewardsFile').onchange=async e=>{
  }catch(err){$('backupStatus').textContent='Could not import rewards: '+err.message}
  finally{e.target.value=''}
 };
-function say(s){$('message').textContent=s}function option(sel,label,value){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o)}function reset(sel,label){sel.innerHTML='';option(sel,label,'');sel.disabled=true}function fmt(x){if(!x)return '—';const d=new Date(x);return isNaN(d)?'—':d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}function distance(a,b,c,d){const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r*Math.cos((a+c)/2*r);return Math.hypot(x,y)*6371}async function api(url){const r=await fetch(url);const data=await r.json();if(!r.ok)throw Error(data.error||'Request failed');return data}function show(){ $('welcome').classList.add('off');$('welcome').style.pointerEvents='none';$('welcome').style.visibility='hidden';window.scrollTo({top:0,behavior:'smooth'})} $('startNow').onclick=show;$('home').onclick=()=>{$('welcome').classList.remove('off');$('welcome').style.pointerEvents='auto';$('welcome').style.visibility='visible';};
-async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location');say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}}
+function say(s){$('message').textContent=s}function option(sel,label,value){const o=document.createElement('option');o.value=value;o.textContent=label;sel.append(o)}function reset(sel,label){sel.innerHTML='';option(sel,label,'');sel.disabled=true}function fmt(x){if(!x)return '—';const d=new Date(x);return isNaN(d)?'—':d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}function distance(a,b,c,d){const r=Math.PI/180,x=(c-a)*r,y=(d-b)*r*Math.cos((a+c)/2*r);return Math.hypot(x,y)*6371}async function api(url){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),url.startsWith('/api/network')?120000:45000);
+ try{
+  const r=await fetch(url,{signal:controller.signal});
+  const data=await r.json().catch(()=>{throw Error('Transit service returned an unreadable response. Please retry.');});
+  if(!r.ok)throw Error(data.error||'Transit service is temporarily unavailable. Please retry.');
+  return data;
+ }catch(e){if(e.name==='AbortError')throw Error('Transit service took too long to respond. Check your connection and retry.');throw e}
+ finally{clearTimeout(timer)}
+}function show(){ $('welcome').classList.add('off');$('welcome').style.pointerEvents='none';$('welcome').style.visibility='hidden';window.scrollTo({top:0,behavior:'smooth'})} $('startNow').onclick=show;$('home').onclick=()=>{$('welcome').classList.remove('off');$('welcome').style.pointerEvents='auto';$('welcome').style.visibility='visible';};
+async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location');say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
 function populateRoutes(){const r=$('route'),filter=$('routeFilter').value.trim().toLowerCase(),previous=r.value;reset(r,'Select an AC Transit bus route');const routes=(network.routes||[]).filter(x=>(x.name+' '+(x.description||'')).toLowerCase().includes(filter));routes.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).forEach(x=>option(r,x.name+(x.description?' · '+x.description:''),x.id));r.disabled=!routes.length;if(routes.some(x=>x.id===previous))r.value=previous;else {reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true}if(!routes.length)say('No routes match this filter. Clear the filter or try a different route number.')} $('routeFilter').oninput=()=>{if(network)populateRoutes()};
 
 function populateStopSuggestions(){
@@ -247,6 +256,7 @@ function setNavigation(legs){
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  stopDelayMonitor();journey=null;$('finishJourney').disabled=true;updateDelayPreview();
  activeNavigation={legs,steps,progress:0};
+ window.dispatchEvent(new Event('wld:route-selected'));
  $('startJourney').disabled=false;
  // Guide moves the Leaflet element into its own container after route selection.
  // Refit only once that container has measured dimensions.
@@ -285,6 +295,7 @@ function renderNavigation(){
  });
  const step=activeNavigation.steps[activeNavigation.progress];
  $('navNext').textContent=step?'Next: '+step.label+(step.estimate?' · '+step.estimate:''):'All listed steps completed';
+ window.dispatchEvent(new Event('wld:progress'));
 }
 $('navAdvance').onclick=()=>{
  if(!activeNavigation)return;
@@ -784,9 +795,10 @@ async function refreshArrivals(){
  if(!stop?.code){$('arrivals').textContent='No stop code available for live monitoring at this stop.';return}
  const currentRoute=$('route').value,currentStop=stop.id;
  $('arrivals').textContent='Checking 511 arrivals…';$('refresh').disabled=true;
+ $('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
  try{
   const result=await api('/api/arrivals?code='+encodeURIComponent(stop.code));
-  if(currentRoute!==$('route').value||currentStop!==selected.stops[Number($('board').value)])return;
+  if(currentRoute!==$('route').value||currentStop!==selected?.stops[Number($('board').value)])return;
   const routeLabel=network.routes.find(x=>x.id===currentRoute)?.name||'';
   const norm=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();
   const now=Date.now();
@@ -808,7 +820,7 @@ async function refreshArrivals(){
    return;
   }
   entries.slice(0,5).forEach(({x,live,scheduled,arrival})=>{
-   const div=document.createElement('div');div.className='stoprow';
+   const div=document.createElement('div');div.className='stoprow';div.dataset.visit=JSON.stringify(x);
    const title=document.createElement('strong');
    const minutes=Math.max(0,Math.ceil((arrival-now)/60000));
    title.textContent=(live?'Predicted ':'Scheduled ')+(minutes===0?'due now':minutes+' min')+' · '+(x.destination||'AC Transit');
@@ -844,6 +856,7 @@ $('startJourney').onclick=()=>{
  else if(untracked){$('journeyStatus').textContent='Trip started. Follow the directions and finish when you arrive. Delay rewards are unavailable for this route.'}
  else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,70000)}
  window.wldUpdateGuide?.();
+ window.dispatchEvent(new Event('wld:trip-started'));
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
@@ -867,6 +880,12 @@ $('finishJourney').onclick=()=>{
  }
  navStopTracking();stopDelayMonitor();journey=null;activeNavigation=null;updateDelayPreview();$('finishJourney').disabled=true;
  window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned,verified:!demo,demo}}));
+};
+window.wldCancelTrip=()=>{
+ if(!journey)return;
+ navStopTracking();stopDelayMonitor();journey=null;activeNavigation=null;updateDelayPreview();$('finishJourney').disabled=true;
+ $('journeyStatus').textContent='Trip cancelled. No points awarded.';
+ window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false,cancelled:true}}));
 };
 $('liveRefresh').onclick=()=>{if(journey&&!journey.demo)sampleJourneyDelay()};
 updateLiveDashboard();

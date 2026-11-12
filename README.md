@@ -29,3 +29,11 @@ The server reads the token only from `SF511_API_KEY`. Do not commit `.env` files
 ## Local test (without the Mac .command file)
 
 Run `SF511_API_KEY='your-token-here' python3 server.py` in a terminal and visit http://localhost:10000 . This shell command places the token in shell history, so for safer local entry use `read -s SF511_API_KEY; export SF511_API_KEY; python3 server.py` (press Enter after pasting the hidden token).
+
+## Daily-use reliability
+
+An active bus trip and step progress are saved in this browser for up to 12 hours. Reloading restores the bus portion of the route, requests fresh predictions, and leaves GPS following off. Device GPS coordinates and past delay predictions are not saved. Walking legs must be checked again. Finished or cancelled trips are removed from recovery storage; cancelling does not award points. Recovery requires browser storage and the application shell to be available; clearing browser data removes it.
+
+Countdowns age every 15 seconds while the page is visible. Boarding arrivals refresh approximately every 70 seconds; resuming the app or reconnecting requests current data. Stale predictions become schedule-only information, and offline status is shown. Google Maps transit directions and official AC Transit alerts remain available from Guide. Map tiles and new walking routes need an internet connection.
+
+This remains a student transit companion: real phone GPS and actual bus arrivals need field validation. Render's free plan may sleep; changing hosting or purchasing a paid transit/routing service is not included. Rewards are fictional and cannot be redeemed. Official service alerts are linked, not automatically integrated.
