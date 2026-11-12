@@ -248,3 +248,10 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
 .onboarding-panel h2{font-size:29px;letter-spacing:-.7px;margin:12px 0}
 .onboarding-panel p:not(.eyebrow){font-size:15px;line-height:1.65}
 @media(max-width:790px){.milestone-grid{gap:5px}.milestone-grid strong{font-size:12px}.route-result-card{padding:15px!important}}
+
+.route-fallback{margin:14px 0 18px;padding:18px;border:1px solid #a8c8eb;border-radius:18px;background:linear-gradient(115deg,#cfe8ff,#eee1ff 70%,#ffe5a7);color:#003262}
+.route-fallback p{font-size:13px;color:#315879;margin:7px 0 13px}
+.route-fallback .actions{display:flex;gap:9px;flex-wrap:wrap}
+.route-fallback .btn{flex:1 1 170px}
+#manualRouteDetails[open]{background:#d9ebff;border:1px solid #9dbfdf;border-radius:16px;padding:14px;margin-bottom:14px}
+#manualRouteDetails summary{color:#003262}
