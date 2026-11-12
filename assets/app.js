@@ -512,7 +512,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   const results=await Promise.all(candidateCards.map(async item=>{
    try{
     const [walks,schedules]=await Promise.all([getWalkingJourney([item.x]),getPublishedLegTimes([item.x])]);
-    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:'Walking route unavailable'};
+    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:'Pedestrian route could not be calculated; verify ORS_API_KEY on Render'};
     const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival)));
     const feasible=valid.map(t=>{
      const leave=Date.parse(t.departure)-(walks[0].minutes+5)*60000;
@@ -520,7 +520,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
     }).filter(t=>t.leave>=Date.now()).sort((a,b)=>a.arrival-b.arrival);
     if(!feasible.length)return {...item,reason:'No catchable scheduled departure'};
     return {...item,arrival:feasible[0].arrival,leave:feasible[0].leave,walks};
-   }catch(e){return {...item,reason:'Schedule or walking service unavailable'}}
+   }catch(e){return {...item,reason:String(e.message||e).slice(0,130)}}
   }));
   // Search may have been replaced by a newer query while remote services responded.
   if(!rankingNotice.isConnected||!heading.isConnected)return;
