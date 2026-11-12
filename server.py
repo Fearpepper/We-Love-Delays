@@ -73,18 +73,24 @@ def gtfs():
                     try:
                         with z.open(name) as f:return list(csv.DictReader(io.TextIOWrapper(f,encoding='utf-8-sig')))
                     except KeyError:return []
-                routes=table('routes.txt');stops=table('stops.txt');trips=table('trips.txt');stop_times=table('stop_times.txt');calendar=table('calendar.txt');exceptions=table('calendar_dates.txt')
+                routes=table('routes.txt');stops=table('stops.txt');trips=table('trips.txt');calendar=table('calendar.txt');exceptions=table('calendar_dates.txt')
+                routeids={r['route_id'] for r in routes if r.get('route_type','3') in ('3','')}
+                tripids={t['trip_id'] for t in trips if t.get('route_id') in routeids}
+                bytrip={}
+                # Stream stop_times.txt: avoid retaining the entire CSV as dictionaries.
+                with z.open('stop_times.txt') as stream:
+                    for row in csv.DictReader(io.TextIOWrapper(stream,encoding='utf-8-sig')):
+                        tid=row.get('trip_id')
+                        if tid in tripids:
+                            bytrip.setdefault(tid,[]).append((int(row.get('stop_sequence') or 0),row.get('stop_id',''),row.get('arrival_time',''),row.get('departure_time','')))
+                for seq in bytrip.values():seq.sort(key=lambda row:row[0])
         except zipfile.BadZipFile:raise RuntimeError('511 did not return a valid AC Transit GTFS ZIP.')
-        routeids={r['route_id'] for r in routes if r.get('route_type','3') in ('3','')}; tripids={t['trip_id'] for t in trips if t.get('route_id') in routeids}
-        bytrip={}
-        for row in stop_times:
-            if row.get('trip_id') in tripids:bytrip.setdefault(row['trip_id'],[]).append(row)
-        for seq in bytrip.values():seq.sort(key=lambda x:int(x.get('stop_sequence') or 0))
+
         patterns={}
         for t in trips:
             seq=bytrip.get(t.get('trip_id'),[])
             if len(seq)<2 or t.get('route_id') not in routeids:continue
-            ids=tuple(x['stop_id'] for x in seq)
+            ids=tuple(x[1] for x in seq)
             k=(t['route_id'],t.get('direction_id','0'),ids)
             if k not in patterns:patterns[k]={'route':t['route_id'],'direction':t.get('direction_id','0'),'headsign':t.get('trip_headsign',''),'stops':list(ids),'sample_trip':t['trip_id']}
         # Keep all distinct patterns to avoid inventing stop orders; truncate only very large route responses in browser.
@@ -94,14 +100,15 @@ def gtfs():
         for t in trips:
             tid=t.get('trip_id');seq=bytrip.get(tid,[])
             if len(seq)<2 or t.get('route_id') not in routeids:continue
-            key=(t['route_id'],t.get('direction_id','0'),tuple(x['stop_id'] for x in seq))
+            key=(t['route_id'],t.get('direction_id','0'),tuple(x[1] for x in seq))
             entry=patterns.get(key)
             if entry is None:continue
-            schedule.setdefault(entry['sample_trip'],[]).append({'service':service_by_trip.get(tid,''),'times':[[row.get('arrival_time') or row.get('departure_time'),row.get('departure_time') or row.get('arrival_time')] for row in seq]})
+            schedule.setdefault(entry['sample_trip'],[]).append({'service':service_by_trip.get(tid,''),'times':[[row[2] or row[3],row[3] or row[2]] for row in seq]})
         CACHE_SCHEDULE.clear()
         CACHE_SCHEDULE.update({'trips':schedule,'calendar':calendar,'exceptions':exceptions})
+        active_routeids={k[0] for k in patterns}
         stopmap={s['stop_id']:{'id':s['stop_id'],'name':s.get('stop_name','Stop'), 'code':s.get('stop_code',''),'lat':num(s.get('stop_lat')),'lon':num(s.get('stop_lon'))} for s in stops if s.get('location_type','0') in ('','0')}
-        return {'routes':[{'id':r['route_id'],'name':r.get('route_short_name') or r.get('route_long_name') or r['route_id'],'description':r.get('route_long_name','')} for r in routes if r['route_id'] in routeids and any(k[0]==r['route_id'] for k in patterns)], 'stops':stopmap,'patterns':list(patterns.values()),'updated':int(time.time())}
+        return {'routes':[{'id':r['route_id'],'name':r.get('route_short_name') or r.get('route_long_name') or r['route_id'],'description':r.get('route_long_name','')} for r in routes if r['route_id'] in routeids and r['route_id'] in active_routeids], 'stops':stopmap,'patterns':list(patterns.values()),'updated':int(time.time())}
     return cached('gtfs',12*3600,get)
 def scheduled_journey(sample_trip,board,exit,at=None):
     data=gtfs()
