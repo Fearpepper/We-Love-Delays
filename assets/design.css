@@ -291,3 +291,11 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
  .guide-directions-column #navNext{font-size:18px;padding:13px}
  .guide-map-expanded .guide-map-host #map{height:68vh!important}
 }
+
+/* Keep rewards utilities secondary to the journey and make trip controls legible. */
+#exportRewards,#importRewards{font-size:14px!important;padding:11px 16px!important;min-height:44px!important}
+#startJourney,#finishJourney{font-size:15px!important;padding:12px 16px!important;min-height:48px!important}
+#startJourney:disabled,#finishJourney:disabled{opacity:.5!important;cursor:not-allowed!important}
+.guide-trip-actions{padding:15px;margin-bottom:12px;border-radius:16px;background:#fff1c7;border:1px solid #e8bb57}
+#guideStartTrip{width:100%;font-size:18px;padding:15px!important}
+#guideTripFeedback{margin:9px 0 0}
