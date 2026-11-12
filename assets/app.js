@@ -489,9 +489,10 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
  const heading=document.createElement('p');heading.className='notice';
  if(direct.length){
   heading.textContent='Recommended direct buses · ranked by estimated walking convenience and number of stops. Not verified fastest arrivals.';out.append(heading);
-  for(const x of direct.slice(0,5)){
+  const candidateCards=[];
+  for(const x of direct.slice(0,8)){
    const ranking=directRank(x);const walking=[ranking.startMeters===null?null:'~'+Math.round(ranking.startMeters)+' m to board',ranking.endMeters===null?null:'~'+Math.round(ranking.endMeters)+' m after exit'].filter(Boolean).join(' · ');
-   routeChoice(out,'Bus '+routeName(x.p)+' · Direct', (x.p.headsign||'Bus direction')+' · '+ranking.stops+' stops'+(walking?' · '+walking+' (straight-line)':''),()=>{
+   const card=routeChoice(out,'Bus '+routeName(x.p)+' · Direct', (x.p.headsign||'Bus direction')+' · '+ranking.stops+' stops'+(walking?' · '+walking+' (straight-line)':''),()=>{
     $('routeFilter').value='';populateRoutes();$('route').value=x.p.route;$('route').onchange();
     const index=patterns.indexOf(x.p);if(index<0)return;
     $('stopFilter').value='';$('pattern').value=String(index);$('pattern').onchange();
@@ -499,7 +500,40 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
     const fromStop=network.stops[x.p.stops[x.start]],toStop=network.stops[x.p.stops[x.end]];
     drawPedestrianPaths([x]);setNavigation([x]);setAppView('guide');
     showSelectedRoute(out,'Bus '+routeName(x.p),['Board at '+(fromStop?.name||'starting stop'),'Get off at '+(toStop?.name||'destination stop')],[x]);
-   })
+   });
+   candidateCards.push({x,card,ranking});
+  }
+  // ORS walking time + 511 published schedules determine feasible door-to-door arrival.
+  // Leave unsupported candidates visible, but never label them as verified fastest.
+  const rankingNotice=document.createElement('p');rankingNotice.className='hint';
+  rankingNotice.textContent='Checking real pedestrian walking routes and published bus departures…';
+  heading.after(rankingNotice);
+  const results=await Promise.all(candidateCards.map(async item=>{
+   try{
+    const [walks,schedules]=await Promise.all([getWalkingJourney([item.x]),getPublishedLegTimes([item.x])]);
+    if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:'Walking route unavailable'};
+    const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival)));
+    const feasible=valid.map(t=>{
+     const leave=Date.parse(t.departure)-(walks[0].minutes+5)*60000;
+     return {leave,arrival:Date.parse(t.arrival)+walks[1].minutes*60000,trip:t};
+    }).filter(t=>t.leave>=Date.now()).sort((a,b)=>a.arrival-b.arrival);
+    if(!feasible.length)return {...item,reason:'No catchable scheduled departure'};
+    return {...item,arrival:feasible[0].arrival,leave:feasible[0].leave,walks};
+   }catch(e){return {...item,reason:'Schedule or walking service unavailable'}}
+  }));
+  // Search may have been replaced by a newer query while remote services responded.
+  if(!rankingNotice.isConnected||!heading.isConnected)return;
+  results.sort((a,b)=>(a.arrival??Infinity)-(b.arrival??Infinity)||a.ranking.score-b.ranking.score);
+  const verified=results.filter(r=>Number.isFinite(r.arrival)).length;
+  heading.textContent=verified?'Recommended buses · earliest feasible scheduled arrival first':'Direct bus options · estimated convenience order';
+  rankingNotice.textContent=verified?verified+' of '+results.length+' options have a feasible 511 schedule and ORS walking route. Scheduled times are not live predictions.':'Actual journey times unavailable. Options remain sorted by approximate walking convenience and stop count.';
+  const fmt=ms=>new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  for(const r of results){
+   if(!r.card.isConnected)continue;
+   const extra=document.createElement('span');extra.className='route-result-timing';
+   extra.textContent=Number.isFinite(r.arrival)?'Scheduled arrival ~'+fmt(r.arrival)+' · Leave by ~'+fmt(r.leave)+' · Walk '+Math.round(r.walks.reduce((n,w)=>n+w.minutes,0))+' min (ORS)':'Time unverified · '+r.reason;
+   r.card.append(extra);
+   out.append(r.card);
   }
   return;
  }
