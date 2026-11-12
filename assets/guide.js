@@ -15,6 +15,14 @@
   if(typeof window.wldSelectTab==='function')window.wldSelectTab('routes');
   const input=$('originSearch');if(input)input.focus({preventScroll:true});
  });
+ const start=$('guideStartTrip'),feedback=$('guideTripFeedback');
+ if(start)start.addEventListener('click',()=>{
+  const original=$('startJourney');
+  if(!original||original.disabled){feedback.textContent='Select a bus journey in Routes first, then return to Guide.';return}
+  original.click();
+  feedback.textContent=$('journeyStatus')?.textContent||'Trip tracking requested.';
+  if(typeof window.wldSelectTab==='function')window.wldSelectTab('guide');
+ });
  const observer=new MutationObserver(update);
  observer.observe(panel,{attributes:true,attributeFilter:['class']});
  update();
