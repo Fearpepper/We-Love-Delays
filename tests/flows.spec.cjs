@@ -191,3 +191,58 @@ test('last direction step completes a direct trip and cannot award twice',async(
  await expect(page.locator('#points')).toHaveText('50');
  expect(errors).toEqual([]);
 });
+
+test('manual route selection opens Guide and starts the selected bus',async({page})=>{
+ const errors=await setup(page);
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('#manualRouteDetails summary').click();
+ await page.locator('#route').selectOption('51B');
+ await page.locator('#pattern').selectOption({index:1});
+ await page.locator('#board').selectOption({index:1});
+ await page.locator('#exit').selectOption({index:1});
+ await page.locator('#preview').click();
+ await expect(page.locator('#guideContent')).toBeVisible();
+ await expect(page.locator('#navSteps')).toContainText('Beta transfer');
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('empty search and empty Guide recover without a crash',async({page})=>{
+ const errors=await setup(page);
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('#autoFind').click();
+ await expect(page.locator('#autoResults')).toContainText('Could not match');
+ await expect(page.locator('#autoFind')).toBeEnabled();
+ await page.locator('#appGuide').click();
+ await expect(page.locator('#guideEmpty')).toBeVisible();
+ await page.locator('#guidePlanTrip').click();
+ await expect(page.locator('#originSearch')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('tabs preserve selected route and remain within the viewport',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ for(const id of ['appMap','appRewards','appTrips','appGuide']){
+  await expect(page.locator('#'+id)).toBeInViewport();
+  await page.locator('#'+id).click();
+  await expect(page.locator('#'+id)).toHaveAttribute('aria-pressed','true');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ }
+ await expect(page.locator('#guideContent')).toBeVisible();
+ await expect(page.locator('#guideMapHost #map')).toBeVisible();
+ await expect(page.locator('#guideStartTrip')).toBeEnabled();
+ expect(errors).toEqual([]);
+});
+test('transit outage shows a useful error without simulated routes',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/status',route=>route.fulfill({json:{configured:true}}));
+ await page.route('**/api/network',route=>route.fulfill({status:503,json:{error:'Transit feed temporarily unavailable'}}));
+ await page.goto('/');
+ await expect(page.locator('#feedStatus')).toContainText('Live data unavailable');
+ await expect(page.locator('#message')).toContainText('Transit feed temporarily unavailable');
+ await expect(page.locator('#route')).toBeDisabled();
+ await page.locator('#autoFind').click();
+ await expect(page.locator('#autoResults')).toContainText('Routes have not loaded');
+ expect(errors).toEqual([]);
+});
