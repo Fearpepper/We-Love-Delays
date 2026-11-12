@@ -404,8 +404,9 @@ function renderRewardHistory(){
  }
 }
 function updateLiveDashboard(){
- const active=!!journey,delay=active?(journey.demo?delayDemo:journey.delay):null;
- const fresh=active&&!journey.demo&&journey.sampled&&Date.now()-journey.sampled<150000;
+ const active=!!journey;
+ const fresh=!!(active&&!journey.demo&&journey.sampled&&Date.now()-journey.sampled<150000);
+ const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
  $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · Destination prediction'):'Start a trip from Rewards to monitor delays.';
  $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':fresh?'Live prediction received':'Waiting for fresh prediction';
  $('liveDelayValue').textContent=delay===null?'—':String(delay);
@@ -419,7 +420,7 @@ function updateDelayPreview(){
  const el=$('delayPreview');
  if(!journey){el.textContent='Start a selected trip to track delay rewards.';updateLiveDashboard();return}
  if(journey.demo){el.textContent='Simulation: '+delayDemo+' min · '+delayDemo*10+' fictional demo points.';updateLiveDashboard();return}
- el.textContent=journey.delay===null?'No matching live prediction yet. Real-trip points are unavailable.':'Latest destination prediction: '+journey.delay+' min late · '+journey.delay*10+' provisional fictional points. Not an observed arrival.';updateLiveDashboard();
+ el.textContent=journey.delay===null||!journey.sampled||Date.now()-journey.sampled>150000?'No fresh matching destination prediction. Points are unavailable until a new prediction arrives.':'Latest destination prediction: '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
  const j=journey;if(!j||j.demo||j.busy)return;j.busy=true;
@@ -462,7 +463,7 @@ $('rewardsFile').onchange=async e=>{
    if(!x||!Number.isSafeInteger(x.earned)||x.earned<0||!Number.isSafeInteger(x.minutes)||x.minutes<0||typeof x.route!=='string'||x.route.length>150||typeof x.time!=='string'||!Number.isFinite(Date.parse(x.time)))throw Error('Backup contains invalid trip history.');
    return {earned:x.earned,minutes:x.minutes,route:x.route,time:x.time};
   });
-  if(!window.confirm('Replace your current '+points+' points and '+rewardHistory.length+' saved trips with '+data.points+' points and '+history.length+' trips from this backup?'))return;
+  if(!window.confirm('Imported prototype points are unverified and cannot be redeemed. Replace your current '+points+' points and '+rewardHistory.length+' saved trips with '+data.points+' points and '+history.length+' trips from this backup?'))return;
   try{
    localStorage.setItem('wld-berkeley-points',String(data.points));
    localStorage.setItem(REWARD_HISTORY_KEY,JSON.stringify(history));
@@ -1028,7 +1029,7 @@ $('startJourney').onclick=()=>{
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
- if(!journey.demo&&(journey.delay===null||!journey.sampled||Date.now()-journey.sampled>150000)){
+ if(!journey.demo&&(!Number.isFinite(journey.delay)||!journey.sampled||Date.now()-journey.sampled>150000)){
   $('journeyStatus').textContent='No fresh matching destination prediction: cannot award real-trip delay points. Leave this trip open to keep checking.';return;
  }
  const delay=journey.demo?delayDemo:journey.delay,earned=Math.max(0,Math.round(delay))*10;
