@@ -727,7 +727,7 @@ $('finishJourney').onclick=()=>{
   window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false}}));
   return;
  }
- const delay=journey.demo?delayDemo:journey.delay,earned=Math.max(0,Math.round(delay))*10;
+ const demo=Boolean(journey.demo),delay=demo?delayDemo:journey.delay,earned=Math.max(0,Math.round(delay))*10;
  if(journey.demo){
   demoPoints+=earned;
   $('journeyStatus').textContent='Simulation completed: +'+earned+' demo-only points ('+demoPoints+' this session). Your saved prototype balance was not changed.';
