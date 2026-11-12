@@ -737,7 +737,57 @@ function drawRoute(){
  $('mapText').textContent='Showing '+segment.length+' ordered stops: '+stops[0].name+' → '+stops[1].name+'. Red line connects published stop coordinates; it is NOT the actual road geometry or a live vehicle position.';
 }
 $('preview').onclick=()=>{const stops=chosenStops();if(!stops){say('Choose a destination after your boarding stop.');return}drawRoute();say((demo?'Simulated':'Published')+' stop order shown on map. The line connects stops, not exact streets. This does not guarantee a departure at your chosen time.');$('startJourney').disabled=false;refreshArrivals()};
-async function refreshArrivals(){if(demo){$('arrivals').textContent='Demo mode: no real-time arrivals.';return}if(!selected||$('board').value==='')return;const s=network.stops[selected.stops[Number($('board').value)]];if(!s||!s.code){$('arrivals').textContent='No stop code available for live monitoring at this stop.';return}const currentRoute=$('route').value;const currentStop=s.id;$('arrivals').textContent='Checking live arrivals…';$('refresh').disabled=true;try{const j=await api('/api/arrivals?code='+encodeURIComponent(s.code));if(currentRoute!==$('route').value||currentStop!==selected.stops[Number($('board').value)])return;const routeName=network.routes.find(x=>x.id===currentRoute)?.name||'';const normalize=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();const a=j.arrivals.filter(x=>normalize(x.route)===normalize(currentRoute)||normalize(x.route)===normalize(routeName));$('arrivals').innerHTML='';if(!a.length){$('arrivals').textContent='No live predictions matched this route at this stop. This does not mean the bus is on time.';arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';return}a.slice(0,5).forEach(x=>{const div=document.createElement('div');div.className='stoprow';const title=document.createElement('strong');const predictedTime=x.expected?Date.parse(x.expected):NaN;const minutes=Number.isFinite(predictedTime)?Math.max(0,Math.ceil((predictedTime-Date.now())/60000)):null;title.textContent=(minutes===null?'Schedule only':minutes===0?'Due now':minutes+' min')+' · '+(x.destination||'AC Transit');const small=document.createElement('small');small.textContent='Scheduled '+fmt(x.aimed)+(x.expected?' · Predicted '+fmt(x.expected):' · No live prediction');div.append(title,small);$('arrivals').append(div)});$('arrivalUpdated').textContent='Predictions checked at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'. Refresh to update countdowns.';const first=a.find(x=>x.expected);$('scheduled').textContent=fmt(first?.aimed);$('predicted').textContent=fmt(first?.expected);arrivalDelay=first?.aimed&&first?.expected?Math.max(0,Math.round((Date.parse(first.expected)-Date.parse(first.aimed))/60000)):null;$('delay').textContent=arrivalDelay===null?'Unknown':arrivalDelay+' min'}catch(e){$('arrivals').textContent='Live arrivals unavailable: '+e.message;arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—'}finally{$('refresh').disabled=false}}$('refresh').onclick=refreshArrivals;
+async function refreshArrivals(){
+ if(demo){$('arrivals').textContent='Demo mode: no real-time arrivals.';return}
+ if(!selected||$('board').value==='')return;
+ const stop=network.stops[selected.stops[Number($('board').value)]];
+ if(!stop?.code){$('arrivals').textContent='No stop code available for live monitoring at this stop.';return}
+ const currentRoute=$('route').value,currentStop=stop.id;
+ $('arrivals').textContent='Checking 511 arrivals…';$('refresh').disabled=true;
+ try{
+  const result=await api('/api/arrivals?code='+encodeURIComponent(stop.code));
+  if(currentRoute!==$('route').value||currentStop!==selected.stops[Number($('board').value)])return;
+  const routeLabel=network.routes.find(x=>x.id===currentRoute)?.name||'';
+  const norm=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();
+  const now=Date.now();
+  const entries=(result.arrivals||[])
+   .filter(x=>norm(x.route)===norm(currentRoute)||norm(x.route)===norm(routeLabel))
+   .map(x=>{
+    const live=freshArrivalPrediction(x,now);
+    const aimed=Date.parse(x.aimed||'');
+    const scheduled=Number.isFinite(aimed)&&aimed>=now-120000&&aimed<=now+14400000?aimed:null;
+    return {x,live,scheduled,arrival:live?.expected??scheduled};
+   })
+   .filter(x=>Number.isFinite(x.arrival))
+   .sort((a,b)=>a.arrival-b.arrival);
+  $('arrivals').innerHTML='';
+  if(!entries.length){
+   $('arrivals').textContent='No upcoming scheduled or recent predicted arrivals matched this route. This does not mean the bus is on time.';
+   arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
+   $('arrivalUpdated').textContent='Checked 511 at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.';
+   return;
+  }
+  entries.slice(0,5).forEach(({x,live,scheduled,arrival})=>{
+   const div=document.createElement('div');div.className='stoprow';
+   const title=document.createElement('strong');
+   const minutes=Math.max(0,Math.ceil((arrival-now)/60000));
+   title.textContent=(live?'Predicted ':'Scheduled ')+(minutes===0?'due now':minutes+' min')+' · '+(x.destination||'AC Transit');
+   const small=document.createElement('small');
+   small.textContent=live?'Scheduled '+fmt(x.aimed)+' · predicted '+fmt(x.expected)+' · vehicle reported '+fmt(x.recorded):'Scheduled '+fmt(x.aimed)+' · live prediction unavailable or stale';
+   div.append(title,small);$('arrivals').append(div);
+  });
+  const first=entries.find(x=>x.live);
+  $('scheduled').textContent=fmt(first?.x.aimed);
+  $('predicted').textContent=fmt(first?.x.expected);
+  arrivalDelay=first?first.live.delayMinutes:null;
+  $('delay').textContent=arrivalDelay===null?'Unknown':arrivalDelay+' min';
+  $('arrivalUpdated').textContent='511 checked at '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+(first?' · vehicle last reported '+fmt(first.x.recorded):' · schedule only; no fresh vehicle report')+'.';
+ }catch(e){
+  $('arrivals').textContent='511 arrivals unavailable: '+e.message;
+  arrivalDelay=null;$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
+ }finally{$('refresh').disabled=false}
+}
+$('refresh').onclick=refreshArrivals;
 $('startJourney').onclick=()=>{
  const stops=chosenStops();if(!stops)return;
  stopDelayMonitor();delayDemo=0;
