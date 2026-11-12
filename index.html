@@ -745,11 +745,33 @@ function showSelectedRoute(out,title,steps,legs){
  const note=document.createElement('p');note.className='hint';note.textContent='Candidate stop-order route. The timing panel checks published schedules and pedestrian paths; it does not verify live arrivals, accessibility, or on-time operation.';panel.append(note);
  const mapBtn=document.createElement('button');mapBtn.type='button';mapBtn.className='btn';mapBtn.textContent='View selected route on map';mapBtn.onclick=()=>{if(window.innerWidth<=790&&typeof window.wldSelectTab==='function')window.wldSelectTab('map');else $('map').scrollIntoView({behavior:'smooth',block:'center'});if(routeMap)setTimeout(()=>routeMap.invalidateSize(),150)};panel.append(mapBtn);
 }
-function findDirectTrips(){
- const out=$('autoResults');out.innerHTML='';
+async function resolveTypedLocation(id){
+ const value=$(id).value.trim();
+ if(!value||selectedStopIds[id]||selectedPlaces[id])return;
+ if(matchStops(value).length)return;
+ try{
+  const data=await api('/api/places?q='+encodeURIComponent(value));
+  const places=(data.places||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+  const exact=places.find(p=>p.name?.trim().toLowerCase()===value.toLowerCase());
+  const place=exact||(places.length===1?places[0]:null);
+  if(place&&$(id).value.trim()===value)selectedPlaces[id]=place;
+ }catch(e){console.warn('Place lookup unavailable:',e)}
+}
+let findingTrip=false;
+async function findDirectTrips(){
+ if(findingTrip)return;
+ findingTrip=true;const button=$('autoFind');button.disabled=true;
+ const out=$('autoResults');out.textContent='Finding nearby stops and bus routes…';
+ try{
  if(!network){out.textContent='Routes have not loaded yet. Check the live-data status.';return}
+ await Promise.all([resolveTypedLocation('originSearch'),resolveTypedLocation('place')]);
  const a=stopsForInput('originSearch'),b=stopsForInput('place');
- if(!a.length||!b.length){out.textContent='Select a starting stop and destination from the suggestions. For businesses, nearby stops are searched.';return}
+ if(!a.length||!b.length){
+  const missing=[!a.length?'starting location':null,!b.length?'destination':null].filter(Boolean).join(' and ');
+  out.textContent='Could not match your '+missing+' to an AC Transit stop or nearby place. Try a full stop name, choose a suggestion, or use a more specific address.';
+  return
+ }
+ out.innerHTML='';
  const from=new Set(a.map(s=>s.id)),to=new Set(b.map(s=>s.id));
  const direct=[],firstLegs=[],lastLegs=[],seen=new Set();
  const patternsWithStops=network.patterns.filter(p=>p.stops?.length>1);
@@ -875,6 +897,7 @@ function findDirectTrips(){
    $('startJourney').disabled=true;
   })
  }
+ }finally{findingTrip=false;button.disabled=false}
 }
 $('autoFind').onclick=findDirectTrips;
 function setDemo(){demo=true;network={routes:[{id:'51B',name:'51B',description:'Demo: Berkeley corridor'},{id:'6',name:'6',description:'Demo: Telegraph Avenue'}],stops:{a:{id:'a',name:'Downtown Berkeley BART',code:'',lat:37.8695,lon:-122.2686},b:{id:'b',name:'UC Berkeley / Bancroft Way',code:'',lat:37.8688,lon:-122.2586},c:{id:'c',name:'College Ave / Ashby Ave',code:'',lat:37.8564,lon:-122.2534},d:{id:'d',name:'Rockridge BART',code:'',lat:37.8447,lon:-122.2514}},patterns:[{route:'51B',direction:'0',headsign:'Rockridge (simulated)',stops:['a','b','c','d']},{route:'51B',direction:'1',headsign:'Downtown Berkeley (simulated)',stops:['d','c','b','a']},{route:'6',direction:'0',headsign:'Telegraph Avenue (simulated)',stops:['a','b','c']}]};$('feedStatus').textContent='● Berkeley demonstration';populateRoutes();populateStopSuggestions();say('Demo mode is simulated. Routes, stop sequences, and delays shown here are illustrative, not live service.');$('arrivals').textContent='Demo mode: no real-time arrivals.';$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—'}
