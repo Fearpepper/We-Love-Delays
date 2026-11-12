@@ -1,8 +1,7 @@
 
 /* Isolated mobile navigation: preserve the existing trip-planning handlers and native scroll. */
 (function(){
- const tabs={routes:'appTrips',map:'appMap',rewards:'appRewards',guide:'appGuide',live:'appLive'};
- const visibleTabs={routes:'appTrips',guide:'appGuide',rewards:'appRewards'};
+ const tabs={routes:'appTrips',map:'appMap',rewards:'appRewards',guide:'appGuide'};
  function selectTab(view){
   if(view==='live'){view='guide';}
   const guide=document.getElementById('guideScreen');
@@ -10,9 +9,7 @@
   if(view==='guide'&&typeof window.wldUpdateGuide==='function')window.wldUpdateGuide();
   if(window.innerWidth>790){
    document.body.dataset.desktopView=view;
-   document.body.classList.toggle('desktop-live',view==='live');
    document.body.classList.toggle('desktop-guide',view==='guide');
-   document.getElementById('liveTripScreen').hidden=view!=='live';
    for(const [name,id] of Object.entries(tabs)){const tab=document.getElementById(id);tab.classList.toggle('active',name===view);tab.setAttribute('aria-pressed',String(name===view))}
    if(view==='map'&&typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120);
    window.scrollTo({top:0,behavior:'instant'});
@@ -21,7 +18,6 @@
   }
   document.body.classList.add('wld-tabs');
   document.body.dataset.view=view;
-  document.getElementById('liveTripScreen').hidden=view!=='live';
   document.body.classList.remove('app-map-mode');
   for(const [name,id] of Object.entries(tabs)){
    const b=document.getElementById(id);if(!b)continue;
