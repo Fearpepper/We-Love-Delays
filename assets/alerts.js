@@ -30,7 +30,7 @@ function alertHasCurrentImpact(alert,now=Date.now()/1000){
    replanStatus.textContent='Waiting for the current route search to finish before checking alternatives…';
    window.addEventListener('wld:planning-idle',()=>{waiting=false;if(activeNavigation===selectedTrip)replan();},{once:true});return;
   }
-  if(journey){replanStatus.textContent='You are traveling. Open Plan and choose your current starting stop before searching; your active trip stays saved.';setAppView('routes');return;}
+  if(journey){replanStatus.textContent='You are traveling. Open Plan and choose your current starting stop before searching; your active trip stays saved.';document.getElementById('message').textContent=replanStatus.textContent;setAppView('routes');return;}
   const notices=affected();if(!notices.length)return;
   replanning=true;replanButton.disabled=true;
   replanStatus.textContent='Searching from your selected origin, avoiding reported affected patterns. Review notice dates and new schedules. Your selected route stays available.';

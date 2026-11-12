@@ -479,3 +479,23 @@ test('undated disruption offers review instead of automatically assuming it appl
  await expect(page.locator('#replanStatus')).toContainText('published dates');
  await expect(page.locator('#replanResults')).toBeEmpty();expect(errors).toEqual([]);
 });
+
+test('a fresh on-time prediction completes without a false missing-data warning',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ const time=new Date(Date.now()+600000).toISOString();
+ await page.route('**/api/arrivals?*',route=>route.fulfill({json:{arrivals:[{route:'51B',vehicle:'on-time-bus',recorded:new Date().toISOString(),aimed:time,expected:time}]}}));
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#liveTrackingState')).toContainText('Fresh 511');
+ await expect(page.locator('#liveDelayValue')).toHaveText('0');
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripCompleteSummary')).toContainText('reported no delay');
+ expect(errors).toEqual([]);
+});
+test('replanning an active trip gives visible origin guidance and preserves progress',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'notice',title:'Check dates',effect:'DETOUR',selectors:[{route:'51B'}],periods:[]}]}}));
+ await page.reload();await plan(page);await page.locator('#guideStartTrip').click();
+ await page.locator('#replanPanel button').click();
+ await expect(page.locator('#message')).toContainText('current starting stop');
+ await page.locator('#appGuide').click();await expect(page.locator('#guideFinishTrip')).toBeVisible();expect(errors).toEqual([]);
+});
