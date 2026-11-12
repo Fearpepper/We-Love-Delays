@@ -107,3 +107,41 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 .dashboard-shortcut:last-child{border-color:#f1e0ae;background:#fffdf6}
 .app-controls button.active{background:#eaf1f8;color:#003262}
 @media(max-width:790px){body.wld-tabs .app-controls button.active{background:#eaf1f8!important;color:#003262!important}}
+
+/* Expressive Berkeley palette: blue foundation, gold + sky + coral accents. */
+:root{--sky:#38a9e8;--gold:#fdb515;--coral:#ff746b;--lavender:#8875d9}
+body{background:linear-gradient(155deg,#f5f9ff 0%,#fffaf0 62%,#f5f7ff 100%)}
+.welcome{background:radial-gradient(circle at 12% 18%,#d8efff 0%,transparent 40%),radial-gradient(circle at 90% 78%,#fff0c3 0%,transparent 42%),#f8fbff}
+.intro{border-color:#d9e7fa;box-shadow:0 25px 70px #00326212}
+.intro h1 em{color:#c17800}
+.kicker{color:#a66a00}
+.heart{background:linear-gradient(140deg,#003262,#237dc1)}
+.btn{background:linear-gradient(120deg,#003262,#075c9d);border-color:#003262;box-shadow:0 5px 14px #00326218}
+.btn:hover:not(:disabled){background:linear-gradient(120deg,#00254a,#004e8e)}
+.dashboard{background:linear-gradient(120deg,#eaf4ff 0%,#fff 48%,#fff3d2 100%)!important;border-color:#cddff3!important}
+.dashboard-mark{background:linear-gradient(135deg,#fdb515,#ffd866);color:#553b00}
+.dashboard-shortcut:nth-child(1){background:#eaf4ff;border-color:#c8e2fa}
+.dashboard-shortcut:nth-child(1)>span{color:#0065ae}
+.dashboard-shortcut:nth-child(2){background:#eaf9ff;border-color:#c8ebf9}
+.dashboard-shortcut:nth-child(2)>span{color:#168bc5}
+.dashboard-shortcut:nth-child(3){background:#fff5da;border-color:#f5df9e}
+.dashboard-shortcut:nth-child(3)>span{color:#ac7100}
+.dashboard-shortcut:hover{transform:translateY(-2px);box-shadow:0 8px 18px #00326210}
+.app-controls button.active{background:#dfeeff;color:#003262}
+.card:has(#points){background:linear-gradient(150deg,#fff 0%,#fff8e6 100%);border-color:#f0dfb4}
+#points{color:#003262}
+.live-panel{background:linear-gradient(155deg,#fff,#eef5ff)}
+.live-progress>div{background:linear-gradient(90deg,#38a9e8,#fdb515)}
+.statgrid .stat:nth-child(1){background:#eef4ff;border-color:#dbe8fa}
+.statgrid .stat:nth-child(2){background:#ecfaff;border-color:#cceefb}
+.statgrid .stat:nth-child(3){background:#fff5dd;border-color:#f2dfa9}
+.pill{background:#e9f5ff;border-color:#c9e5fa;color:#075889}
+.saved-row:nth-child(3n+1){border-left:4px solid #38a9e8}
+.saved-row:nth-child(3n+2){border-left:4px solid #fdb515}
+.saved-row:nth-child(3n){border-left:4px solid #8875d9}
+@media(max-width:790px){
+ body.wld-tabs{background:linear-gradient(160deg,#f3f8ff,#fffaf1)!important}
+ body.wld-tabs .shell>.grid{background:transparent!important}
+ body.wld-tabs .app-controls button.active{background:#dfeeff!important;color:#003262!important}
+ body.wld-tabs .dashboard{background:linear-gradient(135deg,#e8f3ff,#fff 54%,#fff2cd)!important}
+}
