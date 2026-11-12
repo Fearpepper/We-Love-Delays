@@ -145,3 +145,45 @@ body{background:linear-gradient(155deg,#f5f9ff 0%,#fffaf0 62%,#f5f7ff 100%)}
  body.wld-tabs .app-controls button.active{background:#dfeeff!important;color:#003262!important}
  body.wld-tabs .dashboard{background:linear-gradient(135deg,#e8f3ff,#fff 54%,#fff2cd)!important}
 }
+
+/* Color-washed surfaces: replace stark white with tinted, legible app panels. */
+:root{--surface-cream:#fff3d7;--surface-blue:#dcecff;--surface-sky:#dff5ff;--surface-lilac:#ece6ff}
+body{background:linear-gradient(140deg,#d8e9ff 0%,#e9e2ff 48%,#ffe9b7 100%)}
+.top,.shell>.top{background:linear-gradient(110deg,#d6eaff,#e6e2ff)!important;border-color:#b7d1f0!important}
+.card{background:linear-gradient(145deg,#e7f1ff,#e7f5ff)!important;border-color:#bed8ef!important}
+.grid>div:first-child>.card:nth-child(2){background:linear-gradient(140deg,#e5f2ff,#f0e8ff)!important}
+.grid>div:nth-child(2)>.card:first-child{background:linear-gradient(145deg,#dcecff,#e5f5ff)!important}
+.grid>div:nth-child(2)>.card:nth-child(2){background:linear-gradient(135deg,#fff0c8,#fce6ef)!important}
+.dashboard{background:linear-gradient(125deg,#cde5ff,#e5ddff 53%,#ffe6a4)!important;border-color:#b5cdef!important}
+.dashboard-shortcut:nth-child(1){background:#c9e4ff;border-color:#a7cffa}
+.dashboard-shortcut:nth-child(2){background:#c9efff;border-color:#9bdcf7}
+.dashboard-shortcut:nth-child(3){background:#ffe7a9;border-color:#e9c979}
+.saved-row{background:#e3efff;border-color:#c4d8f1}
+.saved-row:nth-child(2n){background:#f0e9ff}
+.field input,.field select{background:#f0f6ff;border-color:#bcd4ec}
+.field input:focus,.field select:focus{background:#f8fbff}
+.btn.alt{background:#dcecff;border-color:#abc8e8;color:#003262}
+.btn.alt:hover:not(:disabled){background:#cce3ff}
+.notice{background:#dfeeff;border-color:#bed7ef}
+.pill{background:#cdeaff;border-color:#a9d7f6}
+.suggestions{background:#eaf4ff;border-color:#c3d9ee}
+.suggestions button{background:#eaf4ff;border-color:#d0e0f2}
+.suggestions button:hover,.suggestions button:focus{background:#d3eaff}
+.app-controls{background:#dbeaff;border-color:#afcceb}
+.app-controls button.active{background:#ffe4a0;color:#003262}
+.welcome{background:radial-gradient(circle at 10% 20%,#b9ddff,transparent 46%),radial-gradient(circle at 90% 75%,#ffe2a0,transparent 48%),#e7e3ff}
+.intro{background:linear-gradient(135deg,#dbeaff,#f1e6ff 65%,#fff0ca);border-color:#bed0f0}
+.live-panel{background:linear-gradient(140deg,#dceaff,#eee4ff)!important}
+.live-heading{background:linear-gradient(120deg,#c9e4ff,#ffe7ac)!important}
+.statgrid .stat:nth-child(1){background:#d4e6ff;border-color:#b2cfee}
+.statgrid .stat:nth-child(2){background:#ccefff;border-color:#9dd8f0}
+.statgrid .stat:nth-child(3){background:#ffe4a3;border-color:#edcc7b}
+@media(max-width:790px){
+ body.wld-tabs{background:linear-gradient(155deg,#d5e8ff,#eee3ff 55%,#ffedc5)!important}
+ body.wld-tabs .shell>.top{background:linear-gradient(110deg,#cce5ff,#e4dfff)!important;border-bottom-color:#b3cde9!important}
+ body.wld-tabs .shell>.grid{background:transparent!important}
+ body.wld-tabs .card{background:linear-gradient(145deg,#dfedff,#e7f3ff)!important;border-color:#bfd6ee!important}
+ body.wld-tabs .dashboard{background:linear-gradient(125deg,#cce5ff,#e5ddff 55%,#ffe4a2)!important}
+ body.wld-tabs .app-controls{background:#d8e9ff!important;border-top-color:#a9c9eb!important}
+ body.wld-tabs .app-controls button.active{background:#ffe4a0!important;color:#003262!important}
+}
