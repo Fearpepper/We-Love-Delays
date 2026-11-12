@@ -722,7 +722,10 @@ $('startJourney').onclick=()=>{
 $('finishJourney').onclick=()=>{
  if(!journey)return;
  if(!journey.demo&&(!Number.isFinite(journey.delay)||!journey.sampled||Date.now()-journey.sampled>150000)){
-  $('journeyStatus').textContent='No fresh matching destination prediction: cannot award real-trip delay points. Leave this trip open to keep checking.';return;
+  $('journeyStatus').textContent='Trip finished. No points awarded because 511 did not provide a verified matching delay prediction.';
+  stopDelayMonitor();journey=null;updateDelayPreview();$('finishJourney').disabled=true;
+  window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false}}));
+  return;
  }
  const delay=journey.demo?delayDemo:journey.delay,earned=Math.max(0,Math.round(delay))*10;
  if(journey.demo){
@@ -737,6 +740,7 @@ $('finishJourney').onclick=()=>{
   $('journeyStatus').textContent='Trip completed: +'+earned+' prototype points from a '+delay+'-minute 511 destination prediction. Actual arrival delay is not verified.';
  }
  stopDelayMonitor();journey=null;updateDelayPreview();$('finishJourney').disabled=true;
+ window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned,verified:!demo,demo}}));
 };
 $('liveRefresh').onclick=()=>{if(journey&&!journey.demo)sampleJourneyDelay()};
 $('liveFinish').onclick=()=>{if(!journey)return;$('finishJourney').click();$('liveActionStatus').textContent=$('journeyStatus').textContent;updateLiveDashboard()};
