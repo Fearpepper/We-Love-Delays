@@ -1,4 +1,5 @@
 """Offline backend smoke tests. Run: python -m unittest discover -s tests -p 'test_*.py'"""
+import re
 import http.client
 import threading
 import unittest
@@ -85,6 +86,12 @@ class BackendTests(unittest.TestCase):
             response = connection.getresponse()
             self.assertEqual(response.status, 200)
             self.assertIn(b"function", response.read())
+            # Every locally referenced controller/style must be publicly served.
+            for asset in re.findall(r'(?:src|href)="(/assets/[^"?]+)"', (server.ROOT/'index.html').read_text()):
+                connection.request('GET', asset)
+                asset_response = connection.getresponse()
+                self.assertEqual(asset_response.status, 200, asset)
+                self.assertTrue(asset_response.read(), asset)
             connection.close()
         finally:
             httpd.shutdown()

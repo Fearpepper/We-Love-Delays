@@ -246,3 +246,124 @@ test('transit outage shows a useful error without simulated routes',async({page}
  await expect(page.locator('#autoResults')).toContainText('Routes have not loaded');
  expect(errors).toEqual([]);
 });
+
+test('active direct trip recovers route and progress without restoring old prediction credit',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#delayPreview')).toContainText('5 min late');
+ await page.locator('#navAdvance').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('wld-active-trip-v1')));
+ expect(saved.progress).toBe(1);
+ expect(saved).not.toHaveProperty('locationPoint');
+ expect(saved).not.toHaveProperty('delay');
+ await page.route('**/api/arrivals?**',route=>route.fulfill({json:{arrivals:[]}}));
+ await page.reload();
+ await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#navNext')).toContainText('Wait for and board');
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await expect(page.locator('#guideMapHost #map')).toBeVisible();
+ await expect(page.locator('#livePointsValue')).toHaveText('0');
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();
+ expect(await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'))).toBeNull();
+ await page.reload();await page.locator('#appGuide').click();
+ await expect(page.locator('#guideEmpty')).toBeVisible();
+ await page.locator('#appRewards').click();await expect(page.locator('#points')).toHaveText('0');
+ expect(errors).toEqual([]);
+});
+test('saved transfer directions recover when the transit network is unavailable',async({page})=>{
+ const errors=await setup(page);await plan(page,'Gamma destination');
+ await page.locator('#guideStartTrip').click();
+ await page.locator('#navAdvance').click();
+ await page.route('**/api/network',route=>route.fulfill({status:503,json:{error:'Network unavailable'}}));
+ await page.reload();
+ await expect(page.locator('#feedStatus')).toContainText('Saved trip only');
+ await expect(page.locator('#connectionStatus')).toContainText('Live transit data is unavailable');
+ await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#navTitle')).toContainText('Transfer');
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await expect(page.locator('a').filter({hasText:'Check trip in Google Maps'})).toHaveAttribute('href',/travelmode=transit/);
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('old or corrupt saved trips do not block a fresh search',async({page})=>{
+ const errors=await setup(page);
+ await page.evaluate(()=>localStorage.setItem('wld-active-trip-v1','{broken json'));
+ await page.reload();
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await expect(page.locator('#originSearch')).toBeVisible();
+ expect(await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'))).toBeNull();
+ await plan(page);await page.locator('#guideStartTrip').click();
+ await page.evaluate(()=>{const key='wld-active-trip-v1',data=JSON.parse(localStorage.getItem(key));data.startedAt=Date.now()-13*3600000;localStorage.setItem(key,JSON.stringify(data));});
+ // Avoid pagehide replacing the intentionally expired fixture.
+ const expired=await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'));
+ await page.context().addInitScript(value=>localStorage.setItem('wld-active-trip-v1',value),expired);
+ await page.reload();
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('#appGuide').click();await expect(page.locator('#guideEmpty')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('boarding countdowns update and stale vehicle reports stop showing as live',async({page})=>{
+ await page.clock.install({time:new Date()});
+ const errors=await setup(page);
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('#manualRouteDetails summary').click();
+ await page.locator('#route').selectOption('51B');await page.locator('#pattern').selectOption({index:1});
+ await page.locator('#board').selectOption({index:1});
+ await expect(page.locator('#arrivals')).toContainText('Predicted');
+ await page.clock.fastForward(6*60000);
+ await expect(page.locator('#arrivals')).toContainText('Scheduled');
+ await expect(page.locator('#arrivals')).not.toContainText('Predicted');
+ await expect(page.locator('#predicted')).toHaveText('—');
+ expect(errors).toEqual([]);
+});
+
+test('cancelling clears recovery without awarding provisional points',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#livePointsValue')).toHaveText('50');
+ await expect(page.locator('#tripRecoveryStatus')).toContainText('saved on this device');
+ await page.locator('#cancelTrip').click();
+ await expect(page.locator('#tripComplete')).toContainText('Trip cancelled');
+ await expect(page.locator('#points')).toHaveText('0');
+ expect(await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'))).toBeNull();
+ expect(errors).toEqual([]);
+});
+
+test('saved bus directions open before a slow transit network download completes',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#tripRecoveryStatus')).toContainText('saved on this device');
+ let release;const gate=new Promise(resolve=>{release=resolve});
+ await page.route('**/api/network',async route=>{await gate;await route.fulfill({json:network});});
+ await page.reload();
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#navSteps')).toContainText('Beta transfer');
+ release();
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+
+test('unavailable browser storage is explained without blocking trip controls',async({page})=>{
+ await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='wld-active-trip-v1')throw new DOMException('Storage blocked','QuotaExceededError');return set.call(this,key,value);};});
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#tripRecoveryStatus')).toContainText('storage is unavailable');
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await page.locator('#cancelTrip').click();
+ await expect(page.locator('#tripComplete')).toContainText('Trip cancelled');
+ expect(errors).toEqual([]);
+});
+test('going offline removes provisional prediction credit and keeps written directions',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#livePointsValue')).toHaveText('50');
+ await page.context().setOffline(true);
+ await expect(page.locator('#connectionStatus')).toBeVisible();
+ await expect(page.locator('#connectionStatus')).toContainText('Offline');
+ await expect(page.locator('#livePointsValue')).toHaveText('0');
+ await expect(page.locator('#navSteps')).toContainText('Beta transfer');
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#points')).toHaveText('0');
+ expect(errors).toEqual([]);
+});
