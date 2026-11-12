@@ -11,6 +11,9 @@
  status.id='connectionStatus';status.setAttribute('role','status');status.className='hint';
  status.style.cssText='max-width:1100px;margin:10px auto;padding:0 14px';
  document.querySelector('.app-controls')?.after(status);
+ const retry=document.createElement('button');retry.id='retryNetwork';retry.type='button';retry.className='btn alt';retry.textContent='Retry loading transit data';retry.hidden=true;
+ document.getElementById('message').after(retry);
+ retry.addEventListener('click',async()=>{retry.disabled=true;try{await load()}finally{retry.disabled=false;retry.hidden=Boolean(network&&network!==recoveredNetwork)}});
  const alternatives=document.createElement('div');alternatives.className='actions';
  const planner=document.createElement('a');planner.className='btn alt';planner.textContent='Check trip in Google Maps';planner.target='_blank';planner.rel='noopener noreferrer';
  const alerts=document.createElement('a');alerts.className='btn alt';alerts.textContent='Official service alerts';alerts.href='https://www.actransit.org/alert';alerts.target='_blank';alerts.rel='noopener noreferrer';
@@ -106,10 +109,9 @@
    document.getElementById('predicted').textContent=fmt(first?.x.expected);
    document.getElementById('delay').textContent=first?first.live.delayMinutes+' min':'Unknown';
   }
-  if(navigator.onLine&&Date.now()-lastPoll>=70000){
+  if(navigator.onLine&&Date.now()-lastPoll>=180000){
    lastPoll=Date.now();
    if(selected&&document.getElementById('board').value!==''&&!document.getElementById('refresh').disabled)refreshArrivals();
-   if(journey)sampleJourneyDelay();
   }
  }
  window.addEventListener('wld:trip-started',()=>{cancel.hidden=false;save();});
@@ -117,6 +119,7 @@
  window.addEventListener('wld:trip-finished',clear);
  window.addEventListener('wld:route-selected',()=>{if(!restoring)clear();updateAlternatives();});
  window.addEventListener('wld:network-ready',()=>{
+  retry.hidden=Boolean(network&&network!==recoveredNetwork);
   if(journey&&recoveredNetwork){
    if(network!==recoveredNetwork){recoveredNetwork=null;connection();}
    else{document.getElementById('feedStatus').textContent='Saved trip only · live routes unavailable';status.hidden=false;status.textContent='Saved bus directions restored. Live transit data is unavailable; use official sources before boarding.';}
@@ -124,8 +127,8 @@
  });
  window.addEventListener('pagehide',save);
  window.addEventListener('offline',connection);
- window.addEventListener('online',()=>{connection();lastPoll=0;if(!network||network===recoveredNetwork)load();tick();});
- document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastPoll=0;connection();tick();}});
+ window.addEventListener('online',()=>{connection();if(journey)sampleJourneyDelay();lastPoll=0;if(!network||network===recoveredNetwork)load();tick();});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastPoll=0;connection();if(journey)sampleJourneyDelay();tick();}});
  setInterval(tick,15000);
  connection();restore();
 })();

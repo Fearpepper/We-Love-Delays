@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parent
 HOST=os.getenv('HOST','0.0.0.0'); PORT=int(os.getenv('PORT','10000'))
 KEY=os.getenv('SF511_API_KEY','').strip()
-CACHE={}; LOCK=threading.Lock(); CACHE_SCHEDULE={}; GTFS_LOAD_LOCK=threading.Lock()
+CACHE={}; INFLIGHT={}; LOCK=threading.Lock(); CACHE_SCHEDULE={}
 def upstream(path, params, binary=False):
     if not KEY: raise RuntimeError('No 511 API token configured. See README.md.')
     query=urllib.parse.urlencode(dict(params,api_key=KEY))
@@ -20,20 +20,84 @@ def upstream(path, params, binary=False):
 def cached(key,ttl,fn):
     with LOCK:
         if key in CACHE and time.time()-CACHE[key][0]<ttl:return CACHE[key][1]
-    gate=GTFS_LOAD_LOCK if key=='gtfs' else None
-    if gate:gate.acquire()
+    # Share concurrent requests, including failures, rather than spend provider
+    # quota once per browser or thread. Never hold the cache lock during I/O.
+    with LOCK:
+        if key in CACHE and time.time()-CACHE[key][0]<ttl:return CACHE[key][1]
+        pending=INFLIGHT.get(key)
+        owner=pending is None
+        if owner:
+            pending={'event':threading.Event()}
+            INFLIGHT[key]=pending
+    if not owner:
+        if not pending['event'].wait(120):raise RuntimeError('Transit data is taking too long. Please retry.')
+        if 'error' in pending:raise pending['error']
+        return pending['value']
     try:
-        with LOCK:
-            if key in CACHE and time.time()-CACHE[key][0]<ttl:return CACHE[key][1]
         val=fn()
         with LOCK:
             if len(CACHE)>160:
                 oldest=sorted((k for k in CACHE if k!='gtfs'),key=lambda k:CACHE[k][0])
                 for k in oldest[:max(0,len(CACHE)-120)]:CACHE.pop(k,None)
             CACHE[key]=(time.time(),val)
+            pending['value']=val
         return val
+    except BaseException as exc:
+        pending['error']=exc
+        raise
     finally:
-        if gate:gate.release()
+        with LOCK:
+            INFLIGHT.pop(key,None)
+            pending['event'].set()
+
+
+def normalize_alerts(payload):
+    """Normalize GTFS-RT JSON while preserving selector AND semantics."""
+    if isinstance(payload,dict) and isinstance(payload.get('header'),dict) and 'entity' not in payload:
+        payload=dict(payload,entity=[])
+    if not isinstance(payload,dict) or not isinstance(payload.get('entity'),list):
+        raise RuntimeError('511 returned an unsupported service-alert feed.')
+    def field(obj,snake,camel):return obj.get(snake,obj.get(camel))
+    def text(value):
+        if not isinstance(value,dict):return ''
+        rows=[x for x in value.get('translation',[]) if isinstance(x,dict) and isinstance(x.get('text'),str)]
+        chosen=next((x for x in rows if x.get('language','en').lower().startswith('en')),rows[0] if rows else {})
+        return chosen.get('text','')[:6000]
+    def periods(rows):
+        result=[]
+        for row in rows or []:
+            if not isinstance(row,dict):continue
+            try:
+                start=int(row['start']) if row.get('start') else None
+                end=int(row['end']) if row.get('end') else None
+                result.append({'start':start,'end':end})
+            except (TypeError,ValueError):continue
+        return result
+    out=[]
+    for entity in payload['entity']:
+        if not isinstance(entity,dict) or entity.get('is_deleted',entity.get('isDeleted',False)):continue
+        alert=entity.get('alert')
+        if not isinstance(alert,dict):continue
+        title=text(field(alert,'header_text','headerText'))
+        description=text(field(alert,'description_text','descriptionText'))
+        if not title and not description:continue
+        selectors=[]
+        for item in field(alert,'informed_entity','informedEntity') or []:
+            if not isinstance(item,dict):continue
+            trip=item.get('trip') or {}
+            selectors.append({'route':str(field(item,'route_id','routeId') or field(trip,'route_id','routeId') or ''),
+                              'stop':str(field(item,'stop_id','stopId') or ''),
+                              'direction':field(item,'direction_id','directionId') if field(item,'direction_id','directionId') is not None else field(trip,'direction_id','directionId'),
+                              'trip':str(field(trip,'trip_id','tripId') or '')})
+        url=text(alert.get('url'))
+        try:
+            if urllib.parse.urlsplit(url).scheme not in ('https','http'):url=''
+        except ValueError:url=''
+        out.append({'id':str(entity.get('id','')),'title':title or 'Service update','description':description,
+                    'url':url,'selectors':selectors,'effect':str(alert.get('effect','UNKNOWN_EFFECT')),
+                    'periods':periods(field(alert,'communication_period','communicationPeriod') or field(alert,'active_period','activePeriod'))})
+    return {'alerts':out,'fetched':int(time.time()),'source':'511 / AC Transit'}
+
 def places(query):
     """Search OSM locations near Berkeley, with a backup provider."""
     query=query.strip()
@@ -225,7 +289,7 @@ def flatten_visits(obj):
     return out
 def arrivals(code):
     if not code or len(code)>30 or not all(c.isalnum() or c in '-_' for c in code):raise ValueError('Invalid stop code')
-    return cached('arrival:'+code,65,lambda:flatten_visits(upstream('StopMonitoring',{'agency':'AC','stopCode':code,'format':'json'})))
+    return cached('arrival:'+code,120,lambda:flatten_visits(upstream('StopMonitoring',{'agency':'AC','stopCode':code,'format':'json'})))
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,fmt,*args):print('[web]',fmt%args)
     def respond(self,code,obj):
@@ -255,8 +319,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
-        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js'):
-            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8','/assets/dashboard.js':'text/javascript; charset=utf-8','/assets/guide.js':'text/javascript; charset=utf-8','/assets/experience.js':'text/javascript; charset=utf-8','/assets/focus.js':'text/javascript; charset=utf-8','/assets/reliability.js':'text/javascript; charset=utf-8'}
+        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js'):
+            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8','/assets/dashboard.js':'text/javascript; charset=utf-8','/assets/guide.js':'text/javascript; charset=utf-8','/assets/experience.js':'text/javascript; charset=utf-8','/assets/focus.js':'text/javascript; charset=utf-8','/assets/reliability.js':'text/javascript; charset=utf-8','/assets/alerts.js':'text/javascript; charset=utf-8'}
             data=(ROOT/path.path.lstrip('/')).read_bytes()
             self.send_response(200)
             self.send_header('Content-Type',assets[path.path])
@@ -281,6 +345,7 @@ class Handler(BaseHTTPRequestHandler):
         if path.path in ('/','/index.html'):
             data=(ROOT/'index.html').read_bytes();self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data);return
         try:
+            if path.path=='/api/alerts':return self.respond(200,cached('alerts:AC',600,lambda:normalize_alerts(upstream('servicealerts',{'agency':'AC','format':'json'}))))
             if path.path=='/api/status':return self.respond(200,{'configured':bool(KEY),'agency':'AC Transit','location':'Berkeley, California','local':False})
             if path.path=='/health':return self.respond(200,{'ok':True})
             if path.path=='/api/network':return self.respond(200,gtfs())

@@ -8,6 +8,53 @@ import server
 
 
 class BackendTests(unittest.TestCase):
+    def test_alerts_preserve_scoped_selectors_translations_and_periods(self):
+        payload={'entity':[{'id':'notice','alert':{
+            'headerText':{'translation':[{'text':'Aviso','language':'es'},{'text':'Stop closed','language':'en'}]},
+            'description_text':{'translation':[{'text':'Use the next stop.'}]},
+            'informedEntity':[{'routeId':'51B','stopId':'a','trip':{'directionId':0}}],
+            'activePeriod':[{'start':'100','end':'200'}],
+            'url':{'translation':[{'text':'javascript:alert(1)'}]}}},
+            {'id':'deleted','isDeleted':True,'alert':{'headerText':{'translation':[{'text':'Ignore'}]}}}]}
+        result=server.normalize_alerts(payload)
+        self.assertEqual(len(result['alerts']),1)
+        alert=result['alerts'][0]
+        self.assertEqual(alert['title'],'Stop closed')
+        self.assertEqual(alert['description'],'Use the next stop.')
+        self.assertEqual(alert['selectors'],[{'route':'51B','stop':'a','direction':0,'trip':''}])
+        self.assertEqual(alert['periods'],[{'start':100,'end':200}])
+        self.assertEqual(alert['url'],'')
+        self.assertGreater(result['fetched'],0)
+
+    def test_alert_feed_failure_is_not_reported_as_no_disruptions(self):
+        with self.assertRaises(RuntimeError):server.normalize_alerts({'error':'quota exceeded'})
+        self.assertEqual(server.normalize_alerts({'entity':[]})['alerts'],[])
+        self.assertEqual(server.normalize_alerts({'header':{'gtfs_realtime_version':'2.0'}})['alerts'],[])
+
+    def test_concurrent_provider_requests_share_success_and_failure(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import time
+        for fail in (False,True):
+            entered=threading.Event();release=threading.Event();calls=[]
+            key='coalescing-test-'+str(fail)
+            server.CACHE.pop(key,None)
+            def fetch():
+                calls.append(1);entered.set();release.wait(3)
+                if fail:raise RuntimeError('Provider temporarily unavailable')
+                return {'shared':True}
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures=[pool.submit(server.cached,key,60,fetch)]
+                self.assertTrue(entered.wait(2))
+                futures.extend(pool.submit(server.cached,key,60,fetch) for _ in range(5))
+                time.sleep(.1);release.set()
+                for future in futures:
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError,'temporarily unavailable'):future.result()
+                    else:self.assertEqual(future.result(),{'shared':True})
+            self.assertEqual(len(calls),1)
+            self.assertNotIn(key,server.INFLIGHT)
+            server.CACHE.pop(key,None)
+
     def scheduled(self, trips, at, exceptions=None, calendar=None):
         from unittest.mock import patch
         pattern = {'sample_trip': 'pattern', 'stops': ['a', 'b']}

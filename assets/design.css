@@ -474,3 +474,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,su
 /* Preserve the existing higher-contrast preference over decorative surfaces. */
 body.wld-high-contrast{background:#fff!important}
 body.wld-high-contrast .card,body.wld-high-contrast .guide-directions-column,body.wld-high-contrast .guide-trip-controls,body.wld-high-contrast .guide-prediction{background:#fff!important;border-color:#003262!important;color:#142536!important}
+/* Notices remain legible in both the planner and compact mobile Guide. */
+#guideServiceAlerts{margin:16px 0;background:#fff8df;border:1px solid #e3c66f;color:#3b3420}
+.service-alert-item{margin:10px 0;padding:10px 12px;background:#fff;border:1px solid #e0d8bd;border-radius:12px;overflow-wrap:anywhere}
+.service-alert-item summary{cursor:pointer;font-weight:700;line-height:1.5}
+.service-alert-item p{white-space:pre-line;line-height:1.5}

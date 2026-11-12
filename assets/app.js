@@ -351,6 +351,31 @@ function routeChoice(out,title,detail,choose){
  };
  out.append(btn);return btn;
 }
+async function rankTransferOptions(out,heading,options){
+ const results=[];
+ let cursor=0;
+ async function worker(){
+  while(cursor<options.length){
+   const item=options[cursor++];
+   try{
+    const [schedules,walks]=await Promise.all([getPublishedLegTimes(item.legs),getWalkingJourney(item.legs)]);
+    const match=chooseScheduledConnection(schedules,walks,null);
+    item.match=match;
+    const status=document.createElement('span');status.className='route-timing hint';
+    status.textContent=match?.chain?'Scheduled arrival '+fmt(new Date(match.arrival).toISOString())+' · leave by '+fmt(new Date(match.leave).toISOString())+' · includes walking and transfer buffer':Array.isArray(match)?'No feasible upcoming connection found in the returned schedules. Check another option.':'Transfer timing unverified: pedestrian route unavailable. Check agency times.';
+    item.card.append(status);
+   }catch(e){const status=document.createElement('span');status.className='route-timing hint';status.textContent='Connection timing unavailable. Check agency times before traveling.';item.card.append(status)}
+   results.push(item);
+  }
+ }
+ await Promise.all([worker(),worker()]);
+ if(!heading.isConnected||options.some(x=>!x.card.isConnected))return;
+ results.sort((a,b)=>(a.match?.arrival??Infinity)-(b.match?.arrival??Infinity)||options.indexOf(a)-options.indexOf(b));
+ const anchor=document.createComment('transfer results');options[0]?.card.before(anchor);
+ for(const item of results)anchor.before(item.card);
+ anchor.remove();
+ heading.textContent='One-transfer options · checked published schedules and available walking paths. Timed connections appear first by scheduled arrival; predictions and disruptions may change them.';
+}
 function estimateTripTiming(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
  const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
@@ -667,10 +692,11 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   nearby.sort((a,b)=>a.score-b.score);
   if(nearby.length){
    heading.textContent='Possible connections with a short walk (up to 350 m straight-line). These are NOT verified walking paths or timed transfers. Check accessibility, crossings, and live service before traveling.';
+   const timedOptions=[];
    for(const t of nearby.slice(0,5)){
     const aStop=network.stops[t.first.p.stops[t.first.end]],bStop=network.stops[t.second.p.stops[t.second.start]];
     const start=network.stops[t.first.p.stops[t.first.start]],end=network.stops[t.second.p.stops[t.second.end]];
-    routeChoice(out,'Bus '+routeName(t.first.p)+' → walk → Bus '+routeName(t.second.p),
+    const card=routeChoice(out,'Bus '+routeName(t.first.p)+' → walk → Bus '+routeName(t.second.p),
      'Walk about '+Math.round(t.walkKm*1000)+' m straight-line between '+aStop.name+' and '+bStop.name,()=>{
       showTransferMap(t.first,t.second);setNavigation([t.first,t.second]);setAppView('guide');
       showSelectedRoute(out,'Bus '+routeName(t.first.p)+' → walk → Bus '+routeName(t.second.p),[
@@ -682,7 +708,9 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
       $('message').textContent='Walking transfer is an unverified possibility. Check pedestrian access, safety and bus schedules.';
       $('startJourney').disabled=false;
      });
+    timedOptions.push({card,legs:[t.first,t.second]});
    }
+   await rankTransferOptions(out,heading,timedOptions);
   }else{
    heading.textContent='We could not verify a connection from these stops in the available AC Transit data. Try the full transit planner below for walking transfers and other agencies.';
   }
@@ -697,9 +725,10 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   return;
  }
  heading.textContent='Possible one-transfer routes ('+transfers.length+' found). These are stop-order connections only: schedules, transfer wait, and arrival deadlines have NOT been checked.';
+ const timedOptions=[];
  for(const t of transfers.slice(0,6)){
   const transfer=network.stops[t.transferId],start=network.stops[t.first.p.stops[t.first.start]],end=network.stops[t.second.p.stops[t.second.end]];
-  routeChoice(out,'Bus '+routeName(t.first.p)+' → Bus '+routeName(t.second.p),'Transfer at '+(transfer?.name||'stop'),()=>{
+  const card=routeChoice(out,'Bus '+routeName(t.first.p)+' → Bus '+routeName(t.second.p),'Transfer at '+(transfer?.name||'stop'),()=>{
    showTransferMap(t.first,t.second);
    setNavigation([t.first,t.second]);setAppView('guide');
    showSelectedRoute(out,'Bus '+routeName(t.first.p)+' → Bus '+routeName(t.second.p),[
@@ -712,8 +741,10 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    $('arrivals').textContent='Transfer selected. Live predictions for both legs are not yet available.';
    $('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
    $('startJourney').disabled=false;
-  })
+  });
+  timedOptions.push({card,legs:[t.first,t.second]});
  }
+ await rankTransferOptions(out,heading,timedOptions);
  }finally{findingTrip=false;button.disabled=false}
 }
 $('autoFind').onclick=findDirectTrips;
@@ -855,7 +886,7 @@ $('startJourney').onclick=()=>{
  $('finishJourney').disabled=false;updateDelayPreview();
  if(demo){$('journeyStatus').textContent='Simulation started. Demo points only.'}
  else if(untracked){$('journeyStatus').textContent='Trip started. Follow the directions and finish when you arrive. Delay rewards are unavailable for this route.'}
- else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,70000)}
+ else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,145000)}
  window.wldUpdateGuide?.();
  window.dispatchEvent(new Event('wld:trip-started'));
 };
