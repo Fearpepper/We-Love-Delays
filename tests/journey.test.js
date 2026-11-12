@@ -60,3 +60,17 @@ assert.match(app,/Number\.isFinite\(journey\.delay\)/,'delay must be a finite nu
 console.log('Journey, rewards and UI contract tests passed');
 
 assert.match(html,/\/assets\/focus\.js/,'focused UI script loaded');
+
+const guide=fs.readFileSync('assets/guide.js','utf8');
+const focus=fs.readFileSync('assets/focus.js','utf8');
+const experience=fs.readFileSync('assets/experience.js','utf8');
+for(const script of [guide,focus,experience])new vm.Script(script);
+assert.match(html,/id="guideStartTrip"/,'guide start control exists');
+assert.match(html,/id="guideFinishTrip"/,'guide finish control exists');
+assert.match(html,/id="tripPlanAgain"/,'completed trips can restart');
+assert.match(html,/id="tripViewRewards"/,'completed trips can view rewards');
+assert.match(guide,/wld:trip-finished/,'guide responds to trip completion');
+assert.match(guide,/guideFinishTrip/,'guide connects finish action');
+assert.match(app,/const demo=Boolean\(journey\.demo\)/,'finish captures simulation status before clearing journey');
+assert.match(guide,/guideMapHost/,'guide uses real map host');
+assert.match(html,/id="guideDirectionsHost"/,'guide has directions host');
