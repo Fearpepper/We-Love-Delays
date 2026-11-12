@@ -67,12 +67,12 @@ function updateLiveDashboard(){
  const fresh=isFreshJourneyPrediction(journey);
  const delay=active?(journey.demo?delayDemo:(fresh?journey.delay:null)):null;
  $('liveRouteText').textContent=active?journey.route+(journey.demo?' · Simulation':' · 511 destination prediction'):'No active trip';
- $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':fresh?'Fresh 511 vehicle prediction':'Awaiting a fresh 511 prediction';
+ $('liveTrackingState').textContent=!active?'No active trip':journey.demo?'Simulation active':journey.untracked?'Trip in progress · delay rewards unavailable':fresh?'Fresh 511 vehicle prediction':'Awaiting a fresh 511 prediction';
  $('liveDelayValue').textContent=delay===null?'—':String(delay);
  $('livePointsValue').textContent=delay===null?'0':String(Math.max(0,delay)*10);
- $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':fresh?'Provisional points based on a recent 511 prediction, not an observed arrival.':'No fresh matching 511 prediction. Provisional points are unavailable.';
+ $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':journey.untracked?'Follow the route directions. This trip can be completed, but delay rewards are not supported for it.':fresh?'Provisional points based on a recent 511 prediction, not an observed arrival.':'No fresh matching 511 prediction. Provisional points are unavailable.';
  $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':'511 predictions update while the trip remains open.';
- $('liveRefresh').disabled=!active||journey.demo;
+ $('liveRefresh').disabled=!active||journey.demo||journey.untracked;
 }
 function updateDelayPreview(){
  const el=$('delayPreview');
@@ -81,7 +81,7 @@ function updateDelayPreview(){
  el.textContent=!isFreshJourneyPrediction(journey)?'511 delay data is not confirmed for this trip. The prototype will not invent a delay or award unverified points.':'511 destination prediction: scheduled '+fmt(journey.aimed)+' · predicted '+fmt(journey.expected)+' · '+journey.delay+' min late · '+journey.delay*10+' provisional prototype points. Vehicle reported '+fmt(new Date(journey.recorded).toISOString())+'. Not an observed arrival.';updateLiveDashboard();
 }
 async function sampleJourneyDelay(){
- const j=journey;if(!j||j.demo||j.busy)return;j.busy=true;
+ const j=journey;if(!j||j.demo||j.untracked||j.busy)return;j.busy=true;
  try{
   const response=await api('/api/arrivals?code='+encodeURIComponent(j.exitCode));
   if(j!==journey)return;
@@ -245,7 +245,9 @@ function setNavigation(legs){
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
  if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
+ stopDelayMonitor();journey=null;$('finishJourney').disabled=true;updateDelayPreview();
  activeNavigation={legs,steps,progress:0};
+ $('startJourney').disabled=false;
  // Guide moves the Leaflet element into its own container after route selection.
  // Refit only once that container has measured dimensions.
  const currentTrip=activeNavigation;
@@ -288,6 +290,11 @@ $('navAdvance').onclick=()=>{
  if(!activeNavigation)return;
  if(activeNavigation.progress<activeNavigation.steps.length)activeNavigation.progress++;
  renderNavigation();
+ if(activeNavigation.progress===activeNavigation.steps.length){
+  if(!journey)$('startJourney').click();
+  $('finishJourney').click();
+  return;
+ }
  $('navStatus').textContent='Step marked complete manually. Confirm boarding, alighting and pedestrian access yourself; GPS cannot verify these actions.';
 };
 function updateNavigationPosition(lat,lon,accuracy){
@@ -661,7 +668,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
        '4. Board Bus '+routeName(t.second.p)+' and get off at '+(end?.name||'destination')
       ],[t.first,t.second]);
       $('message').textContent='Walking transfer is an unverified possibility. Check pedestrian access, safety and bus schedules.';
-      $('startJourney').disabled=true;
+      $('startJourney').disabled=false;
      });
    }
   }else{
@@ -692,7 +699,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    $('message').textContent='Transfer route selected. Review the instructions and map above. Check actual bus times before traveling.';
    $('arrivals').textContent='Transfer selected. Live predictions for both legs are not yet available.';
    $('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—';
-   $('startJourney').disabled=true;
+   $('startJourney').disabled=false;
   })
  }
  }finally{findingTrip=false;button.disabled=false}
@@ -822,20 +829,27 @@ async function refreshArrivals(){
 }
 $('refresh').onclick=refreshArrivals;
 $('startJourney').onclick=()=>{
- const stops=chosenStops();if(!stops)return;
+ if(journey)return;
+ const legs=activeNavigation?.legs;
+ const stops=chosenStops();if(!legs?.length&&!stops)return;
  stopDelayMonitor();delayDemo=0;
- const exit=network.stops[selected.stops[Number($('exit').value)]],route=$('route').selectedOptions[0].textContent;
- if(!demo&&!exit?.code){$('journeyStatus').textContent='Destination stop has no live 511 stop code; delay cannot be tracked.';return}
- journey={demo,route,routeId:$('route').value,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
+ const leg=legs?.length===1?legs[0]:null;
+ const exit=legs?.length?network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]]:stops[1];
+ const routeId=leg?leg.p.route:$('route').value;
+ const route=legs?.length?legs.map(x=>'Bus '+routeName(x.p)).join(' → '):$('route').selectedOptions[0].textContent;
+ const untracked=Boolean(legs?.length>1||!exit?.code);
+ journey={demo,untracked,route,routeId,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
  $('finishJourney').disabled=false;updateDelayPreview();
  if(demo){$('journeyStatus').textContent='Simulation started. Demo points only.'}
+ else if(untracked){$('journeyStatus').textContent='Trip started. Follow the directions and finish when you arrive. Delay rewards are unavailable for this route.'}
  else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,70000)}
+ window.wldUpdateGuide?.();
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
  if(!journey.demo&&!isFreshJourneyPrediction(journey)){
   $('journeyStatus').textContent='Trip finished. No points awarded because 511 did not provide a verified matching delay prediction.';
-  stopDelayMonitor();journey=null;updateDelayPreview();$('finishJourney').disabled=true;
+  navStopTracking();stopDelayMonitor();journey=null;activeNavigation=null;updateDelayPreview();$('finishJourney').disabled=true;
   window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false}}));
   return;
  }
@@ -851,7 +865,7 @@ $('finishJourney').onclick=()=>{
   $('points').textContent=points;renderRewardHistory();
   $('journeyStatus').textContent='Trip completed: +'+earned+' prototype points from a '+delay+'-minute 511 destination prediction. Actual arrival delay is not verified.';
  }
- stopDelayMonitor();journey=null;updateDelayPreview();$('finishJourney').disabled=true;
+ navStopTracking();stopDelayMonitor();journey=null;activeNavigation=null;updateDelayPreview();$('finishJourney').disabled=true;
  window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned,verified:!demo,demo}}));
 };
 $('liveRefresh').onclick=()=>{if(journey&&!journey.demo)sampleJourneyDelay()};
