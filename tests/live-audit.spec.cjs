@@ -1,9 +1,12 @@
 const {test,expect}=require('@playwright/test');
+test.describe.configure({retries:0});
 test.use({baseURL:'https://we-love-delays.onrender.com',serviceWorkers:'block'});
 test('live 511 route, guide, completion and wallet',async({page})=>{
+ page.setDefaultTimeout(20000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/',{timeout:120000,waitUntil:'domcontentloaded'});
  await expect(page.locator('#feedStatus')).toContainText('connected',{timeout:90000});
+ await expect(page.locator('#message')).toContainText('AC Transit data loaded',{timeout:60000});
  await page.locator('#originSearch').fill('Downtown Berkeley');
  await page.locator('#originSuggestions button').filter({hasText:'Center St & Shattuck Av'}).first().click();
  await page.locator('#place').fill('University Av & Grant St');

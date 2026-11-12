@@ -2,13 +2,13 @@ const {test,expect}=require('@playwright/test');
 test.use({baseURL:process.env.BASE_URL||'http://127.0.0.1:10000',serviceWorkers:'block'});
 const stop=(id,name,lon)=>({id,name,code:id,lat:37.87,lon});
 const network={routes:[{id:'51B',name:'51B'},{id:'6',name:'6'}],stops:{a:stop('a','Alpha boarding',-122.27),b:stop('b','Beta transfer',-122.26),c:stop('c','Gamma destination',-122.25)},patterns:[{route:'51B',direction:'0',headsign:'Beta',stops:['a','b'],sample_trip:'one'},{route:'6',direction:'0',headsign:'Gamma',stops:['b','c'],sample_trip:'two'}]};
-async function setup(page,delayed=true){
+async function setup(page,delayed=true,networkReady=Promise.resolve()){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const path=new URL(route.request().url()).pathname;
   let data={};
   if(path==='/api/status')data={configured:true};
-  if(path==='/api/network')data=network;
+  if(path==='/api/network'){await networkReady;data=network;}
   if(path==='/api/places')data={places:[]};
   if(path==='/api/arrivals')data={arrivals:delayed?[{route:'51B',vehicle:'test-bus',recorded:new Date().toISOString(),aimed:new Date(Date.now()+600000).toISOString(),expected:new Date(Date.now()+900000).toISOString()}]:[]};
   if(path==='/api/scheduled-journey')data={trips:[]};
@@ -70,3 +70,14 @@ test('transfer is labeled accurately and unavailable tracking is disabled',async
  await expect(page.locator('#originSearch')).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+ test('typing before the network loads refreshes stop suggestions on arrival',async({page})=>{
+  let release;const ready=new Promise(resolve=>{release=resolve});
+  const errors=await setup(page,true,ready);
+  await page.locator('#originSearch').fill('Alpha boarding');
+  await expect(page.locator('#originSuggestions button')).toHaveCount(0);
+  release();
+  await expect(page.locator('#originSuggestions button').first()).toContainText('Alpha boarding');
+  await page.locator('#originSuggestions button').first().click();
+  expect(errors).toEqual([]);
+ });
