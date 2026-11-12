@@ -58,3 +58,5 @@ assert.match(app,/Date\.now\(\)-journey\.sampled>150000/,'stale predictions reje
 assert.match(app,/if\(journey\.demo\)\{/,'demo balance handled separately');
 assert.match(app,/Number\.isFinite\(journey\.delay\)/,'delay must be a finite number');
 console.log('Journey, rewards and UI contract tests passed');
+
+assert.match(html,/\/assets\/focus\.js/,'focused UI script loaded');
