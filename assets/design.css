@@ -255,3 +255,5 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
 .route-fallback .btn{flex:1 1 170px}
 #manualRouteDetails[open]{background:#d9ebff;border:1px solid #9dbfdf;border-radius:16px;padding:14px;margin-bottom:14px}
 #manualRouteDetails summary{color:#003262}
+
+.route-result-timing{display:block;width:100%;padding:9px 11px;border-radius:10px;background:#fff0c1;color:#003262;font-size:12px;font-weight:750}
