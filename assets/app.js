@@ -268,7 +268,7 @@ $('navStop').onclick=()=>{navStopTracking();$('navStatus').textContent='GPS foll
 window.addEventListener('pagehide',navStopTracking);
 function routeChoice(out,title,detail,choose){
  const btn=document.createElement('button');btn.type='button';btn.className='route-choice route-result-card';btn.setAttribute('aria-pressed','false');
- const badge=document.createElement('span');badge.className='route-result-badge';badge.textContent=/transfer/i.test(title)?'1 transfer':'Direct bus';btn.append(badge);
+ const badge=document.createElement('span');badge.className='route-result-badge';badge.textContent=/transfer|→/i.test(title)?'1 transfer':'Direct bus';btn.append(badge);
  const label=document.createElement('strong');label.textContent=title;btn.append(label);
  const sub=document.createElement('small');sub.textContent=detail+' · Tap to select';btn.append(sub);
  const foot=document.createElement('span');foot.className='route-result-foot';foot.textContent='View directions  ↗';btn.append(foot);

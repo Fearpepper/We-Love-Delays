@@ -407,3 +407,6 @@ body.desktop-guide .app-controls{display:flex!important}
 .trip-complete p{color:#496174;line-height:1.5}
 .trip-complete-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:24px}
 .trip-complete-actions .btn{min-width:180px}
+
+/* Reset the legacy fixed-nav offset now that desktop tabs are sticky. */
+@media(min-width:791px){.app-controls{left:auto!important;right:auto!important;transform:none!important;width:calc(100% - 28px)!important}}

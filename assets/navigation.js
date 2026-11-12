@@ -38,7 +38,7 @@
   b.addEventListener('click',e=>{e.stopImmediatePropagation();selectTab(view)},true);
  }
  selectTab('routes');
- window.addEventListener('resize',()=>{const view=document.body.dataset.desktopView||document.body.dataset.view||'routes';if(window.innerWidth<=790&&!document.body.classList.contains('wld-tabs'))selectTab(view);else if(window.innerWidth>790&&document.body.classList.contains('wld-tabs')){document.body.classList.remove('wld-tabs');selectTab(view)}if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120)});
+ window.addEventListener('resize',()=>{const view=document.body.classList.contains('wld-tabs')?(document.body.dataset.view||'routes'):(document.body.dataset.desktopView||'routes');if(window.innerWidth<=790&&!document.body.classList.contains('wld-tabs'))selectTab(view);else if(window.innerWidth>790&&document.body.classList.contains('wld-tabs')){document.body.classList.remove('wld-tabs');selectTab(view)}if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120)});
 })();
 
 
