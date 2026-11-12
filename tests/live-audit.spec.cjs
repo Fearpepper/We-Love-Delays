@@ -1,0 +1,24 @@
+const {test,expect}=require('@playwright/test');
+test.use({baseURL:'https://we-love-delays.onrender.com',serviceWorkers:'block'});
+test('live 511 route, guide, completion and wallet',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/',{timeout:120000,waitUntil:'domcontentloaded'});
+ await expect(page.locator('#feedStatus')).toContainText('connected',{timeout:90000});
+ await page.locator('#originSearch').fill('Downtown Berkeley');
+ await page.locator('#originSuggestions button').filter({hasText:'Center St & Shattuck Av'}).first().click();
+ await page.locator('#place').fill('University Av & Grant St');
+ await page.locator('#destinationSuggestions button').first().click();
+ await page.locator('#autoFind').click();
+ await page.locator('.route-choice').filter({hasText:'Direct'}).first().click();
+ await expect(page.locator('#guideContent')).toBeVisible();
+ await page.locator('#navAdvance').click();
+ await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await page.locator('#guideFinishTrip').click();
+ await expect(page.locator('#tripComplete')).toBeVisible();
+ await page.locator('#tripViewRewards').click();
+ await expect(page.locator('#points')).toBeVisible();
+ await expect(page.locator('#points')).toHaveText(/^\d+$/);
+ await page.screenshot({path:test.info().outputPath('live-wallet.png'),fullPage:true});
+ expect(errors).toEqual([]);
+});

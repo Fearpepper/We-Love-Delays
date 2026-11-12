@@ -1,7 +1,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 module.exports=defineConfig({
  testDir:'./tests',
- testMatch:['browser.spec.cjs','flows.spec.cjs'],
+ testMatch:['browser.spec.cjs','flows.spec.cjs','live-audit.spec.cjs'],
  timeout:120000,
  expect:{timeout:15000},
  retries:1,
