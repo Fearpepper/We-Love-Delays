@@ -323,3 +323,31 @@ body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!importa
 .reward-milestones{display:none!important}
 #exportRewards,#importRewards{font-size:12px!important;min-height:38px!important;padding:7px 12px!important}
 @media(max-width:790px){.dashboard{margin-bottom:10px!important}.app-controls{gap:2px!important}.app-controls button:not(.secondary-tab){min-width:0!important;padding:8px!important}}
+
+/* Minimal journey mode: preserve secondary tools behind disclosure. */
+.dashboard{padding:12px 18px!important;margin-bottom:10px!important}
+.dashboard-heading,.dashboard-shortcuts{display:none!important}
+.dashboard .dashboard-saved,.dashboard .dashboard-recent{margin:8px 0}
+.focus-fold{border:1px solid #d8e5f3;border-radius:12px;background:#f6f9fe;margin:9px 0;padding:0 12px}
+.focus-fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px 4px;font-size:13px;font-weight:750;color:#254e73}
+.focus-fold>summary::-webkit-details-marker{display:none}
+.focus-fold>summary:after{content:'+';font-size:19px;font-weight:500}
+.focus-fold[open]>summary:after{content:'−'}
+.focus-fold[open]{padding-bottom:12px}
+.focus-optional-hint{display:none!important}
+.focus-legacy-trip-actions{display:none!important}
+#home{display:none!important}
+#manualRouteDetails>summary{padding:11px!important}
+#manualRouteDetails:not([open]){border:1px solid #d8e5f3;border-radius:12px;background:#f6f9fe}
+#manualRouteDetails[open]{padding:10px!important}
+#autoFind{width:100%!important;min-height:54px!important;font-size:16px!important}
+#originSearch,#place{min-height:52px!important;font-size:16px!important}
+#autoResults{margin-top:8px!important}
+#autoResults .route-result-card{background:#fff!important;border:1px solid #d4e1ed!important;border-left:4px solid #fdb515!important;box-shadow:none!important}
+#autoResults .route-result-card[aria-pressed="true"]{background:#edf5ff!important}
+#autoResults .route-result-badge{font-size:10px;padding:3px 8px}
+#autoResults .route-result-foot{font-size:11px}
+#autoResults .route-result-timing{background:#f3f7fd!important;color:#345572!important;font-weight:600!important}
+.guide-screen:has(#guideContent:not([hidden])) .guide-hero p{display:none}
+.guide-screen:has(#guideContent:not([hidden])) .guide-disclaimer{font-size:11px}
+@media(max-width:790px){.dashboard{padding:8px 12px!important}.dashboard .focus-fold{margin:0}.guide-map-host #map{height:42vh!important}}
