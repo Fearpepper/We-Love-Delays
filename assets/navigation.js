@@ -2,7 +2,10 @@
 /* Isolated mobile navigation: preserve the existing trip-planning handlers and native scroll. */
 (function(){
  const tabs={routes:'appTrips',map:'appMap',rewards:'appRewards',guide:'appGuide',live:'appLive'};
+ const visibleTabs={routes:'appTrips',guide:'appGuide',rewards:'appRewards'};
  function selectTab(view){
+  if(view==='map'){view='guide';}
+  if(view==='live'){view='guide';}
   const guide=document.getElementById('guideScreen');
   if(guide)guide.hidden=view!=='guide';
   if(view==='guide'&&typeof window.wldUpdateGuide==='function')window.wldUpdateGuide();
