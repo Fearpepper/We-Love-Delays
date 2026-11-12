@@ -209,3 +209,42 @@ body.desktop-guide .shell,body.desktop-guide .live-screen{display:none!important
  body.wld-tabs[data-view="guide"] .shell{display:none!important}
  body.wld-tabs[data-view]:not([data-view="guide"]) .guide-screen{display:none!important}
 }
+
+/* Trip results: legible comparison cards without fabricated journey times. */
+.route-result-card{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:7px!important;width:100%!important;text-align:left!important;border:1px solid #a8c8e9!important;border-left:5px solid #fdb515!important;border-radius:18px!important;padding:17px 19px!important;margin:10px 0!important;background:linear-gradient(125deg,#d5eaff,#e9e4ff)!important;color:#003262!important;box-shadow:0 7px 19px #0032620d!important}
+.route-result-card:nth-of-type(even){background:linear-gradient(125deg,#d6f2ff,#fff0c4)!important}
+.route-result-card strong{font-size:17px}
+.route-result-card small{color:#365e85;font-size:13px}
+.route-result-card[aria-pressed="true"]{outline:3px solid #fdb515;outline-offset:1px}
+.route-result-badge{display:inline-block;border-radius:20px;background:#003262;color:#fff;padding:4px 10px;font-size:11px;font-weight:750}
+.route-result-foot{font-size:12px;font-weight:800;color:#075a9b;margin-top:4px}
+.guide-content .nav-step{position:relative;padding:15px 16px 15px 54px!important;margin:0 0 0 12px!important;border-left:3px solid #90b8e5;border-radius:0 12px 12px 0;background:#d8e9ff}
+.guide-content .nav-step+.nav-step{margin-top:8px!important}
+.guide-content .nav-step.active{background:#ffe7ac!important;border-left-color:#e0a000}
+.guide-content .nav-step.done{background:#d8f0e5!important;border-left-color:#4d9e79}
+.nav-step-symbol{position:absolute;left:10px;top:14px;width:29px;height:29px;display:grid;place-items:center;border-radius:50%;background:#003262;color:#fff;font-size:17px}
+.wallet-summary{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.wallet-caption{font-size:11px;font-weight:850;letter-spacing:1.5px;color:#003262}
+.wallet-star{color:#a56b00;font-size:30px}
+.reward-milestones{margin:18px 0;padding:18px;border-radius:18px;background:linear-gradient(115deg,#ffe5a5,#f4dfff);border:1px solid #edc87c}
+.milestone-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.milestone-grid>div{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;background:#e4edff;border-radius:13px;padding:12px 5px}
+.milestone-grid span{font-size:24px;color:#ad7500}
+.milestone-grid strong{font-size:13px}
+.milestone-grid small{font-size:10px;color:#46617d}
+.live-trip-detail{background:#d5e9ff;border:1px solid #aecfea;border-radius:14px;padding:14px;margin:16px 0}
+.live-trip-detail p{font-size:12px;margin:6px 0 0;color:#355b7f}
+.experience-controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.experience-controls label{display:flex;gap:7px;align-items:center;font-size:13px;font-weight:650}
+.experience-controls input{accent-color:#003262;width:18px;height:18px}
+body.wld-large-text{font-size:18px}
+body.wld-large-text .hint,body.wld-large-text small,body.wld-large-text .tab-label{font-size:14px!important}
+body.wld-high-contrast{--muted:#203b59;--line:#6685a5}
+body.wld-high-contrast .card,body.wld-high-contrast .dashboard,body.wld-high-contrast input,body.wld-high-contrast .route-result-card{border-color:#003262!important}
+body.wld-high-contrast .hint,body.wld-high-contrast .muted{color:#203b59!important}
+.onboarding-overlay{position:fixed;inset:0;z-index:100;background:#001b3cb8;display:grid;place-items:center;padding:20px}
+.onboarding-overlay[hidden]{display:none!important}
+.onboarding-panel{max-width:440px;width:100%;border-radius:25px;padding:30px;background:linear-gradient(140deg,#cfe6ff,#e7deff 65%,#ffe6ac);border:2px solid #a6c7e8;box-shadow:0 25px 90px #001b3c55;color:#003262}
+.onboarding-panel h2{font-size:29px;letter-spacing:-.7px;margin:12px 0}
+.onboarding-panel p:not(.eyebrow){font-size:15px;line-height:1.65}
+@media(max-width:790px){.milestone-grid{gap:5px}.milestone-grid strong{font-size:12px}.route-result-card{padding:15px!important}}
