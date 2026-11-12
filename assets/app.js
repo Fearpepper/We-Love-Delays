@@ -84,7 +84,7 @@ async function sampleJourneyDelay(){
  const j=journey;if(!j||j.demo||j.untracked||j.busy||document.hidden||!navigator.onLine)return;j.busy=true;
  try{
   const response=await api('/api/arrivals?code='+encodeURIComponent(j.exitCode));
-  if(j!==journey)return;
+  if(j!==journey||!navigator.onLine)return;
   const norm=x=>String(x||'').split(':').pop().replace(/[^a-z0-9]/gi,'').toLowerCase();
   const routeMatches=(response.arrivals||[]).filter(x=>norm(x.route)===norm(j.routeId));
   const fresh=routeMatches.filter(x=>freshArrivalPrediction(x));
@@ -805,7 +805,7 @@ async function refreshArrivals(){
   const entries=(result.arrivals||[])
    .filter(x=>norm(x.route)===norm(currentRoute)||norm(x.route)===norm(routeLabel))
    .map(x=>{
-    const live=freshArrivalPrediction(x,now);
+    const live=navigator.onLine?freshArrivalPrediction(x,now):null;
     const aimed=Date.parse(x.aimed||'');
     const scheduled=Number.isFinite(aimed)&&aimed>=now-120000&&aimed<=now+14400000?aimed:null;
     return {x,live,scheduled,arrival:live?.expected??scheduled};
@@ -860,7 +860,7 @@ $('startJourney').onclick=()=>{
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
- if(!journey.demo&&!isFreshJourneyPrediction(journey)){
+ if(!journey.demo&&(!navigator.onLine||!isFreshJourneyPrediction(journey))){
   $('journeyStatus').textContent='Trip finished. No points awarded because 511 did not provide a verified matching delay prediction.';
   navStopTracking();stopDelayMonitor();journey=null;activeNavigation=null;updateDelayPreview();$('finishJourney').disabled=true;
   window.dispatchEvent(new CustomEvent('wld:trip-finished',{detail:{earned:0,verified:false}}));
