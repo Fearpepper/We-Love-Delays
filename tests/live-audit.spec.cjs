@@ -10,9 +10,9 @@ test('live 511 route, guide, completion and wallet',async({page})=>{
  await page.locator('#originSearch').fill('Downtown Berkeley');
  await page.locator('#originSuggestions button').filter({hasText:'Center St & Shattuck Av'}).first().click();
  await page.locator('#place').fill('University Av & Grant St');
- await page.locator('#destinationSuggestions button').first().click();
+ // Keep both directions of this named stop eligible; choose the direct route below.
  await page.locator('#autoFind').click();
- await page.locator('.route-choice').filter({hasText:'Direct'}).first().click();
+ await page.locator('.route-choice').filter({hasText:'· Direct'}).first().click();
  await expect(page.locator('#guideContent')).toBeVisible();
  await page.locator('#navAdvance').click();
  await page.locator('#guideStartTrip').click();
