@@ -1,27 +1,30 @@
-/* Present the existing navigation engine as a first-class Guide screen. */
+/* Single focused Guide: actual map and directions, no duplicate controls. */
 (function(){
  'use strict';
  const $=id=>document.getElementById(id);
  const panel=$('navigationPanel'),content=$('guideContent'),empty=$('guideEmpty');
+ const map=$('map'),mapHost=$('guideMapHost'),directions=$('guideDirectionsHost');
  if(!panel||!content||!empty)return;
- content.appendChild(panel);
+ const originalMapParent=map?.parentElement,originalMapNext=map?.nextSibling;
+ (directions||content).appendChild(panel);
+ function resize(){try{if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),180)}catch(e){}}
+ function syncMap(){
+  if(!map||!mapHost||!originalMapParent)return;
+  const view=document.body.dataset.desktopView||document.body.dataset.view||'routes';
+  const show=view==='guide'&&!panel.classList.contains('hidden');
+  if(show&&map.parentElement!==mapHost){mapHost.appendChild(map);resize()}
+  if(!show&&map.parentElement===mapHost){originalMapParent.insertBefore(map,originalMapNext);resize()}
+ }
  function update(){
-  const hasRoute=!panel.classList.contains('hidden');
-  empty.hidden=hasRoute;content.hidden=!hasRoute;syncMap();
+  const active=!panel.classList.contains('hidden');
+  empty.hidden=active;content.hidden=!active;
+  syncMap();
  }
  window.wldUpdateGuide=update;
  window.wldSyncGuideMap=syncMap;
- $('guidePlanTrip').addEventListener('click',()=>{
-  if(typeof window.wldSelectTab==='function')window.wldSelectTab('routes');
-  const input=$('originSearch');if(input)input.focus({preventScroll:true});
- });
- const start=$('guideStartTrip'),feedback=$('guideTripFeedback');
- if(start)start.addEventListener('click',()=>{
-  const original=$('startJourney');
-  if(!original||original.disabled){feedback.textContent='Select a bus journey in Routes first, then return to Guide.';return}
-  original.click();
-  feedback.textContent=$('journeyStatus')?.textContent||'Trip tracking requested.';
-  if(typeof window.wldSelectTab==='function')window.wldSelectTab('guide');
+ $('guidePlanTrip')?.addEventListener('click',()=>{
+  window.wldSelectTab?.('routes');
+  $('originSearch')?.focus({preventScroll:true});
  });
  const observer=new MutationObserver(update);
  observer.observe(panel,{attributes:true,attributeFilter:['class']});
