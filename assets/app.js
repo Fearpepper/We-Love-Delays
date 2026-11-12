@@ -344,7 +344,7 @@ async function applyPedestrianTimes(legs,steps){
  }
  tasks.push({step:steps.find(x=>x.kind==='walk-end'),a:last,b:walkingEndpoint('place')});
  await Promise.all(tasks.filter(x=>x.step).map(async x=>{
-  try{const data=await getPedestrianLeg(x.a,x.b);x.step.estimate=data?'Pedestrian route: '+data.minutes+' min · '+data.meters+' m (OpenRouteService; accessibility not verified)':'Walking route unavailable · distance and duration not verified'}
+  try{const data=await getPedestrianLeg(x.a,x.b);x.step.estimate=data?(data.source==='Same stop'?'Already at this stop · no walk required':'Pedestrian route: '+data.minutes+' min · '+data.meters+' m (OpenRouteService; accessibility not verified)'):'Walking route unavailable · distance and duration not verified'}
   catch(e){x.step.estimate='Walking route unavailable · '+e.message}
  }));
 }
