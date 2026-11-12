@@ -223,7 +223,8 @@ function renderNavigation(){
   const label=document.createElement('strong');label.textContent=(i+1)+'. '+step.label;
   const estimate=document.createElement('small');estimate.textContent=step.estimate||'';
   estimate.style.display='block';estimate.style.marginTop='4px';
-  el.append(label,estimate);list.append(el)
+  const symbol=document.createElement('span');symbol.className='nav-step-symbol';symbol.setAttribute('aria-hidden','true');symbol.textContent=step.kind==='board'?'▣':step.kind==='ride'?'➜':step.kind?.startsWith('walk')?'↗':'●';
+  el.prepend(symbol);el.append(label,estimate);list.append(el)
  });
  const step=activeNavigation.steps[activeNavigation.progress];
  $('navNext').textContent=step?'Next: '+step.label+(step.estimate?' · '+step.estimate:''):'All listed steps completed';
@@ -265,9 +266,11 @@ $('navStart').onclick=()=>{
 $('navStop').onclick=()=>{navStopTracking();$('navStatus').textContent='GPS following paused. Directions remain available.'};
 window.addEventListener('pagehide',navStopTracking);
 function routeChoice(out,title,detail,choose){
- const btn=document.createElement('button');btn.type='button';btn.className='route-choice';btn.setAttribute('aria-pressed','false');
+ const btn=document.createElement('button');btn.type='button';btn.className='route-choice route-result-card';btn.setAttribute('aria-pressed','false');
+ const badge=document.createElement('span');badge.className='route-result-badge';badge.textContent=/transfer/i.test(title)?'1 transfer':'Direct bus';btn.append(badge);
  const label=document.createElement('strong');label.textContent=title;btn.append(label);
  const sub=document.createElement('small');sub.textContent=detail+' · Tap to select';btn.append(sub);
+ const foot=document.createElement('span');foot.className='route-result-foot';foot.textContent='View directions  ↗';btn.append(foot);
  btn.onclick=()=>{
   out.querySelectorAll('.route-choice').forEach(x=>{x.setAttribute('aria-pressed','false');x.querySelector('small').textContent=x.querySelector('small').textContent.replace(' · Selected','')});
   btn.setAttribute('aria-pressed','true');sub.textContent=detail+' · Selected';
