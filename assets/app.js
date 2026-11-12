@@ -473,12 +473,25 @@ async function findDirectTrips(){
   let end=-1;for(let i=p.stops.length-1;i>=0;i--){if(to.has(p.stops[i])){end=i;break}}
   if(end>0)lastLegs.push({p,end});
  }
- direct.sort((x,y)=>(x.end-x.start)-(y.end-y.start));
+ // Rank candidate direct routes by practical convenience, not just stop count.
+// Distances here are straight-line approximations, not verified walking paths.
+const tripOrigin=selectedPlaces.originSearch||locationPoint;
+const tripDestination=selectedPlaces.place;
+const safeWalk=(point,stop)=>point&&stop&&Number.isFinite(Number(point.lat))&&Number.isFinite(Number(point.lon))&&Number.isFinite(Number(stop.lat))&&Number.isFinite(Number(stop.lon))?distance(Number(point.lat),Number(point.lon),Number(stop.lat),Number(stop.lon))*1000:null;
+function directRank(x){
+ const first=network.stops[x.p.stops[x.start]],last=network.stops[x.p.stops[x.end]];
+ const startMeters=safeWalk(tripOrigin,first),endMeters=safeWalk(tripDestination,last);
+ const stops=x.end-x.start;
+ // A modest penalty per stop is a convenience heuristic, NOT a time estimate.
+ return {startMeters,endMeters,stops,score:stops*95+(startMeters??0)+(endMeters??0)};
+}
+direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-directRank(y).stops);
  const heading=document.createElement('p');heading.className='notice';
  if(direct.length){
-  heading.textContent='Direct bus options (published stop order, not verified departure times):';out.append(heading);
+  heading.textContent='Recommended direct buses · ranked by estimated walking convenience and number of stops. Not verified fastest arrivals.';out.append(heading);
   for(const x of direct.slice(0,5)){
-   routeChoice(out,'Bus '+routeName(x.p)+' · Direct', (x.p.headsign||'Bus direction')+' · '+(x.end-x.start)+' stops',()=>{
+   const ranking=directRank(x);const walking=[ranking.startMeters===null?null:'~'+Math.round(ranking.startMeters)+' m to board',ranking.endMeters===null?null:'~'+Math.round(ranking.endMeters)+' m after exit'].filter(Boolean).join(' · ');
+   routeChoice(out,'Bus '+routeName(x.p)+' · Direct', (x.p.headsign||'Bus direction')+' · '+ranking.stops+' stops'+(walking?' · '+walking+' (straight-line)':''),()=>{
     $('routeFilter').value='';populateRoutes();$('route').value=x.p.route;$('route').onchange();
     const index=patterns.indexOf(x.p);if(index<0)return;
     $('stopFilter').value='';$('pattern').value=String(index);$('pattern').onchange();
