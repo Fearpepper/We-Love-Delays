@@ -484,6 +484,7 @@ body{background:radial-gradient(ellipse at 5% 0,#dae9d9 0,transparent 45%),radia
 #navigationPanel{background:var(--paper)!important;border:1px solid var(--edge)!important;border-radius:22px!important;padding:22px!important;box-shadow:var(--lift)!important;margin:0 0 18px!important}
 #navigationPanel h2{font-size:18px!important;color:var(--secondary)!important;letter-spacing:0!important}
 #navNext{font-size:clamp(21px,3vw,28px)!important;line-height:1.25!important;font-weight:780!important;letter-spacing:-.6px;color:var(--text)!important;background:transparent!important;border:0!important;padding:0!important;margin:15px 0!important}
+#navNextEstimate{font-size:15px!important;line-height:1.5;color:var(--text);font-variant-numeric:tabular-nums;margin:0 0 16px}
 #navStatus,#gpsDiagnostics{font-size:13px!important;line-height:1.55!important;color:var(--secondary)!important}
 #navigationPanel .actions{gap:9px}
 #navAdvance{flex:1 0 100%;min-height:54px;font-size:17px!important}

@@ -70,14 +70,16 @@ window.addEventListener('DOMContentLoaded',()=>{
   const summary=document.createElement('summary');summary.textContent=label;details.append(summary);
   node.before(details);details.append(node);return {details,summary};
  }
+ const nextEstimate=document.createElement('p');nextEstimate.id='navNextEstimate';byId('navNext').after(nextEstimate);
  const steps=disclosure(byId('navSteps'),'All trip steps');
  const notices=disclosure(byId('guideServiceAlerts'),'Service alerts');
  const alternatives=disclosure(byId('replanPanel'),'Alternative routes');
  if(alternatives){const sync=()=>{alternatives.details.hidden=byId('replanPanel').hidden;};new MutationObserver(sync).observe(byId('replanPanel'),{attributes:true,attributeFilter:['hidden']});new MutationObserver(()=>{if(byId('replanResults').textContent.trim())alternatives.details.open=true;}).observe(byId('replanResults'),{childList:true,subtree:true,characterData:true});sync();}
- if(notices){const sync=()=>{const count=byId('guideServiceAlerts').querySelectorAll('.service-alert-item').length;const text=byId('guideServiceAlerts').textContent;notices.summary.textContent='Service alerts'+(count?' · '+count+' notice'+(count===1?'':'s'):/unavailable|outdated/i.test(text)?' · check updates':'');};new MutationObserver(sync).observe(byId('guideServiceAlerts'),{childList:true,subtree:true,characterData:true});sync();}
+ if(notices){const sync=()=>{const count=byId('guideServiceAlerts').querySelectorAll('.service-alert-item').length;const text=byId('guideServiceAlerts').textContent;notices.summary.textContent='Service alerts'+(count?' · '+count+' notice'+(count===1?'':'s'):'')+(/unavailable|outdated/i.test(text)?' · check updates':'');};new MutationObserver(sync).observe(byId('guideServiceAlerts'),{childList:true,subtree:true,characterData:true});sync();}
  function hierarchy(event){
   const hero=document.querySelector('.guide-hero'),heading=hero?.querySelector('h1'),caption=hero?.querySelector('p'),eyebrow=hero?.querySelector('.eyebrow');
   byId('navAdvance')?.classList.toggle('is-next-action',Boolean(journey));
+  nextEstimate.textContent=activeNavigation?.steps[activeNavigation.progress]?.estimate||'';
   if(!heading)return;
   if(activeNavigation?.legs?.length){
    const legs=activeNavigation.legs,last=legs[legs.length-1];
