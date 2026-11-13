@@ -113,36 +113,53 @@ def normalize_alerts(payload):
                     'periods':periods(field(alert,'communication_period','communicationPeriod') or field(alert,'active_period','activePeriod'))})
     return {'alerts':out,'fetched':int(time.time()),'source':'511 / AC Transit'}
 
+PLACE_RETRY={}
 def places(query):
-    """Search OSM locations near Berkeley, with a backup provider."""
+    """Local business/address search with independent, bounded provider fallbacks."""
     query=query.strip()
     if len(query)<3 or len(query)>100:raise ValueError('Enter 3–100 characters.')
-    headers={'User-Agent':'WeLoveDelays/1.0 (student project; https://we-love-delays.onrender.com)','Accept':'application/json'}
-    out=[]
-    try:
-        params=urllib.parse.urlencode({'q':query,'lat':37.8715,'lon':-122.2585,'limit':10,'lang':'en'})
-        req=urllib.request.Request('https://photon.komoot.io/api/?'+params,headers=headers)
-        with urllib.request.urlopen(req,timeout=6) as response:raw=json.load(response)
-        for feature in raw.get('features',[]):
-            prop=feature.get('properties') or {};coords=feature.get('geometry',{}).get('coordinates') or []
-            if len(coords)<2:continue
-            lon,lat=coords[:2]
-            if not (37.3<=lat<=38.3 and -123.0<=lon<=-121.5):continue
-            name=prop.get('name') or prop.get('street')
-            if name:out.append({'name':name,'detail':', '.join(str(prop[k]) for k in ('street','city') if prop.get(k) and prop[k]!=name),'lat':lat,'lon':lon})
-    except Exception:
-        pass
-    if out:return out[:8]
-    try:
-        params=urllib.parse.urlencode({'q':query,'format':'json','limit':8,'addressdetails':1,'viewbox':'-122.6,38.1,-122.0,37.6','bounded':1})
-        req=urllib.request.Request('https://nominatim.openstreetmap.org/search?'+params,headers=headers)
-        with urllib.request.urlopen(req,timeout=7) as response:raw=json.load(response)
-        for item in raw:
-            address=item.get('address') or {}
-            out.append({'name':item.get('name') or item.get('display_name','').split(',')[0],'detail':', '.join(filter(None,[address.get('road'),address.get('city') or address.get('town')])),'lat':float(item['lat']),'lon':float(item['lon'])})
-    except Exception as exc:
-        raise RuntimeError('Place search providers are unavailable. Try an AC Transit stop name instead.') from exc
-    return out[:8]
+    headers={'User-Agent':'WeLoveDelays/1.0 (https://we-love-delays.onrender.com)','Accept':'application/json'}
+    key=os.getenv('ORS_API_KEY','').strip()
+    providers=[]
+    if key:
+        params={'text':query,'focus.point.lat':37.8715,'focus.point.lon':-122.2585,
+                'boundary.rect.min_lon':-123.0,'boundary.rect.min_lat':37.3,
+                'boundary.rect.max_lon':-121.5,'boundary.rect.max_lat':38.3,
+                'boundary.country':'USA','size':10}
+        providers.append(('OpenRouteService','https://api.heigit.org/pelias/v1/autocomplete?'+urllib.parse.urlencode(params),dict(headers,Authorization=key)))
+    params={'q':query,'lat':37.8715,'lon':-122.2585,'limit':12,'lang':'en','bbox':'-123.0,37.3,-121.5,38.3'}
+    providers.append(('Photon / OpenStreetMap','https://photon.komoot.io/api/?'+urllib.parse.urlencode(params),headers))
+    succeeded=False
+    for source,url,request_headers in providers:
+        with LOCK:
+            if PLACE_RETRY.get(source,0)>time.time():continue
+        try:
+            req=urllib.request.Request(url,headers=request_headers)
+            with urllib.request.urlopen(req,timeout=9) as response:raw=json.load(response)
+            if not isinstance(raw,dict) or not isinstance(raw.get('features'),list):raise ValueError('Invalid geocoder response')
+            succeeded=True;out=[];seen=set()
+            for feature in raw['features']:
+                prop=feature.get('properties') or {};coords=(feature.get('geometry') or {}).get('coordinates') or []
+                if len(coords)<2:continue
+                try:lon,lat=float(coords[0]),float(coords[1])
+                except (TypeError,ValueError):continue
+                if not (math.isfinite(lat) and math.isfinite(lon) and 37.3<=lat<=38.3 and -123.0<=lon<=-121.5):continue
+                name=prop.get('name') or prop.get('street')
+                if not isinstance(name,str) or not name.strip():continue
+                street=' '.join(str(prop[k]) for k in ('housenumber','street') if prop.get(k))
+                locality=prop.get('locality') or prop.get('city') or prop.get('county')
+                detail=', '.join(str(v) for v in (street,locality,prop.get('region') or prop.get('state')) if v and v!=name)
+                identity=(name.casefold(),round(lat,5),round(lon,5))
+                if identity in seen:continue
+                seen.add(identity)
+                out.append({'name':name[:200],'detail':detail[:300],'lat':lat,'lon':lon,'source':source})
+            if out:return out[:8]
+        except Exception:
+            # Brief circuit breaker prevents typing into a failed/rate-limited
+            # provider from spending quota on every prefix. No token is returned.
+            with LOCK:PLACE_RETRY[source]=time.time()+30
+    if succeeded:return []
+    raise RuntimeError('Place search is temporarily unavailable. Choose the location on the map, or retry shortly.')
 def memory_mb():
     # Linux ru_maxrss is KiB; reports peak resident memory without paid metrics.
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,1)
@@ -364,7 +381,7 @@ class Handler(BaseHTTPRequestHandler):
             if path.path=='/api/status':return self.respond(200,{'configured':bool(KEY),'agency':'AC Transit','location':'Berkeley, California','local':False})
             if path.path=='/health':return self.respond(200,{'ok':True})
             if path.path=='/api/network':return self.respond(200,gtfs())
-            if path.path=='/api/places':return self.respond(200,{'places':cached('places:'+q.get('q',[''])[0].lower(),300,lambda:places(q.get('q',[''])[0]))})
+            if path.path=='/api/places':return self.respond(200,{'places':cached('places:'+q.get('q',[''])[0].strip().casefold(),900,lambda:places(q.get('q',[''])[0]))})
             if path.path=='/api/network/status':
                 data=gtfs()
                 return self.respond(200,{'ok':True,'routes':len(data['routes']),'patterns':len(data['patterns']),'stops':len(data['stops']),'updated':data['updated']})

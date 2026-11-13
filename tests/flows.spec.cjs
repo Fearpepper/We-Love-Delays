@@ -519,3 +519,46 @@ test('trip hierarchy presents concrete actions and expandable route detail',asyn
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
 });
+
+test('business choices show branch addresses and plan from actual place coordinates',async({page})=>{
+ const errors=await setup(page);
+ await page.route('**/api/places?*',route=>{
+  const text=new URL(route.request().url()).searchParams.get('q');
+  return route.fulfill({json:{places:text.includes('coffee')?[{name:'Coffee Spot',detail:'100 Alpha Street, Berkeley',lat:37.87,lon:-122.2701},{name:'Coffee Spot',detail:'200 Other Street, Berkeley',lat:37.9,lon:-122.3}]:[]}});
+ });
+ await page.locator('#originSearch').fill('Coffee Spot');
+ await page.locator('#originSuggestions button').filter({hasText:'100 Alpha Street'}).click();
+ await page.locator('#place').fill('Beta transfer');await page.locator('#destinationSuggestions button').first().click();
+ await page.locator('#autoFind').click();await expect(page.locator('.route-choice').first()).toContainText('Bus 51B');
+ expect(await page.evaluate(()=>selectedPlaces.originSearch.lon)).toBe(-122.2701);
+ expect(errors).toEqual([]);
+});
+test('a disconnected exact stop retries nearby opposite-direction stops',async({page})=>{
+ const errors=await setup(page);
+ const expanded=JSON.parse(JSON.stringify(network));expanded.stops.a2=stop('a2','Alpha opposite side',-122.2702);expanded.stops.b2=stop('b2','Beta opposite side',-122.2602);
+ expanded.patterns.push({route:'6',direction:'1',headsign:'Alpha',stops:['b2','a2'],sample_trip:'reverse'});
+ await page.route('**/api/network',route=>route.fulfill({json:expanded}));await page.reload();
+ await page.locator('#originSearch').fill('Beta transfer');await page.locator('#originSuggestions button').first().click();
+ await page.locator('#place').fill('Alpha boarding');await page.locator('#destinationSuggestions button').first().click();
+ await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('Checking nearby stops');
+ await expect(page.locator('.route-choice').first()).toContainText('Bus 6');
+ await page.locator('.route-choice').first().click();await expect(page.locator('#navSteps')).toContainText('Beta opposite side');
+ expect(errors).toEqual([]);
+});
+test('geocoder outage can recover with a map pin instead of a dead-end error',async({page})=>{
+ const errors=await setup(page);await page.route('**/api/places?*',route=>route.fulfill({status:502,json:{error:'Provider down'}}));
+ await page.locator('#place').fill('Local business');
+ await expect(page.locator('#destinationSuggestions')).toContainText('choose the exact location');
+ await page.locator('#destinationSuggestions button').filter({hasText:'map'}).click();
+ await expect(page.locator('#map')).toBeVisible();await page.locator('#map').click({position:{x:140,y:140}});
+ await expect(page.locator('#place')).toHaveValue('Map-selected destination');
+ expect(await page.evaluate(()=>Number.isFinite(selectedPlaces.place.lat))).toBe(true);expect(errors).toEqual([]);
+});
+test('map-led planner moves the same map through tabs and preserves visible controls',async({page})=>{
+ const errors=await setup(page);await expect(page.locator('#planMapHost #map')).toBeVisible();
+ await plan(page);await expect(page.locator('#guideMapHost #map')).toBeVisible();
+ await page.locator('#appMap').click();await expect(page.locator('#map')).toBeVisible();
+ await page.locator('#appTrips').click();await expect(page.locator('#planMapHost #map')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:test.info().outputPath('map-led-planner.png'),fullPage:true});expect(errors).toEqual([]);
+});

@@ -19,7 +19,11 @@
   const view=window.innerWidth>790?(document.body.dataset.desktopView||'routes'):(document.body.dataset.view||'routes');
   const show=view==='guide'&&!panel.classList.contains('hidden');
   if(show&&map.parentElement!==mapHost){mapHost.appendChild(map);resize()}
-  if(!show&&map.parentElement===mapHost){originalMapParent.insertBefore(map,originalMapNext);resize()}
+  const planHost=$('planMapHost');
+  if(!show&&view==='routes'&&planHost&&map.parentElement!==planHost){planHost.appendChild(map);resize();}
+  else if(!show&&view!=='routes'&&map.parentElement!==originalMapParent){originalMapParent.insertBefore(map,originalMapNext);resize();}
+  try{if(typeof routeMap!=='undefined'&&routeMap)routeMap.zoomControl.setPosition(!show&&view==='routes'?'bottomright':'topleft');}catch{}
+
  }
  function update(){
   const active=!panel.classList.contains('hidden');
