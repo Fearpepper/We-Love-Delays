@@ -503,7 +503,10 @@ test('replanning an active trip gives visible origin guidance and preserves prog
 });
 
 test('trip hierarchy presents concrete actions and expandable route detail',async({page})=>{
- const errors=await setup(page);await plan(page);
+ const errors=await setup(page);
+ await page.screenshot({path:test.info().outputPath('layered-planner.png'),fullPage:true});
+ await plan(page);
+ await page.screenshot({path:test.info().outputPath('layered-guide.png'),fullPage:true});
  await expect(page.locator('.guide-hero h1')).toHaveText('51B');
  await expect(page.locator('#navAdvance')).toHaveText("I'm at the stop");
  const details=page.locator('details.trip-inspector').filter({has:page.locator('#navSteps')});
