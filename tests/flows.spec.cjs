@@ -196,7 +196,7 @@ test('last direction step completes a direct trip and cannot award twice',async(
 test('manual route selection opens Guide and starts the selected bus',async({page})=>{
  const errors=await setup(page);
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
- await page.locator('#manualRouteDetails summary').click();
+ await page.locator('#manualRouteDetails > summary').click();
  await page.locator('#route').selectOption('51B');
  await page.locator('#pattern').selectOption({index:1});
  await page.locator('#board').selectOption({index:1});
@@ -309,7 +309,7 @@ test('boarding countdowns update and stale vehicle reports stop showing as live'
  await page.clock.install({time:new Date()});
  const errors=await setup(page);
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
- await page.locator('#manualRouteDetails summary').click();
+ await page.locator('#manualRouteDetails > summary').click();
  await page.locator('#route').selectOption('51B');await page.locator('#pattern').selectOption({index:1});
  await page.locator('#board').selectOption({index:1});
  await expect(page.locator('#arrivals')).toContainText('Predicted');
