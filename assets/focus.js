@@ -55,3 +55,37 @@
   if(actions)actions.classList.add('focus-legacy-trip-actions');
  }
 })();
+
+/* Apply the reference's visual hierarchy after all controllers have mounted. */
+window.addEventListener('DOMContentLoaded',()=>{
+ const byId=id=>document.getElementById(id);
+ const planner=byId('autoFind')?.closest('.card');
+ if(planner){planner.classList.add('planner-card');const h=planner.querySelector('h2');if(h)h.textContent='Where to?';}
+ byId('autoFind').textContent='Find routes';
+ const host=byId('guideDirectionsHost'),controls=byId('guideTripControls');
+ if(host&&controls)controls.after(host);
+ function disclosure(node,label){
+  if(!node)return null;
+  const details=document.createElement('details');details.className='trip-inspector';
+  const summary=document.createElement('summary');summary.textContent=label;details.append(summary);
+  node.before(details);details.append(node);return {details,summary};
+ }
+ const steps=disclosure(byId('navSteps'),'All trip steps');
+ const notices=disclosure(byId('guideServiceAlerts'),'Service alerts');
+ const alternatives=disclosure(byId('replanPanel'),'Alternative routes');
+ if(alternatives){const sync=()=>{alternatives.details.hidden=byId('replanPanel').hidden;};new MutationObserver(sync).observe(byId('replanPanel'),{attributes:true,attributeFilter:['hidden']});new MutationObserver(()=>{if(byId('replanResults').textContent.trim())alternatives.details.open=true;}).observe(byId('replanResults'),{childList:true,subtree:true,characterData:true});sync();}
+ if(notices){const sync=()=>{const count=byId('guideServiceAlerts').querySelectorAll('.service-alert-item').length;const text=byId('guideServiceAlerts').textContent;notices.summary.textContent='Service alerts'+(count?' · '+count+' notice'+(count===1?'':'s'):/unavailable|outdated/i.test(text)?' · check updates':'');};new MutationObserver(sync).observe(byId('guideServiceAlerts'),{childList:true,subtree:true,characterData:true});sync();}
+ function hierarchy(event){
+  const hero=document.querySelector('.guide-hero'),heading=hero?.querySelector('h1'),caption=hero?.querySelector('p'),eyebrow=hero?.querySelector('.eyebrow');
+  byId('navAdvance')?.classList.toggle('is-next-action',Boolean(journey));
+  if(!heading)return;
+  if(activeNavigation?.legs?.length){
+   const legs=activeNavigation.legs,last=legs[legs.length-1];
+   heading.textContent=legs.map(l=>routeName(l.p)).join(' → ');
+   if(eyebrow)eyebrow.textContent='Your bus trip';
+   if(caption)caption.textContent='To '+(network?.stops[last.p.stops[last.end]]?.name||'your destination');
+  }else{heading.textContent=event?.type==='wld:trip-finished'?'Trip complete.':'Your next ride.';if(caption)caption.textContent='Plan a route, then follow one step at a time.';if(eyebrow)eyebrow.textContent='We Love Delays';}
+ }
+ for(const name of ['wld:route-selected','wld:trip-started','wld:trip-finished','wld:progress'])window.addEventListener(name,hierarchy);
+ hierarchy();
+});

@@ -299,7 +299,10 @@ function renderNavigation(){
   el.prepend(symbol);el.append(label,estimate);list.append(el)
  });
  const step=activeNavigation.steps[activeNavigation.progress];
- $('navNext').textContent=step?'Next: '+step.label+(step.estimate?' · '+step.estimate:''):'All listed steps completed';
+ $('navNext').textContent=step?'Next: '+step.label:'All listed steps completed';
+ const nextButton=$('navAdvance');
+ const leg=step?.legIndex===undefined?null:activeNavigation.legs[step.legIndex];
+ nextButton.textContent=!step?'Trip complete':activeNavigation.progress===activeNavigation.steps.length-1?"I've arrived · Finish trip":step.kind==='board'?"I'm on Bus "+routeName(leg.p):step.kind==='ride'?"I'm off the bus":step.kind==='walk-transfer'?"I'm at the next stop":step.kind==='walk-end'?"I've arrived":"I'm at the stop";
  window.dispatchEvent(new Event('wld:progress'));
 }
 $('navAdvance').onclick=()=>{

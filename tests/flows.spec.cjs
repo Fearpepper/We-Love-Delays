@@ -393,6 +393,7 @@ test('service alerts respect route, stop, direction and active periods and rende
  await expect(panel).not.toContainText('Other route only');
  await expect(panel).not.toContainText('Reverse direction only');
  await expect(panel).not.toContainText('Expired notice');
+ await page.locator('details.trip-inspector').filter({has:panel}).locator(':scope > summary').click();
  await panel.locator('summary').first().click();
  await expect(panel).toContainText('<script>alert(1)</script>');
  await page.context().setOffline(true);
@@ -495,7 +496,23 @@ test('replanning an active trip gives visible origin guidance and preserves prog
  const errors=await setup(page);
  await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'notice',title:'Check dates',effect:'DETOUR',selectors:[{route:'51B'}],periods:[]}]}}));
  await page.reload();await plan(page);await page.locator('#guideStartTrip').click();
+ await page.locator('details.trip-inspector').filter({has:page.locator('#replanPanel')}).locator(':scope > summary').click();
  await page.locator('#replanPanel button').click();
  await expect(page.locator('#message')).toContainText('current starting stop');
  await page.locator('#appGuide').click();await expect(page.locator('#guideFinishTrip')).toBeVisible();expect(errors).toEqual([]);
+});
+
+test('trip hierarchy presents concrete actions and expandable route detail',async({page})=>{
+ const errors=await setup(page);await plan(page);
+ await expect(page.locator('.guide-hero h1')).toHaveText('51B');
+ await expect(page.locator('#navAdvance')).toHaveText("I'm at the stop");
+ const details=page.locator('details.trip-inspector').filter({has:page.locator('#navSteps')});
+ await expect(details).not.toHaveAttribute('open','');
+ await details.locator(':scope > summary').click();await expect(page.locator('#navSteps')).toBeVisible();
+ await page.locator('#guideStartTrip').click();await expect(page.locator('#navAdvance')).toHaveClass(/is-next-action/);
+ await page.locator('#navAdvance').click();await expect(page.locator('#navAdvance')).toHaveText("I'm on Bus 51B");
+ await page.locator('#navAdvance').click();await expect(page.locator('#navAdvance')).toHaveText("I've arrived · Finish trip");
+ await page.locator('#navAdvance').click();await expect(page.locator('#tripComplete')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(errors).toEqual([]);
 });
