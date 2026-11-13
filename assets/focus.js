@@ -119,12 +119,9 @@ window.addEventListener('DOMContentLoaded',()=>{
  $('chooseMap').onclick=()=>window.wldPickSearchLocation('originSearch');
  const status=document.createElement('p');status.className='location-status';status.setAttribute('role','status');$('originSearch').closest('.field').append(status);
  new MutationObserver(()=>{status.textContent=$('locationText').textContent;}).observe($('locationText'),{childList:true,subtree:true,characterData:true});
- const advanced=document.createElement('details');advanced.className='advanced-planner';
- const summary=document.createElement('summary');summary.textContent='Manual route tools';advanced.append(summary);
  const manual=$('manualRouteDetails'),preview=$('preview').closest('.actions');
- if(manual){manual.before(advanced);advanced.append(manual);}
- if(preview)advanced.append(preview);
- const legacyLocation=document.querySelector('.focus-location-tools')?.closest('.field');if(legacyLocation)advanced.append(legacyLocation);
+ if(manual){manual.classList.add('advanced-planner');if(preview)manual.append(preview);}
+ const legacyLocation=document.querySelector('.focus-location-tools')?.closest('.field');if(manual&&legacyLocation)manual.append(legacyLocation);
  const arrivalCard=$('arrivals').closest('.card');
  if(arrivalCard&&arrivalCard!==card){const arrivalDetails=document.createElement('details');arrivalDetails.className='arrival-drawer';const title=document.createElement('summary');title.textContent='Boarding-stop arrivals & all service notices';arrivalDetails.append(title);arrivalCard.before(arrivalDetails);arrivalDetails.append(arrivalCard);}
  window.wldSyncGuideMap?.();

@@ -183,7 +183,7 @@ function selectSearchPlace(id,item){
   const old=searchPins.get(id);if(old)routeMap.removeLayer(old);
   searchPins.set(id,L.marker([item.lat,item.lon]).bindPopup(item.name).addTo(routeMap));
   const pins=[...searchPins.values()].map(marker=>marker.getLatLng());
-  if(pins.length>1)routeMap.fitBounds(L.latLngBounds(pins),{padding:[55,55],maxZoom:15});else routeMap.setView(pins[0],15);
+  if(pins.length>1){const covered=$('map').parentElement.id==='planMapHost'&&innerWidth>790?Math.min(480,$('map').clientWidth*.45):55;routeMap.fitBounds(L.latLngBounds(pins),{paddingTopLeft:[covered,55],paddingBottomRight:[55,55],maxZoom:15});}else routeMap.setView(pins[0],15);
  }
 }
 let searchMapClick=null;
