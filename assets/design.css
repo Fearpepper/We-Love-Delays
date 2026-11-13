@@ -590,13 +590,16 @@ body.map-led-app button:focus-visible,body.map-led-app input:focus-visible,body.
  body.map-led-app.wld-tabs .shell>.top{padding:12px 18px!important;min-height:60px!important;position:relative!important}
  body.map-led-app.wld-tabs .shell>.grid{padding:0!important}
  #plannerWorkspace{padding:0 0 24px;border-radius:0;min-height:0;box-shadow:none;overflow:visible}
- #planMapHost{position:relative;height:330px;padding-bottom:38px;z-index:0}
- #planMapHost #map{height:292px!important;min-height:292px!important;border-radius:0!important}
+ #planMapHost{position:relative;height:184px;padding-bottom:14px;z-index:0}
+ #planMapHost #map{height:170px!important;min-height:170px!important;border-radius:0!important}
  .map-stage-title{top:16px;right:16px;max-width:195px;padding:14px;border-radius:16px}
- .map-stage-title strong{font-size:42px;letter-spacing:-2px;margin:8px 0}
+ .map-stage-title strong{font-size:28px;letter-spacing:-1px;margin:5px 0 0}
+ .map-stage-title>span:last-child{display:none}
  .map-stage-title>span{font-size:11px}
  body.map-led-app .planner-card{width:calc(100% - 28px)!important;max-width:none;margin:-26px 14px 0!important;padding:26px 22px!important;border-radius:24px!important;box-shadow:0 15px 35px #183b2424!important}
- body.map-led-app .planner-card>h2{font-size:54px!important;letter-spacing:-3px!important}
+ body.map-led-app .planner-card>h2{font-size:44px!important;letter-spacing:-2px!important}
+ body.map-led-app .planner-intro{font-size:14px;margin-bottom:16px}
+ body.map-led-app .planner-card .field{margin-bottom:14px!important}
  body.map-led-app .planner-card #autoResults{max-height:none;overflow:visible}
  .arrival-drawer{margin:0 14px 20px;padding:0 15px}
  body.map-led-app.wld-tabs .app-controls{background:#153d2df5!important;border-top-color:#153d2d!important}
