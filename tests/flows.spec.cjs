@@ -562,3 +562,21 @@ test('map-led planner moves the same map through tabs and preserves visible cont
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:test.info().outputPath('map-led-planner.png'),fullPage:true});expect(errors).toEqual([]);
 });
+
+for(const denied of [false,true])test('trip start automatically requests GPS and remains usable '+(denied?'when denied':'when granted'),async({page})=>{
+ await page.addInitScript(denied=>{
+  window.gpsCalls={started:0,cleared:0};
+  Object.defineProperty(navigator,'geolocation',{value:{
+   watchPosition(success,error){window.gpsCalls.started++;if(denied)setTimeout(()=>error({message:'Permission denied'}),0);return 7;},
+   clearWatch(){window.gpsCalls.cleared++;}
+  },configurable:true});
+ },denied);
+ const errors=await setup(page);await plan(page);
+ await page.locator('#guideStartTrip').click();
+ await expect.poll(()=>page.evaluate(()=>window.gpsCalls.started)).toBe(1);
+ await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ if(denied){await expect(page.locator('#navStatus')).toContainText('Location tracking stopped');await expect(page.locator('#navStart')).toBeEnabled();}
+ else {await expect(page.locator('#navStop')).toBeEnabled();await page.evaluate(()=>document.getElementById('startJourney').click());expect(await page.evaluate(()=>window.gpsCalls.started)).toBe(1);}
+ await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();
+ expect(await page.evaluate(()=>window.gpsCalls.cleared)).toBe(1);expect(errors).toEqual([]);
+});
