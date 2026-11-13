@@ -523,3 +523,14 @@ body.wld-high-contrast{background:#fff!important}
 body.wld-high-contrast .card,body.wld-high-contrast .guide-trip-controls,body.wld-high-contrast #navigationPanel,body.wld-high-contrast .trip-inspector{background:#fff!important;color:#142536!important;border-color:#142536!important;box-shadow:none!important}
 body.wld-large-text .hint,body.wld-large-text #navStatus,body.wld-large-text #gpsDiagnostics,body.wld-large-text .trip-inspector>summary{font-size:16px!important}
 @media(prefers-reduced-motion:reduce){.btn{transition:none!important}.btn:active{transform:none!important}}
+
+/* Keep legacy mobile skins from competing with the shared action palette. */
+body.wld-tabs{background:radial-gradient(ellipse at 5% 0,#dae9d9 0,transparent 45%),radial-gradient(ellipse at 100% 50%,#f5e7d5 0,transparent 48%),var(--canvas)!important}
+.shell>.grid{background:transparent!important}
+.shell>.top,body.wld-tabs .shell>.top{background:transparent!important;border:0!important;border-bottom:1px solid var(--edge)!important;border-radius:0!important;box-shadow:none!important}
+body .shell .card,body.wld-tabs .shell>.grid>div>.card{background:var(--paper)!important;border-color:var(--edge)!important}
+body.wld-tabs .app-controls button.active{background:var(--paper)!important;color:var(--text)!important;box-shadow:0 2px 7px #18392a14!important;border:1px solid var(--edge)!important}
+.statgrid .stat{background:#f2f5ec!important;border-color:var(--edge)!important}
+.statgrid .stat strong{color:var(--text)!important}
+.btn:disabled,#autoFind:disabled,#guideStartTrip:disabled{background:#e8ede5!important;color:#718076!important;border-color:#d7dfd7!important;box-shadow:none!important;opacity:1!important}
+body.wld-high-contrast,body.wld-tabs.wld-high-contrast{background:#fff!important}

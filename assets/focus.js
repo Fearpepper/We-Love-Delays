@@ -63,7 +63,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  if(planner){planner.classList.add('planner-card');const h=planner.querySelector('h2');if(h)h.textContent='Where to?';}
  byId('autoFind').textContent='Find routes';
  const host=byId('guideDirectionsHost'),controls=byId('guideTripControls');
- if(host&&controls)controls.after(host);
+ if(host&&controls){controls.after(host);const prediction=byId('guidePrediction');if(prediction)host.after(prediction);}
  function disclosure(node,label){
   if(!node)return null;
   const details=document.createElement('details');details.className='trip-inspector';
