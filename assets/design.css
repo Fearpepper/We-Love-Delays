@@ -534,3 +534,8 @@ body.wld-tabs .app-controls button.active{background:var(--paper)!important;colo
 .statgrid .stat strong{color:var(--text)!important}
 .btn:disabled,#autoFind:disabled,#guideStartTrip:disabled{background:#e8ede5!important;color:#718076!important;border-color:#d7dfd7!important;box-shadow:none!important;opacity:1!important}
 body.wld-high-contrast,body.wld-tabs.wld-high-contrast{background:#fff!important}
+
+/* Draw the two decorative arrows as vectors, independent of installed fonts. */
+.planner-card:before{content:'';width:140px;height:140px;top:28px;right:25px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M18 82 82 18M28 18h54v54' fill='none' stroke='%23e6eddc' stroke-width='12'/%3E%3C/svg%3E") center/contain no-repeat}
+#autoFind:after{content:'';display:block;width:24px;height:24px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 19 14-14M6 5h13v13' fill='none' stroke='white' stroke-width='2.5'/%3E%3C/svg%3E") center/contain no-repeat}
+@media(max-width:790px){.planner-card:before{width:105px;height:105px;right:17px;top:25px}}
