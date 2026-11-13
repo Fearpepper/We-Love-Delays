@@ -433,6 +433,7 @@ body.desktop-guide .app-controls{display:flex!important}
 /* Three visual planes: quiet canvas, raised trip surfaces, clear action controls. */
 :root{--action:#006b59;--action-hover:#005344;--paper:#fffefa;--canvas:#f2f3ed;--text:#192d2a;--secondary:#52635d;--edge:#d7dfd7;--lift:0 18px 48px #213e2d12,0 2px 5px #213e2d08}
 body{background:radial-gradient(ellipse at 5% 0,#dae9d9 0,transparent 45%),radial-gradient(ellipse at 100% 50%,#f5e7d5 0,transparent 48%),var(--canvas)!important;color:var(--text)!important}
+.top .logo b{color:inherit!important}
 .top .logo{color:var(--text)!important;letter-spacing:-.7px!important}
 .top .heart{background:#243c32!important;color:#fff!important;box-shadow:none}
 .top #feedStatus{background:#edf2e9!important;border-color:var(--edge)!important;color:#365244!important;font-size:12px!important}
@@ -471,6 +472,7 @@ body{background:radial-gradient(ellipse at 5% 0,#dae9d9 0,transparent 45%),radia
 #points{color:var(--text)!important;font-size:clamp(76px,16vw,112px)!important;letter-spacing:-5px;line-height:1.1}
 .trip-complete{background:var(--paper)!important;border-color:var(--edge)!important;border-radius:28px!important;box-shadow:var(--lift)!important}
 .trip-complete-symbol{background:#e5eedc!important;color:var(--text)!important}
+.guide-screen .guide-content{background:transparent!important;padding:0!important;margin:0!important}
 .guide-screen .guide-hero{background:transparent!important;border:0!important;padding:18px 16px 36px!important;margin:0!important;box-shadow:none!important}
 .guide-screen .guide-hero .eyebrow{display:block!important;color:var(--secondary)!important;font-size:12px!important;letter-spacing:.12em}
 .guide-screen .guide-hero h1{font-size:clamp(34px,6vw,64px)!important;line-height:1.02!important;letter-spacing:-2px!important;color:var(--text)!important;margin:10px 0!important;font-weight:850!important;overflow-wrap:anywhere}
