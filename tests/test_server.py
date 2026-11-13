@@ -65,6 +65,39 @@ class BackendTests(unittest.TestCase):
             self.assertNotIn(key,server.INFLIGHT)
             server.CACHE.pop(key,None)
 
+    def test_business_search_uses_configured_geocoder_and_keeps_branch_address(self):
+        import io,json,os
+        from unittest.mock import patch
+        payload={'features':[{'properties':{'name':"Trader Joe's",'housenumber':'1885','street':'University Avenue','locality':'Berkeley'},'geometry':{'coordinates':[-122.27,37.87]}},
+                             {'properties':{'name':'Invalid'},'geometry':{'coordinates':[float('nan'),37.87]}}]}
+        requests=[]
+        def fetch(req,timeout):requests.append(req);return io.BytesIO(json.dumps(payload).encode())
+        with patch.dict(os.environ,{'ORS_API_KEY':'unit-test-key'}),patch.dict(server.PLACE_RETRY,{},clear=True),patch('urllib.request.urlopen',side_effect=fetch):
+            results=server.places('Trader Joes')
+        self.assertEqual(len(results),1)
+        self.assertIn('1885 University Avenue',results[0]['detail'])
+        self.assertIn('/pelias/v1/autocomplete?',requests[0].full_url)
+        self.assertEqual(requests[0].get_header('Authorization'),'unit-test-key')
+        self.assertNotIn('unit-test-key',requests[0].full_url)
+        self.assertEqual(results[0]['source'],'OpenRouteService')
+
+    def test_business_search_falls_back_and_does_not_confuse_empty_with_outage(self):
+        import io,json,os
+        from unittest.mock import patch
+        payload={'features':[{'properties':{'name':'Local Cafe','city':'Berkeley'},'geometry':{'coordinates':[-122.26,37.87]}}]}
+        with patch.dict(os.environ,{'ORS_API_KEY':'unit-test-key'}),patch.dict(server.PLACE_RETRY,{},clear=True),patch('urllib.request.urlopen',side_effect=[OSError('down'),io.BytesIO(json.dumps(payload).encode())]):
+            self.assertEqual(server.places('local cafe')[0]['source'],'Photon / OpenStreetMap')
+        with patch.dict(os.environ,{'ORS_API_KEY':'unit-test-key'}),patch.dict(server.PLACE_RETRY,{},clear=True),patch('urllib.request.urlopen',side_effect=[io.BytesIO(b'{"features":[]}'),OSError('down')]):
+            self.assertEqual(server.places('unknown place'),[])
+
+    def test_failed_place_providers_cool_down_and_offer_map_recovery(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ,{'ORS_API_KEY':'unit-test-key'}),patch.dict(server.PLACE_RETRY,{},clear=True),patch('urllib.request.urlopen',side_effect=OSError('down')) as fetch:
+            for query in ['Cafe','Cafe Ber']:
+                with self.assertRaisesRegex(RuntimeError,'map'):server.places(query)
+            self.assertEqual(fetch.call_count,2)
+
     def scheduled(self, trips, at, exceptions=None, calendar=None):
         from unittest.mock import patch
         pattern = {'sample_trip': 'pattern', 'stops': ['a', 'b']}

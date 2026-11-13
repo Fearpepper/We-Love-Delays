@@ -539,3 +539,71 @@ body.wld-high-contrast,body.wld-tabs.wld-high-contrast{background:#fff!important
 .planner-card:before{content:'';width:140px;height:140px;top:28px;right:25px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M18 82 82 18M28 18h54v54' fill='none' stroke='%23e6eddc' stroke-width='12'/%3E%3C/svg%3E") center/contain no-repeat}
 #autoFind:after{content:'';display:block;width:24px;height:24px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 19 14-14M6 5h13v13' fill='none' stroke='white' stroke-width='2.5'/%3E%3C/svg%3E") center/contain no-repeat}
 @media(max-width:790px){.planner-card:before{width:105px;height:105px;right:17px;top:25px}}
+
+/* Map-led workspace: a true spatial layout, not another card recolor. */
+body.map-led-app{--signal:#d4f67c;--forest:#153d2d;background:#e8eddf!important}
+body.map-led-app .shell{max-width:1480px!important;padding:12px 24px 100px!important}
+body.map-led-app .app-controls{max-width:1000px!important;background:#153d2df2!important;border-color:#153d2d!important}
+body.map-led-app .app-controls button{color:#d6e4d8!important}
+body.map-led-app .app-controls button.active,body.map-led-app.wld-tabs .app-controls button.active{background:#f7f9ee!important;color:#153d2d!important;border-color:#f7f9ee!important}
+body.map-led-app .shell>.top{padding:12px 4px 18px!important;border:0!important}
+body.map-led-app .top .logo{font-size:25px!important;font-weight:850}
+body.map-led-app[data-desktop-view='routes'] .shell>.grid>div:nth-child(2){display:none!important}
+#plannerWorkspace{position:relative;isolation:isolate;border-radius:32px;background:#dce5d6;min-height:690px;padding:24px;overflow:hidden;box-shadow:0 18px 50px #163a2515}
+#planMapHost{position:absolute;inset:0;z-index:-1}
+#planMapHost #map{height:100%!important;min-height:100%!important;width:100%!important;border:0!important;border-radius:32px!important;background:#dde7d8}
+.map-stage-title{position:absolute;right:50px;top:44px;max-width:390px;padding:20px 24px;z-index:1;pointer-events:none;background:#f7faefd9;border:1px solid #ffffff9e;border-radius:22px;backdrop-filter:blur(12px);color:#153d2d}
+.map-stage-title>span{display:block;font-size:13px;letter-spacing:.06em;font-weight:650}
+.map-stage-title strong{display:block;font-size:clamp(48px,6vw,88px);line-height:.95;letter-spacing:-5px;margin:18px 0 20px;font-weight:850}
+body.map-led-app .planner-card{position:relative;z-index:2;width:430px;max-width:100%;margin:0!important;border:1px solid #fff!important;border-radius:24px!important;background:#fffef8!important;padding:30px!important;box-shadow:0 26px 65px #123b2b30!important}
+body.map-led-app .planner-card:before{display:none}
+body.map-led-app .planner-card>h2{font-size:64px!important;letter-spacing:-3.5px!important;line-height:.95!important;margin:0 0 14px!important;color:#153d2d!important;font-weight:850!important}
+.planner-intro{font-size:15px;line-height:1.5;color:#52635d;margin:0 0 24px}
+body.map-led-app .planner-card>.eyebrow,body.map-led-app .planner-card>p.muted{display:none!important}
+body.map-led-app .planner-card .field{margin:0 0 20px!important}
+body.map-led-app .planner-card .field label{font-size:13px!important;letter-spacing:0!important;color:#253f32!important;margin-bottom:7px}
+body.map-led-app #originSearch,body.map-led-app #place{min-height:57px!important;background:#f2f5e9!important;font-size:16px!important}
+body.map-led-app #autoFind,body.map-led-app #guideStartTrip,body.map-led-app #navAdvance.is-next-action,body.map-led-app #tripPlanAgain{background:var(--signal)!important;color:#153d2d!important;border-color:#bddf65!important;box-shadow:0 4px 0 #92ae50,0 9px 22px #153d2d12!important;font-weight:800!important}
+body.map-led-app #autoFind:hover,body.map-led-app #guideStartTrip:hover,body.map-led-app #navAdvance.is-next-action:hover{background:#c7ef68!important}
+body.map-led-app #autoFind:after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 19 14-14M6 5h13v13' fill='none' stroke='%23153d2d' stroke-width='2.5'/%3E%3C/svg%3E")}
+.location-shortcuts{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px}
+.location-shortcut{padding:5px 0;background:transparent;border:0;border-bottom:1px solid #8ba17b;border-radius:0;font-size:13px;color:#204e38;font-weight:700;min-height:32px}
+.location-shortcut:hover{border-bottom-color:#153d2d;background:#edf3df}
+.location-status{font-size:13px;line-height:1.5;color:#455b4e;margin:7px 0 0}
+.location-status:empty{display:none}
+.advanced-planner{margin:18px 0 10px;border-top:1px solid #d7dfd0;padding-top:8px}
+.advanced-planner>summary,.arrival-drawer>summary{cursor:pointer;min-height:44px;padding:12px 0;color:#52635d;font-size:13px;font-weight:700}
+.advanced-planner .field{margin-top:15px!important}
+#autoResults:empty{display:none}
+body.map-led-app .planner-card #autoResults{max-height:520px;overflow-y:auto;overscroll-behavior:contain;margin-top:18px!important;padding:4px}
+body.map-led-app #autoResults .route-result-card strong{font-size:24px!important}
+.place-resolution{display:block;width:100%;text-align:left;padding:15px;margin:8px 0;background:#f3f7e8;border:1px solid #a9bc91;border-radius:14px;color:#153d2d;font-weight:650}
+.arrival-drawer{margin:22px 0;padding:0 20px;border:1px solid #ced8c5;border-radius:18px;background:#f6f8ee}
+body.map-led-app .guide-screen .guide-hero{padding-top:28px!important}
+body.map-led-app .guide-screen .guide-hero h1{font-size:clamp(52px,8vw,88px)!important;letter-spacing:-4px!important}
+body.map-led-app .trip-complete-symbol{background:var(--signal)!important;color:#153d2d!important}
+body.map-led-app button:focus-visible,body.map-led-app input:focus-visible,body.map-led-app summary:focus-visible{outline-color:#153d2d!important}
+@media(min-width:791px) and (max-width:1100px){.map-stage-title{max-width:230px;right:25px}.map-stage-title strong{font-size:54px;letter-spacing:-3px}body.map-led-app .planner-card{width:390px}}
+@media(max-width:790px){
+ body.map-led-app.wld-tabs{background:#e8eddf!important}
+ body.map-led-app .shell{padding:0 0 100px!important}
+ body.map-led-app.wld-tabs .shell>.top{padding:12px 18px!important;min-height:60px!important;position:relative!important}
+ body.map-led-app.wld-tabs .shell>.grid{padding:0!important}
+ #plannerWorkspace{padding:0 0 24px;border-radius:0;min-height:0;box-shadow:none;overflow:visible}
+ #planMapHost{position:relative;height:184px;padding-bottom:14px;z-index:0}
+ #planMapHost #map{height:170px!important;min-height:170px!important;border-radius:0!important}
+ .map-stage-title{top:16px;right:16px;max-width:195px;padding:14px;border-radius:16px}
+ .map-stage-title strong{font-size:28px;letter-spacing:-1px;margin:5px 0 0}
+ .map-stage-title>span:last-child{display:none}
+ .map-stage-title>span{font-size:11px}
+ body.map-led-app .planner-card{width:calc(100% - 28px)!important;max-width:none;margin:-26px 14px 0!important;padding:26px 22px!important;border-radius:24px!important;box-shadow:0 15px 35px #183b2424!important}
+ body.map-led-app .planner-card>h2{font-size:44px!important;letter-spacing:-2px!important}
+ body.map-led-app .planner-intro{font-size:14px;margin-bottom:16px}
+ body.map-led-app .planner-card .field{margin-bottom:14px!important}
+ body.map-led-app .planner-card #autoResults{max-height:none;overflow:visible}
+ .arrival-drawer{margin:0 14px 20px;padding:0 15px}
+ body.map-led-app.wld-tabs .app-controls{background:#153d2df5!important;border-top-color:#153d2d!important}
+ body.map-led-app .guide-screen .guide-hero h1{font-size:48px!important}
+}
+@media(prefers-reduced-motion:reduce){#plannerWorkspace *{scroll-behavior:auto!important}}
+body.map-led-app.wld-high-contrast .planner-card{background:#fff!important;border-color:#142536!important}

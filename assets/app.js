@@ -167,6 +167,45 @@ function populateStopSuggestions(){
 }
 function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const all=Object.values(network.stops);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
 const selectedPlaces={originSearch:null,place:null};const selectedStopIds={originSearch:null,place:null};
+const placeRequests=new Map(),searchPins=new Map();
+function lookupPlaces(value){
+ const q=value.trim().toLowerCase();const hit=placeRequests.get(q);
+ if(hit&&Date.now()-hit.time<900000)return hit.promise;
+ const promise=api('/api/places?q='+encodeURIComponent(q)).catch(e=>{placeRequests.delete(q);throw e});
+ placeRequests.set(q,{time:Date.now(),promise});
+ if(placeRequests.size>50)placeRequests.delete(placeRequests.keys().next().value);
+ return promise;
+}
+function selectSearchPlace(id,item){
+ selectedPlaces[id]=item;selectedStopIds[id]=null;$(id).value=item.name;
+ $(id==='originSearch'?'originSuggestions':'destinationSuggestions').replaceChildren();
+ if(ensureMap()){
+  const old=searchPins.get(id);if(old)routeMap.removeLayer(old);
+  searchPins.set(id,L.marker([item.lat,item.lon]).bindPopup(item.name).addTo(routeMap));
+  const pins=[...searchPins.values()].map(marker=>marker.getLatLng());
+  if(pins.length>1){const covered=$('map').parentElement.id==='planMapHost'&&innerWidth>790?Math.min(480,$('map').clientWidth*.45):55;routeMap.fitBounds(L.latLngBounds(pins),{paddingTopLeft:[covered,55],paddingBottomRight:[55,55],maxZoom:15});}else routeMap.setView(pins[0],15);
+ }
+}
+let searchMapClick=null;
+window.wldPickSearchLocation=id=>{
+ if(!['originSearch','place'].includes(id))return;
+ window.wldSelectTab?.('map');
+ if(!ensureMap()){say('Map unavailable. Search by address or bus stop and retry.');return;}
+ $('mapText').textContent='Tap the map to set your '+(id==='originSearch'?'starting point':'destination')+'.';
+ if(searchMapClick)routeMap.off('click',searchMapClick);
+ searchMapClick=e=>{
+  const {lat,lng:lon}=e.latlng;if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+  routeMap.off('click',searchMapClick);searchMapClick=null;
+  selectSearchPlace(id,{name:id==='originSearch'?'Map-selected starting point':'Map-selected destination',lat,lon,source:'Your map pin'});
+  window.wldSelectTab?.('routes');say('Map location selected. Find routes to compare nearby boarding and destination stops.');
+ };
+ routeMap.on('click',searchMapClick);setTimeout(()=>routeMap.invalidateSize(),100);
+};
+function nearbyStops(point,radius=0.5,limit=18){
+ if(!point||!Number.isFinite(point.lat)||!Number.isFinite(point.lon))return [];
+ return Object.values(network?.stops||{}).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon))
+  .map(s=>({s,d:distance(point.lat,point.lon,s.lat,s.lon)})).filter(x=>x.d<=radius).sort((a,b)=>a.d-b.d).slice(0,limit).map(x=>x.s);
+}
 function attachAutocomplete(inputId,listId){
  const field=$(inputId),list=$(listId);let request=0,timer=null;
  field.addEventListener('input',()=>{
@@ -177,9 +216,9 @@ function attachAutocomplete(inputId,listId){
   matches.sort((a,b)=>(a.name.toLowerCase().startsWith(q)?0:1)-(b.name.toLowerCase().startsWith(q)?0:1)||a.name.localeCompare(b.name));
   const draw=(places=[])=>{if(current!==request)return;list.innerHTML='';
    const choices=[...matches.slice(0,5),...places.slice(0,5).map(p=>({...p,type:'place'}))];
-   for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;selectedStopIds[inputId]=item.type==='stop'?item.id:null;list.innerHTML='';field.focus();if(item.type==='place'&&ensureMap()){if(placeMarker)routeMap.removeLayer(placeMarker);placeMarker=L.marker([item.lat,item.lon]).bindPopup(item.name).addTo(routeMap);routeMap.setView([item.lat,item.lon],15);$('mapText').textContent='Pin: '+item.name+'. Nearby transit stops will be used for route search.'}};list.append(btn)}
+   for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{request++;clearTimeout(timer);field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;selectedStopIds[inputId]=item.type==='stop'?item.id:null;list.innerHTML='';field.focus();if(item.type==='place')selectSearchPlace(inputId,item);};list.append(btn)}
   };
-  draw();if(q.length>=3){timer=setTimeout(async()=>{try{const data=await api('/api/places?q='+encodeURIComponent(q));if(current!==request)return;draw(data.places||[]);if(!(data.places||[]).length&&!matches.length){list.textContent='No nearby places found. Try a more specific name.'}}catch(e){if(current===request){const note=document.createElement('div');note.className='hint';note.style.padding='10px';note.textContent='Business suggestions unavailable: '+e.message;list.append(note)}}},650)}
+  draw();if(q.length>=3){timer=setTimeout(async()=>{try{const data=await lookupPlaces(q);if(current!==request)return;draw(data.places||[]);if(!(data.places||[]).length&&!matches.length){list.textContent='No nearby places found. Try a more specific name.'}}catch(e){if(current===request){const note=document.createElement('div');note.className='hint';note.style.padding='10px';note.textContent='Place search is taking a break. You can still choose the exact location on the map.';const pin=document.createElement('button');pin.type='button';pin.textContent='Choose this location on the map';pin.onclick=()=>{request++;clearTimeout(timer);list.replaceChildren();window.wldPickSearchLocation(inputId);};list.append(note,pin)}}},900)}
  });
  field.addEventListener('keydown',e=>{if(e.key==='Escape')list.innerHTML='';if(e.key==='ArrowDown'&&list.firstElementChild){e.preventDefault();list.firstElementChild.focus()}});
  list.addEventListener('keydown',e=>{if(e.key==='ArrowDown'&&document.activeElement.nextElementSibling){e.preventDefault();document.activeElement.nextElementSibling.focus()}if(e.key==='Escape'){list.innerHTML='';field.focus()}});
@@ -547,22 +586,18 @@ function showSelectedRoute(out,title,steps,legs){
 }
 async function resolveTypedLocation(id){
  const value=$(id).value.trim();
- if(!value||selectedStopIds[id]||selectedPlaces[id])return;
- if(matchStops(value).length)return;
+ if(!value||selectedStopIds[id]||selectedPlaces[id]||matchStops(value).length)return null;
  try{
-  const data=await api('/api/places?q='+encodeURIComponent(value));
-  const places=(data.places||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
-  const exact=places.find(p=>p.name?.trim().toLowerCase()===value.toLowerCase());
-  // A typed address or business name may have several nearby search hits.
-  // Prefer a close textual match, but never silently choose an unrelated result.
-  const normalize=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-  const needle=normalize(value);
-  const ranked=places.map(p=>({p,name:normalize(p.name),detail:normalize(p.detail)}))
-   .filter(x=>x.name===needle||x.name.includes(needle)||needle.includes(x.name)&&x.name.length>=5||x.detail.includes(needle))
-   .sort((a,b)=>Number(b.name===needle)-Number(a.name===needle));
-  const place=exact||ranked[0]?.p||(places.length===1?places[0]:null);
-  if(place&&$(id).value.trim()===value)selectedPlaces[id]=place;
- }catch(e){console.warn('Place lookup unavailable:',e)}
+  const data=await lookupPlaces(value);
+  const places=(data.places||[]).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  const normalize=x=>String(x||'').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const needle=normalize(value),exact=places.filter(p=>normalize(p.name)===needle);
+  const close=places.filter(p=>normalize(p.name).includes(needle)||needle.includes(normalize(p.name))&&normalize(p.name).length>=5);
+  const chosen=exact.length===1?exact[0]:!exact.length&&close.length===1?close[0]:places.length===1?places[0]:null;
+  if($(id).value.trim()!==value)return {changed:true};
+  if(chosen){selectSearchPlace(id,chosen);return null;}
+  return {id,places,error:places.length?'Choose the correct location below.':'Could not match this location. Add a street or choose a map pin.'};
+ }catch(e){return {id,places:[],error:'Could not match this location while business search is unavailable. Choose a map pin to keep planning.'};}
 }
 let findingTrip=false;
 async function findDirectTrips(options={}){
@@ -571,14 +606,22 @@ async function findDirectTrips(options={}){
  const out=options.target||$('autoResults');out.textContent='Finding nearby stops and bus routes…';
  try{
  if(!network){out.textContent='Routes have not loaded yet. Check the live-data status.';return}
- await Promise.all([resolveTypedLocation('originSearch'),resolveTypedLocation('place')]);
- const a=stopsForInput('originSearch'),b=stopsForInput('place');
+ const resolved=await Promise.all([resolveTypedLocation('originSearch'),resolveTypedLocation('place')]);
+ const unresolved=resolved.find(x=>x);if(unresolved){
+  out.replaceChildren();const note=document.createElement('p');note.className='notice';note.textContent=unresolved.changed?'Location changed. Search again.':unresolved.error;out.append(note);
+  for(const item of unresolved.places||[]){const pick=document.createElement('button');pick.type='button';pick.className='place-resolution';pick.textContent=item.name+' · '+(item.detail||'Local place');pick.onclick=()=>{selectSearchPlace(unresolved.id,item);findDirectTrips(options);};out.append(pick);}
+  if(unresolved.id){const pin=document.createElement('button');pin.type='button';pin.className='btn alt';pin.textContent='Choose location on map';pin.onclick=()=>window.wldPickSearchLocation(unresolved.id);out.append(pin);}return;
+ }
+ let a=stopsForInput('originSearch'),b=stopsForInput('place');
+ if(options.nearby){a=[...new Map([...a,...nearbyStops(walkingEndpoint('originSearch'))].map(s=>[s.id,s])).values()];b=[...new Map([...b,...nearbyStops(walkingEndpoint('place'))].map(s=>[s.id,s])).values()];}
+
  if(!a.length||!b.length){
   const missing=[!a.length?'starting location':null,!b.length?'destination':null].filter(Boolean).join(' and ');
   out.textContent='Could not match your '+missing+' to an AC Transit stop or nearby place. Choose a stop suggestion, pick a destination on the map, or use Choose a bus route below.';
   return
  }
  out.innerHTML='';
+ if(options.nearby){const note=document.createElement('p');note.className='notice';note.textContent='Checking nearby stops, including the opposite side of the street. Your selected starting point and destination are kept; walking paths are checked separately.';out.append(note);}
  const from=new Set(a.map(s=>s.id)),to=new Set(b.map(s=>s.id));
  const direct=[],firstLegs=[],lastLegs=[],seen=new Set();
  const patternsWithStops=network.patterns.filter(p=>p.stops?.length>1&&(!options.avoid||!options.avoid.some(a=>alertAffectsLeg(a,{p,start:0,end:p.stops.length-1}))));
@@ -724,15 +767,16 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    }
    await rankTransferOptions(out,heading,timedOptions);
   }else{
-   heading.textContent='We could not verify a connection from these stops in the available AC Transit data. Try the full transit planner below for walking transfers and other agencies.';
+   if(!options.nearby){findingTrip=false;return await findDirectTrips({...options,nearby:true});}
+   heading.textContent='No direct or one-transfer AC Transit option was found near these locations. Try a different starting point or check broader transit options below. We could not verify a connection from these stops in the available AC Transit data. Try the full transit planner below for walking transfers and other agencies.';
   }
-  const firstStop=a[0],lastStop=b[0];
+  const firstStop=walkingEndpoint('originSearch')||a[0],lastStop=walkingEndpoint('place')||b[0];
   if(Number.isFinite(firstStop?.lat)&&Number.isFinite(firstStop?.lon)&&Number.isFinite(lastStop?.lat)&&Number.isFinite(lastStop?.lon)){
    const link=document.createElement('a');link.className='btn alt';link.style.display='inline-block';link.style.marginTop='12px';
    link.textContent='Explore more transit options in Google Maps ↗';
    const params=new URLSearchParams({api:'1',origin:firstStop.lat+','+firstStop.lon,destination:lastStop.lat+','+lastStop.lon,travelmode:'transit'});
    link.href='https://www.google.com/maps/dir/?'+params.toString();link.target='_blank';link.rel='noopener noreferrer';out.append(link);
-   const note=document.createElement('p');note.className='hint';note.textContent='External directions open with the first candidate origin and destination stops. Confirm the stops before traveling.';out.append(note);
+   const note=document.createElement('p');note.className='hint';note.textContent='External directions use your chosen starting point and destination. Confirm the locations before traveling.';out.append(note);
   }
   return;
  }

@@ -91,3 +91,39 @@ window.addEventListener('DOMContentLoaded',()=>{
  for(const name of ['wld:route-selected','wld:trip-started','wld:trip-finished','wld:progress'])window.addEventListener(name,hierarchy);
  hierarchy();
 });
+
+/* A map canvas with a floating search sheet, rather than stacked dashboard cards. */
+window.addEventListener('DOMContentLoaded',()=>{
+ const $=id=>document.getElementById(id),card=$('autoFind').closest('.card');
+ document.body.classList.add('map-led-app');
+ const workspace=document.createElement('section');workspace.id='plannerWorkspace';workspace.setAttribute('aria-label','Plan a trip on the East Bay map');
+ const mapHost=document.createElement('div');mapHost.id='planMapHost';mapHost.className='planner-map-host';
+ const stageTitle=document.createElement('div');stageTitle.className='map-stage-title';stageTitle.setAttribute('aria-hidden','true');
+ const eyebrow=document.createElement('span');eyebrow.textContent='EAST BAY / AC TRANSIT';
+ const headline=document.createElement('strong');headline.textContent="Make moves.";
+ const subtitle=document.createElement('span');subtitle.textContent='Your next ride starts here.';stageTitle.append(eyebrow,headline,subtitle);
+ card.before(workspace);workspace.append(mapHost,stageTitle,card);
+ card.querySelector('h2').textContent="Let's go.";
+ const intro=document.createElement('p');intro.className='planner-intro';intro.textContent='Places, addresses, or bus stops. Pick a location, then compare your ride.';card.querySelector('h2').after(intro);
+ for(const [id,label] of [['originSearch','From'],['place','To']]){
+  const input=$(id),field=input.closest('.field'),fieldLabel=field.querySelector('label');
+  if(fieldLabel)fieldLabel.textContent=label;
+  input.placeholder=id==='originSearch'?'Where are you starting?':'Business, address, or stop';
+  input.setAttribute('aria-label',id==='originSearch'?'Starting place, address, or bus stop':'Destination business, address, or bus stop');
+  const tools=document.createElement('div');tools.className='location-shortcuts';
+  if(id==='originSearch'){
+   const locate=document.createElement('button');locate.type='button';locate.className='location-shortcut';locate.textContent='Use my location';locate.onclick=()=>$('locate').click();tools.append(locate);
+  }
+  const pin=document.createElement('button');pin.type='button';pin.className='location-shortcut';pin.textContent='Choose on map';pin.id=id==='originSearch'?'originMapPicker':'destinationMapPicker';pin.onclick=()=>window.wldPickSearchLocation(id);tools.append(pin);field.append(tools);
+ }
+ $('chooseMap').onclick=()=>window.wldPickSearchLocation('originSearch');
+ const status=document.createElement('p');status.className='location-status';status.setAttribute('role','status');$('originSearch').closest('.field').append(status);
+ new MutationObserver(()=>{status.textContent=$('locationText').textContent;}).observe($('locationText'),{childList:true,subtree:true,characterData:true});
+ const manual=$('manualRouteDetails'),preview=$('preview').closest('.actions');
+ if(manual){manual.classList.add('advanced-planner');if(preview)manual.append(preview);}
+ const legacyLocation=document.querySelector('.focus-location-tools')?.closest('.field');if(manual&&legacyLocation)manual.append(legacyLocation);
+ const arrivalCard=$('arrivals').closest('.card');
+ if(arrivalCard&&arrivalCard!==card){const arrivalDetails=document.createElement('details');arrivalDetails.className='arrival-drawer';const title=document.createElement('summary');title.textContent='Boarding-stop arrivals & all service notices';arrivalDetails.append(title);arrivalCard.before(arrivalDetails);arrivalDetails.append(arrivalCard);}
+ window.wldSyncGuideMap?.();
+ if(ensureMap()){setTimeout(()=>{routeMap.invalidateSize();routeMap.zoomControl.setPosition('bottomright');},180);}
+});

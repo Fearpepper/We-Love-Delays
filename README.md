@@ -46,3 +46,11 @@ The Guide automatically searches alternative AC Transit patterns before departur
 Transfer trips can earn prototype points from the final bus's fresh, uniquely matched destination prediction after the rider marks boarding that bus complete. Earlier-leg delays are not summed. Missing, stale, ambiguous, offline or unidentified predictions do not earn points. Recovery discards old predictions. Rewards remain fictional, nonredeemable points.
 
 After one successful installation, the versioned app shell opens from cache without waiting for Render to wake. Live data still needs the server, and a first visit still needs hosting startup. No keep-alive service or paid plan is used. GPS diagnostics report blocked permissions, poor accuracy and outdated fixes without saving location history. Walking proximity can advance with a fresh accurate fix; boarding/alighting still require manual confirmation. Real phone and bus field validation remains necessary.
+
+## Place search and nearby-stop recovery
+
+Business and address lookup uses the configured OpenRouteService/Pelias API, with Photon as an independent fallback. Results retain street/locality information so riders can choose the correct branch. Successful queries are cached briefly and failed providers cool down before retrying. Public Nominatim autocomplete is no longer used. Search outages offer map-pin selection rather than requiring a stop name.
+
+When an exact stop pair has no direct or one-transfer connection, the planner retries nearby stops within 500 m, including the opposite side of the street. Selected endpoint coordinates remain the walking origin/destination; actual pedestrian paths and published schedules are checked separately. This is limited AC Transit planning, not a guarantee of every possible regional connection.
+
+The planner uses one interactive map behind a floating location form. The same map moves between Plan, Map and Guide to preserve controls and avoid duplicate map instances. Current-location and map-pin actions are exposed beside the search fields.
