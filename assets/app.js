@@ -945,6 +945,9 @@ $('startJourney').onclick=()=>{
  else{$('journeyStatus').textContent='Checking destination predictions for a unique bus…';sampleJourneyDelay();window.wldDelayTimer=setInterval(sampleJourneyDelay,145000)}
  window.wldUpdateGuide?.();
  window.dispatchEvent(new Event('wld:trip-started'));
+ // Starting a trip also begins GPS following, using the same permission/error UI.
+ // Keep an existing watch so starting after manual following never duplicates it.
+ if(activeNavigation&&gpsWatchId===null)$('navStart').click();
  if(journey?.transfer)$('guideTripFeedback').textContent='Trip started. Transfer rewards track the final bus only after you mark boarding complete.';
 };
 $('finishJourney').onclick=()=>{
