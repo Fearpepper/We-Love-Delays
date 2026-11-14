@@ -397,10 +397,18 @@ function routeChoice(out,title,detail,choose){
  btn.onclick=()=>{
   out.querySelectorAll('.route-choice').forEach(x=>{x.setAttribute('aria-pressed','false');x.querySelector('small').textContent=x.querySelector('small').textContent.replace(' · Selected','')});
   btn.setAttribute('aria-pressed','true');sub.textContent=detail+' · Selected';
-  if(out.id==='replanResults'&&journey)window.wldCancelTrip?.();
+  if(journey)window.wldCancelTrip?.();
   choose();
  };
  out.append(btn);return btn;
+}
+function appendJourneyComparison(card,arrival,chain,walks){
+ const summary=document.createElement('div');summary.className='journey-comparison';summary.setAttribute('aria-label','Door-to-door journey comparison');
+ const known=Number.isFinite(arrival)&&chain?.length&&walks?.every(w=>Number.isFinite(w?.minutes));
+ if(!known){summary.textContent='Total time unavailable · check departures before traveling';card.append(summary);return;}
+ const total=Math.max(0,(arrival-Date.now())/60000),walk=walks.reduce((n,w)=>n+w.minutes,0),ride=chain.reduce((n,t)=>n+(Date.parse(t.arrival)-Date.parse(t.departure))/60000,0),wait=Math.max(0,total-walk-ride);
+ for(const [label,value] of [['Total',Math.ceil(total)+' min'],['Walk',Math.ceil(walk)+' min'],['Wait',Math.ceil(wait)+' min'],['Ride',Math.ceil(ride)+' min'],['Transfers',String(chain.length-1)]]){const item=document.createElement('span'),name=document.createElement('small'),amount=document.createElement('strong');name.textContent=label;amount.textContent=value;item.append(name,amount);summary.append(item);}
+ const note=document.createElement('small');note.className='comparison-source';note.textContent='From now · published schedules + walking estimates';summary.append(note);card.append(summary);
 }
 async function rankTransferOptions(out,heading,options){
  const results=[];
@@ -412,6 +420,7 @@ async function rankTransferOptions(out,heading,options){
     const [schedules,walks]=await Promise.all([getPublishedLegTimes(item.legs),getWalkingJourney(item.legs)]);
     const match=chooseScheduledConnection(schedules,walks,null);
     item.match=match;
+    appendJourneyComparison(item.card,match?.arrival,match?.chain,walks);
     if(Number.isFinite(match?.arrival))item.card.dataset.arrival=String(match.arrival);
     const status=document.createElement('span');status.className='route-timing hint';
     status.textContent=match?.chain?'Scheduled arrival '+fmt(new Date(match.arrival).toISOString())+' · leave by '+fmt(new Date(match.leave).toISOString())+' · includes walking and transfer buffer':Array.isArray(match)?'No feasible upcoming connection found in the returned schedules. Check another option.':'Transfer timing unverified: pedestrian route unavailable. Check agency times.';
@@ -713,7 +722,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
      return {leave,arrival:Date.parse(t.arrival)+walks[1].minutes*60000,trip:t};
     }).filter(t=>t.leave>=Date.now()).sort((a,b)=>a.arrival-b.arrival);
     if(!feasible.length)return {...item,reason:'No catchable scheduled departure'};
-    return {...item,arrival:feasible[0].arrival,leave:feasible[0].leave,walks};
+    return {...item,arrival:feasible[0].arrival,leave:feasible[0].leave,walks,chain:[feasible[0].trip]};
    }catch(e){return {...item,reason:String(e.message||e).slice(0,130)}}
   }));
   // Search may have been replaced by a newer query while remote services responded.
@@ -728,6 +737,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    const extra=document.createElement('span');extra.className='route-result-timing';
    extra.textContent=Number.isFinite(r.arrival)?'Scheduled arrival ~'+fmt(r.arrival)+' · Leave by ~'+fmt(r.leave)+' · Walk '+Math.round(r.walks.reduce((n,w)=>n+w.minutes,0))+' min (ORS)':'Time unverified · '+r.reason;
    if(Number.isFinite(r.arrival))r.card.dataset.arrival=String(r.arrival);
+   appendJourneyComparison(r.card,r.arrival,r.chain,r.walks);
    r.card.append(extra);
    out.append(r.card);
   }
@@ -1052,3 +1062,25 @@ load();
   });
  });
 })();
+
+// Capture exact selections so repeated trips do not silently choose another branch.
+window.wldCaptureSearch=()=>({origin:$('originSearch').value.trim(),destination:$('place').value.trim(),stopIds:{...selectedStopIds},places:{...selectedPlaces}});
+window.wldRestoreSearch=item=>{
+ for(const [id,key] of [['originSearch','origin'],['place','destination']]){
+  $(id).value=String(item[key]||'');$(id).dispatchEvent(new Event('input',{bubbles:true}));
+  const stopId=item.stopIds?.[id];selectedStopIds[id]=typeof stopId==='string'?stopId:null;
+  const p=item.places?.[id];selectedPlaces[id]=p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180?{...p}:null;
+ }
+ $('originSuggestions').replaceChildren();$('destinationSuggestions').replaceChildren();
+};
+window.wldPrepareRecovery=reason=>{
+ const current=activeNavigation;if(!current)return;
+ // During a ride the next stop is not the rider's current location. Ask explicitly.
+ window.wldRestoreSearch({...window.wldCaptureSearch(),origin:'',stopIds:{...selectedStopIds,originSearch:null},places:{...selectedPlaces,originSearch:null}});
+ window.wldSelectTab?.('routes');
+ $('message').textContent=reason+' Choose where you are now, then Find routes. Your current trip stays available in Guide until you select a replacement.';
+ $('autoResults').replaceChildren();
+ const note=document.createElement('p');note.className='notice recovery-guidance';note.textContent=$('message').textContent;
+ const back=document.createElement('button');back.type='button';back.className='btn alt';back.textContent='Return to current trip';back.onclick=()=>window.wldSelectTab?.('guide');
+ $('autoResults').append(note,back);$('originSearch').focus();$('originSearch').scrollIntoView({block:'center',behavior:'smooth'});
+};

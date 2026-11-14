@@ -602,3 +602,43 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
  await expect(page.locator('#mapText')).toContainText('Direct pedestrian route');
  await expect(page.locator('#map')).toBeVisible();expect(errors).toEqual([]);
 });
+
+test('Home shortcut restores exact stops across reload and clears stale selections',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#appTrips').click();
+ await page.getByRole('button',{name:'Save current trip as Home',exact:true}).click();
+ await expect(page.locator('.everyday-trips [role=status]')).toContainText('Home saved');
+ await page.locator('#originSearch').fill('Gamma destination');await page.locator('#place').fill('Alpha boarding');
+ await page.getByRole('button',{name:'Open Home',exact:true}).click();
+ await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#place')).toHaveValue('Beta transfer');
+ expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
+ await page.reload();await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.getByRole('button',{name:'Open Home',exact:true}).click();
+ expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
+ await page.locator('#autoFind').click();await expect(page.locator('.route-choice')).toContainText('51B');expect(errors).toEqual([]);
+});
+
+test('Find another way preserves the active trip until a replacement is selected',async({page})=>{
+ const errors=await setup(page);await plan(page,'Gamma destination');await page.locator('#guideStartTrip').click();
+ await page.locator('#navAdvance').click();const progress=await page.evaluate(()=>activeNavigation.progress);
+ await page.locator('#tripRecoveryActions > summary').click();await page.getByRole('button',{name:'I missed my transfer',exact:true}).click();
+ await expect(page.locator('#originSearch')).toHaveValue('');await expect(page.locator('#place')).toHaveValue('Gamma destination');
+ await expect(page.locator('.recovery-guidance')).toContainText('Choose where you are now');
+ expect(await page.evaluate(()=>Boolean(journey))).toBe(true);expect(await page.evaluate(()=>activeNavigation.progress)).toBe(progress);
+ await page.getByRole('button',{name:'Return to current trip'}).click();await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await page.locator('#appTrips').click();await plan(page);
+ await expect(page.locator('#guideStartTrip')).toBeVisible();expect(await page.evaluate(()=>Boolean(journey))).toBe(false);expect(errors).toEqual([]);
+});
+
+test('door-to-door comparison separates walking waiting riding and transfers',async({page})=>{
+ const errors=await setup(page),now=Date.now();
+ await page.route('**/api/scheduled-journey?*',route=>{
+  const second=new URL(route.request().url()).searchParams.get('trip')==='two';
+  return route.fulfill({json:{trips:[{departure:new Date(now+(second?30:10)*60000).toISOString(),arrival:new Date(now+(second?40:20)*60000).toISOString()}]}});
+ });
+ await plan(page,'Gamma destination');await page.locator('#appTrips').click();
+ const comparison=page.locator('.route-choice .journey-comparison');await expect(comparison).toContainText('Total');await expect(comparison).toContainText('Wait');await expect(comparison).toContainText('Ride');await expect(comparison).toContainText('Transfers1');
+ await page.screenshot({path:test.info().outputPath('everyday-comparison.png'),fullPage:true});
+ await page.locator('#appGuide').click();await expect(page.locator('#navNext')).toBeVisible();
+ await expect(page.locator('.trip-timing-detail')).not.toHaveAttribute('open','');
+ await page.screenshot({path:test.info().outputPath('everyday-guide.png'),fullPage:true});expect(errors).toEqual([]);
+});
