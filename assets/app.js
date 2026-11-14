@@ -1129,3 +1129,5 @@ window.wldPrepareRecovery=reason=>{
 };
 
 setInterval(()=>{if(journey)updateLiveDashboard();updateMapFollowControl()},15000);
+
+for(const event of ['wld:trip-finished','wld:route-selected'])window.addEventListener(event,updateMapFollowControl);
