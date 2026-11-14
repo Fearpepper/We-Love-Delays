@@ -602,3 +602,27 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
  await expect(page.locator('#mapText')).toContainText('Direct pedestrian route');
  await expect(page.locator('#map')).toBeVisible();expect(errors).toEqual([]);
 });
+
+test('optional support preview changes amount without charging or changing rewards',async({page})=>{
+ const errors=await setup(page);await page.locator('#appRewards').click();
+ await expect(page.locator('#openSupport')).toBeVisible();
+ const balance=await page.locator('#points').textContent();
+ await page.locator('#openSupport').click();
+ await expect(page.locator('#supportDialog')).toBeVisible();
+ await page.locator('[data-support-amount="10"]').click();
+ await expect(page.locator('#supportTotal')).toHaveText('$10.00');
+ await page.locator('#supportCustom').fill('7');
+ await expect(page.locator('#supportTotal')).toHaveText('$7.00');
+ await page.locator('#supportCustom').fill('0');await expect(page.locator('#previewSupport')).toBeDisabled();
+ await page.locator('[data-support-amount="5"]').click();
+ await page.screenshot({path:test.info().outputPath('support-dialog.png'),fullPage:true});
+ await page.locator('#previewSupport').click();
+ await expect(page.locator('#supportThanksText')).toContainText('No money was charged');
+ await expect(page.locator('#points')).toHaveText(balance);
+ await page.locator('#supportBack').click();await expect(page.locator('#supportChoose')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#supportDialog')).not.toBeVisible();
+ await expect(page.locator('#openSupport')).toBeFocused();
+ await page.screenshot({path:test.info().outputPath('support-wallet.png'),fullPage:true});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(errors).toEqual([]);
+});
