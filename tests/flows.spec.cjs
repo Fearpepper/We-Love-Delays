@@ -652,7 +652,7 @@ test('GPS map follows smoothly preserves zoom and resumes after browsing',async(
  await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.871))).toBeLessThan(.0001);
  await page.evaluate(()=>routeMap.setZoom(18,{animate:false}));await fix(37.872,-122.268);
  expect(await page.evaluate(()=>routeMap.getZoom())).toBe(18);
- await page.evaluate(()=>{routeMap.fire('dragstart');routeMap.setView([37.86,-122.28],15,{animate:false});});
+ await page.evaluate(()=>{routeMap.fire('dragstart');routeMap.setView([37.86,-122.28],15,{animate:false});focusSelectedTripMap();});
  await fix(37.873,-122.267);await expect(page.locator('#mapFollow')).toHaveAttribute('aria-pressed','false');
  expect(await page.evaluate(()=>routeMap.getCenter().lat)).toBeCloseTo(37.86,3);
  await page.locator('#mapFollow').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);

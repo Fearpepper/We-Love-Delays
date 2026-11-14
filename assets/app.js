@@ -283,8 +283,8 @@ function focusSelectedTripMap(){
 }
 window.wldFocusSelectedTripMap=focusSelectedTripMap;
 function navStopTracking(){
- navWatchGeneration++;mapFollowing=false;mapFollowNeedsZoom=false;lastNavigationFix=null;
- if(gpsWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null}
+ navWatchGeneration++;mapFollowing=false;mapFollowNeedsZoom=false;lastNavigationFix=null;if(routeMap)routeMap.stop();
+ if(gpsWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;if(locationPoint)$('mapText').textContent='Location following stopped. Blue dot shows the last received position.';}
  $('navStart').disabled=false;$('navStop').disabled=true;updateMapFollowControl();
 }
 function setNavigation(legs){
