@@ -643,3 +643,37 @@ test('door-to-door comparison separates walking waiting riding and transfers',as
  await expect(page.locator('.trip-timing-detail')).not.toHaveAttribute('open','');
  await page.screenshot({path:test.info().outputPath('everyday-guide.png'),fullPage:true});expect(errors).toEqual([]);
 });
+
+test('GPS map follows smoothly preserves zoom and resumes after browsing',async({page})=>{
+ await page.addInitScript(()=>{window.gpsCallbacks=[];window.gpsCleared=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition(ok,fail){window.gpsCallbacks.push({ok,fail});return window.gpsCallbacks.length;},clearWatch(id){window.gpsCleared.push(id);}}});});
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ const fix=async(lat,lon,accuracy=8)=>page.evaluate(({lat,lon,accuracy})=>window.gpsCallbacks[0].ok({coords:{latitude:lat,longitude:lon,accuracy},timestamp:Date.now()}),{lat,lon,accuracy});
+ await fix(37.871,-122.269);await expect(page.locator('#mapFollow')).toHaveAttribute('aria-pressed','true');
+ await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.871))).toBeLessThan(.0001);
+ await page.evaluate(()=>routeMap.setZoom(18,{animate:false}));await fix(37.872,-122.268);
+ expect(await page.evaluate(()=>routeMap.getZoom())).toBe(18);
+ await page.evaluate(()=>{routeMap.fire('dragstart');routeMap.setView([37.86,-122.28],15,{animate:false});});
+ await fix(37.873,-122.267);await expect(page.locator('#mapFollow')).toHaveAttribute('aria-pressed','false');
+ expect(await page.evaluate(()=>routeMap.getCenter().lat)).toBeCloseTo(37.86,3);
+ await page.locator('#mapFollow').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);
+ await page.locator('#appMap').click();await page.locator('#appGuide').click();
+ await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);
+ const before=await page.evaluate(()=>locationPoint.lat);await page.locator('#guideFinishTrip').click();await fix(38,-122.2);
+ expect(await page.evaluate(()=>locationPoint.lat)).toBe(before);expect(await page.evaluate(()=>window.gpsCleared)).toEqual([1]);expect(errors).toEqual([]);
+});
+
+test('a throwing GPS provider keeps trip finish and location retry usable',async({page})=>{
+ await page.addInitScript(()=>{Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition(){throw Error('Unavailable')},clearWatch(){}}});});
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#navStatus')).toContainText('Location tracking unavailable');
+ await expect(page.locator('#navStart')).toBeEnabled();await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();expect(errors).toEqual([]);
+});
+
+for(const stale of [false,true])test('current location keeps the real walking origin '+(stale?'and rejects stale fixes':'instead of snapping to a stop'),async({page})=>{
+ await page.addInitScript(stale=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:10},timestamp:Date.now()-(stale?60000:0)}),0)},clearWatch(){}}}),stale);
+ const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();
+ if(stale){await expect(page.locator('#locationText')).toContainText('outdated');await expect(page.locator('#originSearch')).toHaveValue('');}
+ else {await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);expect(await page.evaluate(()=>walkingEndpoint('originSearch').lon)).toBe(-122.271);}
+ expect(errors).toEqual([]);
+});

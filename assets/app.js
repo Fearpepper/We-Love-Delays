@@ -160,7 +160,7 @@ function say(s){$('message').textContent=s}function option(sel,label,value){cons
  }catch(e){if(e.name==='AbortError')throw Error('Transit service took too long to respond. Check your connection and retry.');throw e}
  finally{clearTimeout(timer)}
 }function show(){ $('welcome').classList.add('off');$('welcome').style.pointerEvents='none';$('welcome').style.visibility='hidden';window.scrollTo({top:0,behavior:'smooth'})} $('startNow').onclick=show;$('home').onclick=()=>{$('welcome').classList.remove('off');$('welcome').style.pointerEvents='auto';$('welcome').style.visibility='visible';};
-async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location');say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
+async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint&&pendingLocationOrigin)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location',locationPoint.accuracy,locationPoint.timestamp);say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
 function populateRoutes(){const r=$('route'),filter=$('routeFilter').value.trim().toLowerCase(),previous=r.value;reset(r,'Select an AC Transit bus route');const routes=(network.routes||[]).filter(x=>(x.name+' '+(x.description||'')).toLowerCase().includes(filter));routes.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).forEach(x=>option(r,x.name+(x.description?' · '+x.description:''),x.id));r.disabled=!routes.length;if(routes.some(x=>x.id===previous))r.value=previous;else {reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true}if(!routes.length)say('No routes match this filter. Clear the filter or try a different route number.')} $('routeFilter').oninput=()=>{if(network)populateRoutes()};
 
 function populateStopSuggestions(){
@@ -258,13 +258,14 @@ function showTransferMap(first,second){
  setTimeout(()=>routeMap.invalidateSize(),100);
  $('mapText').textContent='Red: first bus. Blue: second bus. Orange dashed: pedestrian paths where available. Bus lines connect published stop coordinates, not road geometry. Check crossings, accessibility and schedules.';
 }
-let activeNavigation=null,gpsWatchId=null;
+let activeNavigation=null,gpsWatchId=null,mapFollowing=false,mapFollowNeedsZoom=false,lastNavigationFix=null,navWatchGeneration=0;
 // Fit only the stops on the selected journey. A stale GPS point must not
 // force a Berkeley trip into a world-scale view.
 function focusSelectedTripMap(){
  if(typeof L==='undefined'||!routeMap||!activeNavigation?.legs?.length)return false;
  const mapElement=$('map'),rect=mapElement?.getBoundingClientRect();
  if(!rect||rect.width<100||rect.height<100)return false;
+ if(mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000&&lastNavigationFix.accuracy<=200){routeMap.invalidateSize({pan:false});routeMap.panTo([lastNavigationFix.lat,lastNavigationFix.lon],{animate:false});return true;}
  const points=[];
  for(const leg of activeNavigation.legs){
   for(const id of leg.p.stops.slice(leg.start,leg.end+1)){
@@ -279,8 +280,9 @@ function focusSelectedTripMap(){
 }
 window.wldFocusSelectedTripMap=focusSelectedTripMap;
 function navStopTracking(){
+ navWatchGeneration++;mapFollowing=false;mapFollowNeedsZoom=false;lastNavigationFix=null;
  if(gpsWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null}
- $('navStart').disabled=false;$('navStop').disabled=true;
+ $('navStart').disabled=false;$('navStop').disabled=true;updateMapFollowControl();
 }
 function setNavigation(legs){
  navStopTracking();
@@ -363,7 +365,7 @@ $('navAdvance').onclick=()=>{
 function updateNavigationPosition(lat,lon,accuracy,timestamp=Date.now()){
  if(![lat,lon,accuracy,timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||Date.now()-timestamp>30000||timestamp>Date.now()+5000){$('navStatus').textContent='GPS fix unavailable or outdated. Written directions remain available.';return;}
  window.dispatchEvent(new CustomEvent('wld:gps-fix',{detail:{accuracy,timestamp}}));
- locationPoint={lat,lon};showLocationOnMap();
+ lastNavigationFix={lat,lon,accuracy,timestamp};locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap({center:mapFollowing,accuracy});
  if(!activeNavigation)return;
  const steps=activeNavigation.steps;
  // Only advance sequentially when physically near the next waypoint.
@@ -376,7 +378,7 @@ function updateNavigationPosition(lat,lon,accuracy,timestamp=Date.now()){
  const next=steps[activeNavigation.progress],p=next?.stop;
  const km=p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)?distance(lat,lon,p.lat,p.lon):null;
  $('navStatus').textContent=next?(km===null?'GPS active · Next stop location unavailable':'GPS active · '+Math.round(km*1000)+' m straight-line to next listed stop · accuracy ±'+Math.round(accuracy||0)+' m'):'You are near the final listed stop. Confirm your destination yourself.';
- if(routeMap&&locationMarker){locationMarker.bringToFront();routeMap.panTo([lat,lon],{animate:true})}
+ if(locationMarker)locationMarker.bringToFront();
 }
 $('navStart').onclick=()=>{
  if(!activeNavigation)return;
@@ -384,11 +386,17 @@ $('navStart').onclick=()=>{
  navStopTracking();
  $('navStatus').textContent='Requesting GPS permission… Keep this page open while following your journey.';
  $('navStart').disabled=true;$('navStop').disabled=false;
- gpsWatchId=navigator.geolocation.watchPosition(
-  p=>updateNavigationPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy,p.timestamp),
-  e=>{navStopTracking();$('navStatus').textContent='Location tracking stopped: '+(e.message||'check browser location permissions')+'. You can still follow the written directions.'},
-  {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
- );
+ mapFollowing=true;mapFollowNeedsZoom=true;updateMapFollowControl();
+ const generation=navWatchGeneration;
+ try{
+  const watch=navigator.geolocation.watchPosition(
+   p=>{if(generation===navWatchGeneration)updateNavigationPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy,p.timestamp)},
+   e=>{if(generation!==navWatchGeneration)return;navStopTracking();$('navStatus').textContent='Location tracking stopped: '+(e.message||'check browser location permissions')+'. You can still follow the written directions.'},
+   {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
+  );
+  if(generation===navWatchGeneration)gpsWatchId=watch;else navigator.geolocation.clearWatch(watch);
+ }catch(e){if(generation===navWatchGeneration){navStopTracking();$('navStatus').textContent='Location tracking unavailable. You can still follow written directions.';}}
+
 };
 $('navStop').onclick=()=>{navStopTracking();$('navStatus').textContent='GPS following paused. Directions remain available.'};
 window.addEventListener('pagehide',navStopTracking);
@@ -857,13 +865,15 @@ $('route').onchange=()=>{reset($('pattern'),'Choose direction / pattern');reset(
 $('pattern').onchange=()=>{reset($('board'),'Choose a boarding stop');reset($('exit'),'Choose a boarding stop first');selected=$('pattern').value===''?null:patterns[Number($('pattern').value)];if(!selected)return;populateBoarding();nearest()};
 function populateBoarding(){reset($('board'),'Choose a boarding stop');reset($('exit'),'Choose a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true;if(!selected)return;const filter=$('stopFilter').value.trim().toLowerCase();selected.stops.forEach((id,i)=>{const s=network.stops[id];if(s&&(s.name+' '+s.code).toLowerCase().includes(filter))option($('board'),s.name+' · stop '+(s.code||s.id),String(i))});$('board').disabled=$('board').options.length===1} $('stopFilter').oninput=()=>{populateBoarding();nearest()};function nearest(){if(!locationPoint||!selected)return;const choices=selected.stops.map((id,i)=>({i,s:network.stops[id]})).filter(x=>x.s&&x.s.lat!=null&&x.s.lon!=null&&Array.from($('board').options).some(o=>o.value===String(x.i)));choices.sort((a,b)=>distance(locationPoint.lat,locationPoint.lon,a.s.lat,a.s.lon)-distance(locationPoint.lat,locationPoint.lon,b.s.lat,b.s.lon));if(choices.length){$('board').value=String(choices[0].i);$('locationText').textContent='Nearest stop on this pattern: '+choices[0].s.name+' ('+distance(locationPoint.lat,locationPoint.lon,choices[0].s.lat,choices[0].s.lon).toFixed(2)+' km straight-line). Confirm it is safe to reach.';boardChanged()}}
 function boardChanged(){reset($('exit'),'Choose your destination stop');$('preview').disabled=true;$('startJourney').disabled=true;if(!selected||$('board').value==='')return;const from=Number($('board').value);selected.stops.forEach((id,i)=>{if(i<=from)return;const s=network.stops[id];if(s)option($('exit'),s.name+' · stop '+(s.code||s.id),String(i))});$('exit').disabled=false;refreshArrivals()};$('board').onchange=boardChanged;$('exit').onchange=()=>{$('preview').disabled=!$('exit').value;$('startJourney').disabled=!$('exit').value};
-function applyStartingCoordinates(lat,lon,source){
- locationPoint={lat,lon};showLocationOnMap();
- if(!network?.stops){$('locationText').textContent=source+' found. Waiting for AC Transit stop data to load; your location is saved and will be applied automatically.';return}
+function applyStartingCoordinates(lat,lon,source,accuracy,timestamp=Date.now()){
+ if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return;
+ locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap();
+ if(!network?.stops){pendingLocationOrigin=true;$('locationText').textContent=source+' found. Waiting for AC Transit stop data to load; your location is saved and will be applied automatically.';return}
  let nearestStop=null,best=Infinity;
  for(const stop of Object.values(network.stops)){if(!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;const km=distance(lat,lon,stop.lat,stop.lon);if(km<best){best=km;nearestStop=stop}}
  if(!nearestStop){$('locationText').textContent=source+' shown on map. No bus stop coordinates available.';return}
- $('originSearch').value=nearestStop.name;selectedPlaces.originSearch=null;selectedStopIds.originSearch=nearestStop.id;$('originSuggestions').innerHTML='';
+ pendingLocationOrigin=false;
+ $('originSearch').value=nearestStop.name;selectedPlaces.originSearch={name:source,source:'device-origin',lat,lon};selectedStopIds.originSearch=nearestStop.id;$('originSuggestions').innerHTML='';
  $('locationText').textContent='✓ Starting bus stop automatically selected: '+nearestStop.name+' ('+Math.round(best*1000)+' m straight-line from '+source.toLowerCase()+'). You can change it before finding a route.';
  if($('place').value.trim())findDirectTrips();
 }
@@ -875,7 +885,7 @@ $('chooseMap').onclick=()=>{
  routeMap.once('click',e=>applyStartingCoordinates(e.latlng.lat,e.latlng.lng,'Map-selected location'));
  $('map').scrollIntoView({behavior:'smooth',block:'center'});
 };
-let locationRequestId=0;
+let locationRequestId=0,pendingLocationOrigin=false;
 $('locate').onclick=()=>{
  if(!window.isSecureContext){$('locationText').textContent='Location requires HTTPS. Open the secure website.';return}
  if(!navigator.geolocation){$('locationText').textContent='Location is unavailable in this browser. Enter a starting stop manually.';return}
@@ -884,7 +894,7 @@ $('locate').onclick=()=>{
  $('locate').textContent='Locating…';
  $('locationText').textContent='Finding your location and selecting the nearest bus stop. This can take a moment on the first try.';
  // Show the last position immediately while obtaining a fresher GPS fix.
- if(locationPoint&&network?.stops)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Last known location');
+ // Wait for a fresh fix rather than silently replanning from a cached position.
  let done=false;
  const finish=()=>{
   if(done||id!==locationRequestId)return false;
@@ -897,23 +907,52 @@ $('locate').onclick=()=>{
  try{
   navigator.geolocation.getCurrentPosition(p=>{
    if(!finish())return;
-   applyStartingCoordinates(p.coords.latitude,p.coords.longitude,'Device location');
+   const {latitude:lat,longitude:lon,accuracy}=p.coords;if(![lat,lon,accuracy,p.timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||accuracy>200||Date.now()-p.timestamp>30000||p.timestamp>Date.now()+5000){$('locationText').textContent='Device location is outdated or too approximate. Try again outdoors, or choose your location on the map.';return;}
+   applyStartingCoordinates(lat,lon,'Device location',accuracy,p.timestamp);
   },e=>{
    if(!finish())return;
    $('locationText').textContent=e.code===1?'Location permission denied. Allow location access in your browser and device settings.':e.code===2?'Device location unavailable. Check location services or choose your location on the map.':'GPS timed out. Try again or choose your location on the map.';
   },{timeout:25000,maximumAge:15000,enableHighAccuracy:true});
  }catch(e){if(finish())$('locationText').textContent='Could not start location request: '+e.message}
-};$('clearLoc').onclick=()=>{locationPoint=null;if(routeMap&&locationMarker){routeMap.removeLayer(locationMarker);locationMarker=null}$('locationText').textContent='Location cleared. Choose your boarding stop manually.'};
+};$('clearLoc').onclick=()=>{locationRequestId++;pendingLocationOrigin=false;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';if(selectedPlaces.originSearch?.source==='device-origin')selectedPlaces.originSearch=null;navStopTracking();locationPoint=null;if(routeMap&&locationAccuracyLayer){routeMap.removeLayer(locationAccuracyLayer);locationAccuracyLayer=null;}if(routeMap&&locationMarker){routeMap.removeLayer(locationMarker);locationMarker=null}$('locationText').textContent='Location cleared. Choose your boarding stop manually.'};
 function chosenStops(){if(!selected||$('board').value===''||$('exit').value==='')return null;const ai=Number($('board').value),bi=Number($('exit').value);if(bi<=ai)return null;return [network.stops[selected.stops[ai]],network.stops[selected.stops[bi]]]}let routeMap=null,routeLayer=null,locationMarker=null,placeMarker=null;
-function ensureMap(){if(typeof L==='undefined')return false;if(!routeMap){$('map').innerHTML='';routeMap=L.map('map',{scrollWheelZoom:false});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(routeMap);routeMap.setView([37.8715,-122.2585],13)}return true}
-function showLocationOnMap(){if(!locationPoint)return;if(!ensureMap()){const lat=locationPoint.lat,lon=locationPoint.lon;const d=.005;$('map').innerHTML='<iframe title="Your current location on OpenStreetMap" src="https://www.openstreetmap.org/export/embed.html?bbox='+encodeURIComponent([lon-d,lat-d,lon+d,lat+d].join(','))+'&layer=mapnik&marker='+encodeURIComponent(lat+','+lon)+'"></iframe>';$('mapText').textContent='Map pin: device-reported location. Interactive map library unavailable; showing OpenStreetMap fallback.';return}if(locationMarker)routeMap.removeLayer(locationMarker);locationMarker=L.circleMarker([locationPoint.lat,locationPoint.lon],{radius:10,color:'#176ad1',fillColor:'#176ad1',fillOpacity:.45,weight:3}).bindPopup('Your device-reported location').addTo(routeMap);routeMap.setView([locationPoint.lat,locationPoint.lon],16);setTimeout(()=>routeMap.invalidateSize(),100);$('mapText').textContent='Blue dot: your device-reported location. GPS accuracy may vary.'}
+let locationAccuracyLayer=null,mapFollowControl=null;
+function updateMapFollowControl(){
+ if(!mapFollowControl)return;
+ mapFollowControl.textContent=mapFollowing?(!lastNavigationFix?'Finding location…':Date.now()-lastNavigationFix.timestamp>30000?'Waiting for GPS':'Following location'):gpsWatchId!==null?'Recenter':activeNavigation?'Follow my location':'Use my location';
+ mapFollowControl.setAttribute('aria-pressed',String(mapFollowing));
+}
+function installMapFollowControl(){
+ if(!routeMap||mapFollowControl)return;
+ const control=L.control({position:'bottomleft'});
+ control.onAdd=()=>{const b=L.DomUtil.create('button','map-follow-control');b.type='button';b.id='mapFollow';mapFollowControl=b;L.DomEvent.disableClickPropagation(b);L.DomEvent.disableScrollPropagation(b);
+  b.onclick=()=>{if(gpsWatchId!==null){mapFollowing=true;mapFollowNeedsZoom=false;updateMapFollowControl();if(lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000&&lastNavigationFix.accuracy<=200)routeMap.panTo([lastNavigationFix.lat,lastNavigationFix.lon],{animate:true});else $('navStatus').textContent='Waiting for a fresh accurate GPS fix. Written directions remain available.';}else if(activeNavigation)$('navStart').click();else $('locate').click();};return b;};
+ control.addTo(routeMap);routeMap.on('dragstart',()=>{mapFollowing=false;updateMapFollowControl();});updateMapFollowControl();
+}
+function ensureMap(){if(typeof L==='undefined')return false;if(!routeMap){$('map').innerHTML='';routeMap=L.map('map',{scrollWheelZoom:false});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(routeMap);routeMap.setView([37.8715,-122.2585],13)}installMapFollowControl();return true}
+function showLocationOnMap({center=true,accuracy=locationPoint?.accuracy}={}){
+ if(!locationPoint)return;
+ if(!ensureMap()){$('mapText').textContent='Interactive map unavailable. Your written directions remain available.';return;}
+ const point=[locationPoint.lat,locationPoint.lon];
+ if(locationMarker)locationMarker.setLatLng(point);else locationMarker=L.circleMarker(point,{radius:9,color:'#fff',fillColor:'#176ad1',fillOpacity:1,weight:3}).bindPopup('Your device-reported location').addTo(routeMap);
+ if(Number.isFinite(accuracy)){
+  if(locationAccuracyLayer)locationAccuracyLayer.setLatLng(point).setRadius(accuracy);
+  else locationAccuracyLayer=L.circle(point,{radius:accuracy,color:'#176ad1',weight:1,fillColor:'#176ad1',fillOpacity:.08,interactive:false}).addTo(routeMap);
+ }else if(locationAccuracyLayer){locationAccuracyLayer.remove();locationAccuracyLayer=null;}
+ if(center&&(!Number.isFinite(accuracy)||accuracy<=200)){
+  if(mapFollowNeedsZoom||gpsWatchId===null&&!mapFollowing){routeMap.setView(point,16,{animate:false});mapFollowNeedsZoom=false;}
+  else routeMap.panTo(point,{animate:true});
+ }
+ locationMarker.bringToFront();updateMapFollowControl();
+ $('mapText').textContent='Blue dot: device location'+(Number.isFinite(accuracy)?' · accuracy ±'+Math.round(accuracy)+' m':'')+(mapFollowing?' · following':' · map browsing');
+}
 function drawRoute(){
  const stops=chosenStops();if(!stops||!selected)return;
  const ai=Number($('board').value),bi=Number($('exit').value);
  const segment=selected.stops.slice(ai,bi+1).map(id=>network.stops[id]).filter(p=>p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon));
  if(segment.length<2){$('mapText').textContent='Map unavailable: fewer than two stops have valid coordinates.';return}
  if(typeof L==='undefined'){$('mapText').textContent='Interactive map could not load. Check your internet connection and refresh.';return}
- if(!routeMap){$('map').innerHTML='';routeMap=L.map('map',{scrollWheelZoom:false});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(routeMap)}
+ if(!ensureMap())return;
  if(routeLayer)routeMap.removeLayer(routeLayer);
  routeLayer=L.featureGroup().addTo(routeMap);
  const points=segment.map(p=>[p.lat,p.lon]);
@@ -1089,4 +1128,4 @@ window.wldPrepareRecovery=reason=>{
  $('autoResults').append(note,back);$('originSearch').focus();$('originSearch').scrollIntoView({block:'center',behavior:'smooth'});
 };
 
-setInterval(()=>{if(journey)updateLiveDashboard()},15000);
+setInterval(()=>{if(journey)updateLiveDashboard();updateMapFollowControl()},15000);
