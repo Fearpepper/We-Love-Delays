@@ -36,3 +36,31 @@
  modal.addEventListener('keydown',e=>{if(e.key==='Escape')close();if(e.key==='Tab'){const target=e.shiftKey?next:skip;if(e.shiftKey&&document.activeElement===skip){e.preventDefault();next.focus()}else if(!e.shiftKey&&document.activeElement===next){e.preventDefault();skip.focus()}}});
  $('showOnboarding')?.addEventListener('click',open);
 })();
+/* Optional supporter flow. Review-only until a payment provider is configured. */
+(function(){
+ 'use strict';
+ const dialog=document.getElementById('supportDialog');if(!dialog)return;
+ const $=id=>document.getElementById(id);
+ const amounts=[...dialog.querySelectorAll('[data-support-amount]')];let amount=5;
+ function update(){
+  const valid=Number.isInteger(amount)&&amount>=1&&amount<=100;
+  $('supportTotal').textContent=valid?'$'+amount.toFixed(2):'Choose $1–$100';
+  $('previewSupport').firstChild.textContent=valid?'Preview $'+amount+' contribution ':'Choose an amount ';
+  $('previewSupport').disabled=!valid;
+  amounts.forEach(b=>b.setAttribute('aria-pressed',String($('supportCustom').value===''&&Number(b.dataset.supportAmount)===amount)));
+ }
+ amounts.forEach(b=>b.addEventListener('click',()=>{$('supportCustom').value='';amount=Number(b.dataset.supportAmount);update()}));
+ $('supportCustom').addEventListener('input',()=>{amount=$('supportCustom').value===''?5:Number($('supportCustom').value);update()});
+ function choose(){ $('supportChoose').hidden=false;$('supportThanks').hidden=true; }
+ $('openSupport').addEventListener('click',()=>{choose();dialog.showModal()});
+ $('closeSupport').addEventListener('click',()=>dialog.close());
+ dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close()}});
+ $('supportForm').addEventListener('submit',e=>{
+  e.preventDefault();if(!Number.isInteger(amount)||amount<1||amount>100)return;
+  $('supportChoose').hidden=true;$('supportThanks').hidden=false;
+  $('supportThanksText').textContent='You previewed a $'+amount+' one-time contribution. No money was charged. Thanks for taking a look!';
+  $('supportThanks').focus();
+ });
+ $('supportBack').addEventListener('click',()=>{choose();$('previewSupport').focus()});
+ update();
+})();
