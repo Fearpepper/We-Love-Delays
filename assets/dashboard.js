@@ -64,7 +64,7 @@
  }
  function saveNamed(label){
   const item=window.wldCaptureSearch?.();const status=shortcutHost.querySelector('[role=status]');
-  if(!item?.destination){status.textContent='Choose your destination above before saving '+label+'.';$('place').focus();return;}
+  if(!item?.destination){status.textContent='Choose a destination in the planner before saving '+label+'.';$('place').focus();return;}
   saved=[{...item,label},...saved.filter(x=>x.label!==label)].slice(0,6);
   status.textContent=write(SAVED,saved)?label+' saved on this device.':label+' saved for this session only; browser storage is unavailable.';refresh();
  }

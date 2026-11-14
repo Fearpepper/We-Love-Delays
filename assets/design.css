@@ -617,3 +617,6 @@ body.map-led-app.wld-high-contrast .planner-card{background:#fff!important;borde
 @media(max-width:790px){#navigationPanel #navNext{font-size:22px!important}.journey-comparison strong{font-size:12px!important}.journey-comparison small{font-size:9px!important}.everyday-place{padding:9px 12px}.everyday-trips{margin-bottom:16px}}
 
 .guide-arrival-summary{font-size:18px;font-weight:750;color:#153d2d;line-height:1.4;margin:16px 0}.trip-timing-detail[open]>summary{color:#78541c}
+
+body.map-led-app #autoResults .route-result-card .journey-comparison strong,#replanResults .route-result-card .journey-comparison strong{font-size:14px!important;line-height:1.5!important;letter-spacing:0!important}.guide-next-preview{padding:18px 22px;background:#fffef8;border:1px solid #cbd8c2;border-radius:22px;margin:0 14px 14px}.guide-next-preview #navNext{font-size:23px;font-weight:800;line-height:1.25;color:#153d2d;margin:0 0 10px}.guide-next-preview #navNextEstimate{font-size:14px;line-height:1.4;margin:0;color:#52634e}
+@media(max-width:790px){#guideMapHost #map{height:200px!important;min-height:200px!important}.guide-next-preview{margin-top:4px}.journey-comparison{gap:4px}body.map-led-app #autoResults .route-result-card .journey-comparison strong{font-size:13px!important}.guide-screen .guide-hero{padding-bottom:18px!important}}
