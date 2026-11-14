@@ -28,7 +28,7 @@
    const label=document.createElement('strong');label.textContent=item.label;
    const detail=document.createElement('small');detail.textContent=item.origin?'From '+item.origin:'Choose a starting stop';
    open.append(label,detail);open.addEventListener('click',()=>openPlanner(item));row.append(open);
-   if(key===SAVED){const remove=document.createElement('button');remove.type='button';remove.className='saved-remove';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.label);remove.addEventListener('click',()=>{saved=saved.filter(x=>x.label!==item.label);write(SAVED,saved);render(SAVED,saved,'savedDestinations')});row.append(remove)}
+   if(key===SAVED){const remove=document.createElement('button');remove.type='button';remove.className='saved-remove';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.label);remove.addEventListener('click',()=>{saved=saved.filter(x=>x.label!==item.label);write(SAVED,saved);refresh()});row.append(remove)}
    el.append(row);
   }
  }
@@ -71,7 +71,7 @@
  window.addEventListener('DOMContentLoaded',()=>{
   shortcutHost=document.createElement('section');shortcutHost.className='everyday-trips';shortcutHost.setAttribute('aria-label','Everyday trips');
   shortcutHost.innerHTML='<div class="everyday-buttons"></div><form hidden><label>Name this trip<input maxlength="40" required placeholder="e.g. Work" aria-label="Saved trip name"></label><button class="btn alt" type="submit">Save</button><button class="btn alt" type="button" data-cancel-save>Cancel</button></form><p role="status" class="hint"></p><details><summary>Saved & recent trips</summary><div class="everyday-recent"></div></details>';
-  queueMicrotask(()=>{$('autoFind').closest('.card').querySelector('.planner-intro')?.after(shortcutHost);});
+  setTimeout(()=>{$('autoFind').closest('.card').querySelector('.planner-intro')?.after(shortcutHost);},0);
   shortcutHost.querySelector('form').onsubmit=e=>{e.preventDefault();const input=shortcutHost.querySelector('input');saveNamed(input.value.trim()||'My trip');shortcutHost.querySelector('form').hidden=true;};
   shortcutHost.querySelector('[data-cancel-save]').onclick=()=>{shortcutHost.querySelector('form').hidden=true;};refresh();
  });
