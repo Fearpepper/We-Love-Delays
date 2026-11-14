@@ -444,7 +444,7 @@ async function showWalkingComparison(out,context){
  const actions=document.createElement('div');actions.className='actions';
  const map=document.createElement('button');map.type='button';map.className='btn alt';map.textContent='See walking route';
  map.onclick=()=>{
-  setAppView('map');if(!ensureMap())return;
+  if(window.wldSelectTab)window.wldSelectTab('map');else setAppView('map');if(!ensureMap())return;
   if(routeLayer)routeLayer.remove();routeLayer=L.featureGroup().addTo(routeMap);
   const points=walk.geometry?.coordinates?.filter(p=>Array.isArray(p)&&p.length>=2&&p.slice(0,2).every(Number.isFinite)).map(p=>[p[1],p[0]])||[];
   if(points.length>1){L.polyline(points,{color:'#206a48',weight:6}).addTo(routeLayer);setTimeout(()=>{routeMap.invalidateSize();routeMap.fitBounds(points,{padding:[35,35],maxZoom:17});},180);}
@@ -455,7 +455,7 @@ async function showWalkingComparison(out,context){
  actions.append(map,link);card.append(actions);
  const source=document.createElement('p');source.className='hint';source.textContent='Walking estimate: OpenRouteService. Bus comparison: published schedules, not live arrivals. Check pedestrian access and conditions; accessibility is not verified.';card.append(source);
  out.prepend(card);
- if(faster){const heading=out.querySelector('h3:not(.walking-option h3)');if(heading)heading.textContent='Bus alternatives · walking is faster than the checked services';}
+ if(faster){const heading=out.querySelector('[data-route-heading]');if(heading)heading.textContent='Bus alternatives · walking is faster than the checked services';}
 }
 function estimateTripTiming(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
@@ -681,7 +681,7 @@ function directRank(x){
  return {startMeters,endMeters,stops,score:stops*95+(startMeters??0)+(endMeters??0)};
 }
 direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-directRank(y).stops);
- const heading=document.createElement('p');heading.className='notice';
+ const heading=document.createElement('p');heading.className='notice';heading.dataset.routeHeading='true';
  if(direct.length){
   heading.textContent='Recommended direct buses · ranked by estimated walking convenience and number of stops. Not verified fastest arrivals.';out.append(heading);
   const candidateCards=[];

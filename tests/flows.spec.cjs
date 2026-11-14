@@ -593,6 +593,8 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
  const card=page.locator('.walking-option');await expect(card).toBeVisible();
  await expect(card.locator('h3')).toHaveText(minutes===5?'Walking looks faster':'Walk directly');
  await expect(card).toContainText('Fastest checked bus:');
+ if(minutes===5)await expect(page.locator('[data-route-heading]')).toContainText('Bus alternatives');
+ if(minutes===5&&!transfer)await page.screenshot({path:test.info().outputPath('walking-first.png'),fullPage:true});
  const link=card.getByRole('link',{name:'Open walking directions ↗'});
  await expect(link).toHaveAttribute('href',/travelmode=walking/);
  await expect(link).toHaveAttribute('href',/origin=37.87%2C-122.27/);
