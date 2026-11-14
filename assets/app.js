@@ -192,6 +192,7 @@ function selectSearchPlace(id,item){
 }
 let searchMapClick=null;
 window.wldPickSearchLocation=id=>{
+ mapFollowing=false;updateMapFollowControl();
  if(!['originSearch','place'].includes(id))return;
  window.wldSelectTab?.('map');
  if(!ensureMap()){say('Map unavailable. Search by address or bus stop and retry.');return;}
@@ -213,6 +214,7 @@ function nearbyStops(point,radius=0.5,limit=18){
 function attachAutocomplete(inputId,listId){
  const field=$(inputId),list=$(listId);let request=0,timer=null;
  field.addEventListener('input',()=>{
+  mapFollowing=false;updateMapFollowControl();
   selectedPlaces[inputId]=null;selectedStopIds[inputId]=null;const current=++request;clearTimeout(timer);list.innerHTML='';
   const q=field.value.trim().toLowerCase();if(q.length<2)return;
   const seen=new Set(),matches=[];

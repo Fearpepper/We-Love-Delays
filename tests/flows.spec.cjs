@@ -658,6 +658,7 @@ test('GPS map follows smoothly preserves zoom and resumes after browsing',async(
  await page.locator('#mapFollow').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);
  await page.locator('#appMap').click();await page.locator('#appGuide').click();
  await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);
+ await page.locator('#appTrips').click();await page.locator('#place').fill('New destination');expect(await page.evaluate(()=>mapFollowing)).toBe(false);expect(await page.evaluate(()=>gpsWatchId)).toBe(1);await page.locator('#appGuide').click();
  const before=await page.evaluate(()=>locationPoint.lat);await page.locator('#guideFinishTrip').click();await fix(38,-122.2);
  expect(await page.evaluate(()=>locationPoint.lat)).toBe(before);expect(await page.evaluate(()=>window.gpsCleared)).toEqual([1]);expect(errors).toEqual([]);
 });
