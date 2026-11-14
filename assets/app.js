@@ -192,7 +192,7 @@ function selectSearchPlace(id,item){
 }
 let searchMapClick=null;
 window.wldPickSearchLocation=id=>{
- mapFollowing=false;updateMapFollowControl();
+ mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();
  if(!['originSearch','place'].includes(id))return;
  window.wldSelectTab?.('map');
  if(!ensureMap()){say('Map unavailable. Search by address or bus stop and retry.');return;}
@@ -214,7 +214,7 @@ function nearbyStops(point,radius=0.5,limit=18){
 function attachAutocomplete(inputId,listId){
  const field=$(inputId),list=$(listId);let request=0,timer=null;
  field.addEventListener('input',()=>{
-  mapFollowing=false;updateMapFollowControl();
+  mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();
   selectedPlaces[inputId]=null;selectedStopIds[inputId]=null;const current=++request;clearTimeout(timer);list.innerHTML='';
   const q=field.value.trim().toLowerCase();if(q.length<2)return;
   const seen=new Set(),matches=[];
@@ -265,6 +265,7 @@ let activeNavigation=null,gpsWatchId=null,mapFollowing=false,mapFollowNeedsZoom=
 // force a Berkeley trip into a world-scale view.
 function focusSelectedTripMap(){
  if(typeof L==='undefined'||!routeMap||!activeNavigation?.legs?.length)return false;
+ if(gpsWatchId!==null&&!mapFollowing)return true;
  const mapElement=$('map'),rect=mapElement?.getBoundingClientRect();
  if(!rect||rect.width<100||rect.height<100)return false;
  if(mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000&&lastNavigationFix.accuracy<=200){routeMap.invalidateSize({pan:false});routeMap.panTo([lastNavigationFix.lat,lastNavigationFix.lon],{animate:false});return true;}
@@ -929,7 +930,7 @@ function installMapFollowControl(){
  const control=L.control({position:'bottomleft'});
  control.onAdd=()=>{const b=L.DomUtil.create('button','map-follow-control');b.type='button';b.id='mapFollow';mapFollowControl=b;L.DomEvent.disableClickPropagation(b);L.DomEvent.disableScrollPropagation(b);
   b.onclick=()=>{if(gpsWatchId!==null){mapFollowing=true;mapFollowNeedsZoom=false;updateMapFollowControl();if(lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000&&lastNavigationFix.accuracy<=200)routeMap.panTo([lastNavigationFix.lat,lastNavigationFix.lon],{animate:true});else $('navStatus').textContent='Waiting for a fresh accurate GPS fix. Written directions remain available.';}else if(activeNavigation)$('navStart').click();else $('locate').click();};return b;};
- control.addTo(routeMap);routeMap.on('dragstart',()=>{mapFollowing=false;updateMapFollowControl();});updateMapFollowControl();
+ control.addTo(routeMap);routeMap.on('dragstart',()=>{mapFollowing=false;routeMap.stop();updateMapFollowControl();});updateMapFollowControl();
 }
 function ensureMap(){if(typeof L==='undefined')return false;if(!routeMap){$('map').innerHTML='';routeMap=L.map('map',{scrollWheelZoom:false});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(routeMap);routeMap.setView([37.8715,-122.2585],13)}installMapFollowControl();return true}
 function showLocationOnMap({center=true,accuracy=locationPoint?.accuracy}={}){
