@@ -42,6 +42,7 @@ test('direct journey completes once and wallet persists prediction points',async
  await expect(page.locator('#liveRefresh')).toBeEnabled();
  await expect(page.locator('#liveTrackingState')).toContainText('Fresh 511 vehicle prediction');
  await expect(page.locator('#liveDelayValue')).toHaveText('5');
+ await expect(page.locator('#guideArrivalSummary')).toContainText('Destination ETA');
  await expect(page.locator('#livePointsValue')).toHaveText('50');
  await expect(page.locator('#guideTripFeedback')).toContainText(/Checking|Destination/);
  await expect(page.locator('#delayPreview')).toContainText('5 min late');
@@ -601,4 +602,79 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
  await card.getByRole('button',{name:'See walking route'}).click();
  await expect(page.locator('#mapText')).toContainText('Direct pedestrian route');
  await expect(page.locator('#map')).toBeVisible();expect(errors).toEqual([]);
+});
+
+test('Home shortcut restores exact stops across reload and clears stale selections',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#appTrips').click();
+ await page.getByRole('button',{name:'Save current trip as Home',exact:true}).click();
+ await expect(page.locator('.everyday-trips [role=status]')).toContainText('Home saved');
+ await page.locator('#originSearch').fill('Gamma destination');await page.locator('#place').fill('Alpha boarding');
+ await page.getByRole('button',{name:'Open Home',exact:true}).click();
+ await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#place')).toHaveValue('Beta transfer');
+ expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
+ await page.reload();await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.getByRole('button',{name:'Open Home',exact:true}).click();
+ expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
+ await page.locator('#autoFind').click();await expect(page.locator('.route-choice')).toContainText('51B');expect(errors).toEqual([]);
+});
+
+test('Find another way preserves the active trip until a replacement is selected',async({page})=>{
+ const errors=await setup(page);await plan(page,'Gamma destination');await page.locator('#guideStartTrip').click();
+ await page.locator('#navAdvance').click();const progress=await page.evaluate(()=>activeNavigation.progress);
+ await page.locator('#tripRecoveryActions > summary').click();await page.getByRole('button',{name:'I missed my transfer',exact:true}).click();
+ await expect(page.locator('#originSearch')).toHaveValue('');await expect(page.locator('#place')).toHaveValue('Gamma destination');
+ await expect(page.locator('.recovery-guidance')).toContainText('Choose where you are now');
+ expect(await page.evaluate(()=>Boolean(journey))).toBe(true);expect(await page.evaluate(()=>activeNavigation.progress)).toBe(progress);
+ await page.getByRole('button',{name:'Return to current trip'}).click();await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await page.locator('#appTrips').click();await plan(page);
+ await expect(page.locator('#guideStartTrip')).toBeVisible();expect(await page.evaluate(()=>Boolean(journey))).toBe(false);expect(errors).toEqual([]);
+});
+
+test('door-to-door comparison separates walking waiting riding and transfers',async({page})=>{
+ const errors=await setup(page),now=Date.now();
+ await page.route('**/api/scheduled-journey?*',route=>{
+  const second=new URL(route.request().url()).searchParams.get('trip')==='two';
+  return route.fulfill({json:{trips:[{departure:new Date(now+(second?30:10)*60000).toISOString(),arrival:new Date(now+(second?40:20)*60000).toISOString()}]}});
+ });
+ await plan(page,'Gamma destination');await page.locator('#appTrips').click();
+ const comparison=page.locator('.route-choice .journey-comparison');await expect(comparison).toContainText('Total');await expect(comparison).toContainText('Wait');await expect(comparison).toContainText('Ride');await expect(comparison).toContainText('Transfers1');
+ await page.screenshot({path:test.info().outputPath('everyday-comparison.png'),fullPage:true});
+ await page.locator('#appGuide').click();await expect(page.locator('#navNext')).toBeVisible();
+ await expect(page.locator('.trip-timing-detail')).not.toHaveAttribute('open','');
+ await page.screenshot({path:test.info().outputPath('everyday-guide.png'),fullPage:true});expect(errors).toEqual([]);
+});
+
+test('GPS map follows smoothly preserves zoom and resumes after browsing',async({page})=>{
+ await page.addInitScript(()=>{window.gpsCallbacks=[];window.gpsCleared=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition(ok,fail){window.gpsCallbacks.push({ok,fail});return window.gpsCallbacks.length;},clearWatch(id){window.gpsCleared.push(id);}}});});
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ const fix=async(lat,lon,accuracy=8)=>page.evaluate(({lat,lon,accuracy})=>window.gpsCallbacks[0].ok({coords:{latitude:lat,longitude:lon,accuracy},timestamp:Date.now()}),{lat,lon,accuracy});
+ await fix(37.871,-122.269);await expect(page.locator('#mapFollow')).toHaveAttribute('aria-pressed','true');
+ await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.871))).toBeLessThan(.0001);
+ await page.evaluate(()=>routeMap.setZoom(18,{animate:false}));await fix(37.872,-122.268);
+ expect(await page.evaluate(()=>routeMap.getZoom())).toBe(18);
+ await page.evaluate(()=>{routeMap.fire('dragstart');routeMap.setView([37.86,-122.28],15,{animate:false});focusSelectedTripMap();});
+ await fix(37.873,-122.267);await expect(page.locator('#mapFollow')).toHaveAttribute('aria-pressed','false');
+ expect(await page.evaluate(()=>routeMap.getCenter().lat)).toBeCloseTo(37.86,3);
+ await page.locator('#mapFollow').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);
+ await page.locator('#appMap').click();await page.locator('#appGuide').click();
+ await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-37.873))).toBeLessThan(.0001);
+ await page.locator('#appTrips').click();await page.locator('#place').fill('New destination');expect(await page.evaluate(()=>mapFollowing)).toBe(false);expect(await page.evaluate(()=>gpsWatchId)).toBe(1);await page.locator('#appGuide').click();
+ const before=await page.evaluate(()=>locationPoint.lat);await page.locator('#guideFinishTrip').click();await fix(38,-122.2);
+ expect(await page.evaluate(()=>locationPoint.lat)).toBe(before);expect(await page.evaluate(()=>window.gpsCleared)).toEqual([1]);expect(errors).toEqual([]);
+});
+
+test('a throwing GPS provider keeps trip finish and location retry usable',async({page})=>{
+ await page.addInitScript(()=>{Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition(){throw Error('Unavailable')},clearWatch(){}}});});
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await expect(page.locator('#navStatus')).toContainText('Location tracking unavailable');
+ await expect(page.locator('#navStart')).toBeEnabled();await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();expect(errors).toEqual([]);
+});
+
+for(const stale of [false,true])test('current location keeps the real walking origin '+(stale?'and rejects stale fixes':'instead of snapping to a stop'),async({page})=>{
+ await page.addInitScript(stale=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:10},timestamp:Date.now()-(stale?60000:0)}),0)},clearWatch(){}}}),stale);
+ const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();
+ if(stale){await expect(page.locator('#locationText')).toContainText('outdated');await expect(page.locator('#originSearch')).toHaveValue('');}
+ else {await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);expect(await page.evaluate(()=>walkingEndpoint('originSearch').lon)).toBe(-122.271);}
+ expect(errors).toEqual([]);
 });
