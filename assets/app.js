@@ -72,6 +72,10 @@ function updateLiveDashboard(){
  $('livePointsValue').textContent=delay===null?'0':String(Math.max(0,delay)*10);
  $('liveDataNote').textContent=!active?'Start a trip in Guide to monitor its predicted delay.':journey.demo?'Demo points only. No live transit data or saved rewards.':journey.untracked?'Follow the route directions. This trip can be completed, but delay rewards are not supported for it.':fresh?(journey.transfer?'Transfer points use the final bus prediction only. Earlier-leg delays are not added. This is not an observed arrival.':'Provisional points based on a recent 511 prediction, not an observed arrival.'):'No fresh matching 511 prediction. Provisional points are unavailable.';
  $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':journey?.untracked?'Delay prediction tracking is not supported for this route.':'511 predictions update while the trip remains open.';
+ const arrival=$('guideArrivalSummary');
+ if(arrival){const expected=Date.parse(journey?.expected),valid=fresh&&Number.isFinite(expected);const remaining=valid?Math.ceil((expected-Date.now())/60000):null;
+  arrival.textContent=remaining===null?'Destination arrival prediction unavailable':remaining<0?'Predicted destination arrival time has passed · refresh for an update':(journey.transfer?'Final bus destination':'Destination')+' ETA · '+remaining+' min · ~'+fmt(new Date(expected).toISOString());
+ }
  $('liveRefresh').disabled=!active||journey.demo||journey.untracked;
 }
 function updateDelayPreview(){
@@ -1084,3 +1088,5 @@ window.wldPrepareRecovery=reason=>{
  const back=document.createElement('button');back.type='button';back.className='btn alt';back.textContent='Return to current trip';back.onclick=()=>window.wldSelectTab?.('guide');
  $('autoResults').append(note,back);$('originSearch').focus();$('originSearch').scrollIntoView({block:'center',behavior:'smooth'});
 };
+
+setInterval(()=>{if(journey)updateLiveDashboard()},15000);

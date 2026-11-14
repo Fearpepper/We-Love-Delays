@@ -42,6 +42,7 @@ test('direct journey completes once and wallet persists prediction points',async
  await expect(page.locator('#liveRefresh')).toBeEnabled();
  await expect(page.locator('#liveTrackingState')).toContainText('Fresh 511 vehicle prediction');
  await expect(page.locator('#liveDelayValue')).toHaveText('5');
+ await expect(page.locator('#guideArrivalSummary')).toContainText('Destination ETA');
  await expect(page.locator('#livePointsValue')).toHaveText('50');
  await expect(page.locator('#guideTripFeedback')).toContainText(/Checking|Destination/);
  await expect(page.locator('#delayPreview')).toContainText('5 min late');

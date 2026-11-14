@@ -131,7 +131,8 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const byId=id=>document.getElementById(id),panel=byId('navigationPanel');
  // The current instruction is the primary task; source/diagnostic detail stays expandable.
- const timing=document.createElement('details');timing.className='trip-inspector trip-timing-detail';const summary=document.createElement('summary');summary.textContent='Timing & GPS status';timing.append(summary);byId('navStatus').before(timing);timing.append(byId('navStatus'));
+ const timing=document.createElement('details');timing.className='trip-inspector trip-timing-detail';const summary=document.createElement('summary');summary.textContent='Timing & GPS status';timing.append(summary);byId('navStatus').before(timing);timing.append(byId('navStatus'));new MutationObserver(()=>{if(/stopped|unavailable|outdated|blocked|denied/i.test(byId('navStatus').textContent))timing.open=true;}).observe(byId('navStatus'),{childList:true,characterData:true,subtree:true});
+ const eta=document.createElement('p');eta.id='guideArrivalSummary';eta.className='guide-arrival-summary';eta.setAttribute('role','status');byId('guidePrediction')?.querySelector('.guide-prediction-header')?.after(eta);
  const prediction=byId('guidePrediction'),values=prediction?.querySelector('.guide-prediction-values');
  if(values){const detail=document.createElement('details');detail.className='trip-inspector';const s=document.createElement('summary');s.textContent='Delay estimate & prototype points';detail.append(s);values.before(detail);for(const node of [byId('liveRouteText'),values,byId('liveDataNote'),byId('liveLastUpdate')])if(node)detail.append(node);}
  const recovery=document.createElement('details');recovery.className='trip-inspector recovery-actions';recovery.id='tripRecoveryActions';
