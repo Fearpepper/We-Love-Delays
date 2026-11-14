@@ -580,3 +580,23 @@ for(const denied of [false,true])test('trip start automatically requests GPS and
  await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();
  expect(await page.evaluate(()=>window.gpsCalls.cleared)).toBe(1);expect(errors).toEqual([]);
 });
+
+for(const transfer of [false,true])for(const minutes of [5,60])test('walking comparison '+(transfer?'transfer':'direct')+' '+minutes+' minutes',async({page})=>{
+ const errors=await setup(page),now=Date.now();
+ await page.route('**/api/walk-route?*',route=>route.fulfill({json:{available:true,minutes,meters:minutes*70,source:'OpenRouteService foot-walking',geometry:{type:'LineString',coordinates:[[-122.27,37.87],[-122.26,37.87]]}}}));
+ await page.route('**/api/scheduled-journey?*',route=>{
+  const second=new URL(route.request().url()).searchParams.get('trip')==='two';
+  return route.fulfill({json:{trips:[{departure:new Date(now+(second?30:10)*60000).toISOString(),arrival:new Date(now+(second?40:20)*60000).toISOString()}]}});
+ });
+ await plan(page,transfer?'Gamma destination':'Beta transfer');
+ await page.locator('#appTrips').click();
+ const card=page.locator('.walking-option');await expect(card).toBeVisible();
+ await expect(card.locator('h3')).toHaveText(minutes===5?'Walking looks faster':'Walk directly');
+ await expect(card).toContainText('Fastest checked bus:');
+ const link=card.getByRole('link',{name:'Open walking directions ↗'});
+ await expect(link).toHaveAttribute('href',/travelmode=walking/);
+ await expect(link).toHaveAttribute('href',/origin=37.87%2C-122.27/);
+ await card.getByRole('button',{name:'See walking route'}).click();
+ await expect(page.locator('#mapText')).toContainText('Direct pedestrian route');
+ await expect(page.locator('#map')).toBeVisible();expect(errors).toEqual([]);
+});

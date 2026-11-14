@@ -607,3 +607,5 @@ body.map-led-app button:focus-visible,body.map-led-app input:focus-visible,body.
 }
 @media(prefers-reduced-motion:reduce){#plannerWorkspace *{scroll-behavior:auto!important}}
 body.map-led-app.wld-high-contrast .planner-card{background:#fff!important;border-color:#142536!important}
+
+.walking-option{border:2px solid #729c47!important;background:#eff7dc!important;padding:20px!important;border-radius:18px;margin-bottom:20px}.walking-option h3{font-size:24px;margin:0 0 10px;color:#153d2d}.walking-option p{line-height:1.5}.walking-option .actions{flex-wrap:wrap}.walking-option a{display:inline-block;text-decoration:none}.slower-than-walking .route-result-badge{background:#edf0e7!important;color:#475943!important}
