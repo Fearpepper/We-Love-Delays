@@ -626,3 +626,5 @@ body.map-led-app #autoResults .route-result-card .journey-comparison strong,#rep
 @media(max-width:790px){.map-stop-list{grid-template-columns:1fr}.map-explorer .actions{display:flex;flex-wrap:wrap;gap:8px}.map-explorer .btn{font-size:13px;padding:12px!important}}
 
 #mapExplorer>h2{display:block!important;font-size:30px!important;line-height:1.1;letter-spacing:-1px;margin:0 0 12px;color:#153d2d}
+/* Keep Leaflet's high-z-index controls below the app navigation. */
+#map{isolation:isolate;z-index:0!important}
