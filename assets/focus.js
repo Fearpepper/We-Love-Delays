@@ -150,6 +150,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),card=$('mapText').closest('.card'),title=card.querySelector('h2'),oldTitle=title.textContent;
  const controls=document.createElement('section');controls.id='mapExplorer';controls.className='map-explorer';controls.hidden=true;
+ const heading=document.createElement('h2');heading.textContent='Explore nearby stops';controls.append(heading);
  const intro=document.createElement('p');intro.textContent='Find stops near the map center. Pan the map, then search this area. Distances are straight-line, not walking routes.';
  const actions=document.createElement('div');actions.className='actions';
  const search=document.createElement('button');search.type='button';search.className='btn';search.id='searchMapArea';search.textContent='Search this area';
@@ -183,7 +184,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  reset.onclick=()=>{mapFollowing=false;updateMapFollowControl();if(ensureMap()){routeMap.setView([37.8715,-122.2585],14,{animate:false});render();}};
  function sync(){
   const next=mapView();controls.hidden=!next;status.hidden=!next;list.hidden=!next;title.textContent=next?'Explore bus stops':oldTitle;
-  if(next&&!visible){visible=true;render();}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}
+  if(next&&!visible){visible=true;const center=routeMap?.getCenter(),zoom=routeMap?.getZoom();requestAnimationFrame(()=>{if(!visible)return;if(routeMap&&center){routeMap.invalidateSize({pan:false});routeMap.setView(center,zoom,{animate:false});}render();});}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}
   if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible)status.textContent='Map moved. Tap Search this area to refresh nearby stops.';});}
  }
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
