@@ -422,7 +422,11 @@ function routeChoice(out,title,detail,choose){
  out.append(btn);return btn;
 }
 // Search settings are snapshotted for every request; preferences never imply verified access.
-let currentPlan={mode:'now',at:null,maxWalk:15,stepFree:false,reminders:true};
+let currentPlan=(()=>{
+ const plan={mode:'now',at:null,maxWalk:15,stepFree:false,reminders:true};
+ try{const prefs=JSON.parse(localStorage.getItem('wld-commute-prefs')||'{}');if([5,10,15,20,30].includes(Number(prefs.maxWalking)))plan.maxWalk=Number(prefs.maxWalking);if(typeof prefs.stepFree==='boolean')plan.stepFree=prefs.stepFree;if(typeof prefs.getOffReminders==='boolean')plan.reminders=prefs.getOffReminders;}catch{}
+ return plan;
+})();
 function readTripPlan(){
  const mode=$('tripWhen')?.value||'now',value=$('tripDateTime')?.value,at=mode==='now'?null:new Date(value).getTime();
  if(mode!=='now'&&(!Number.isFinite(at)||at<Date.now()-60000||at>Date.now()+7*86400000))throw Error('Choose a future departure or arrival within the next 7 days. Times use your device timezone.');

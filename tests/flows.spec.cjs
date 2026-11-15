@@ -737,3 +737,10 @@ test('get off reminder needs boarded trip and fresh accurate GPS',async({page})=
  await page.evaluate(()=>updateNavigationPosition(37.87,-122.26,5));await expect(page.locator('#getOffAlert')).toContainText('Get ready to get off');
  expect(await page.evaluate(()=>activeNavigation.steps[activeNavigation.progress].kind)).toBe('ride');
 });
+
+test('reopening an active trip respects the saved reminder preference',async({page})=>{
+ await setup(page);await page.locator('.commute-options summary').click();await page.locator('#getOffReminders').uncheck();await plan(page);await page.locator('#guideStartTrip').click();
+ await page.reload();await expect(page.locator('#guideTripFeedback')).toContainText('restored');
+ expect(await page.evaluate(()=>activeNavigation.plan.reminders)).toBe(false);
+ await page.evaluate(()=>{activeNavigation.progress=activeNavigation.steps.findIndex(s=>s.kind==='ride');renderNavigation();updateNavigationPosition(37.87,-122.26,5);});await expect(page.locator('#getOffAlert')).not.toBeVisible();
+});
