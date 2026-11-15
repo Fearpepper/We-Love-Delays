@@ -11,7 +11,7 @@ assert(scripts.length>0,'JavaScript scripts exist');
 for(const script of scripts)new vm.Script(script);
 const start=app.indexOf('function chooseScheduledConnection('),end=app.indexOf('function appendTripTiming(',start);
 assert(start>=0&&end>start,'connection calculator exists');
-const ctx={Date,Number,Array};vm.createContext(ctx);
+const ctx={Date,Number,Array,currentPlan:{mode:"now",at:null,maxWalk:30,stepFree:false},planStart:plan=>plan.mode==="leave"?plan.at:Date.now()};vm.createContext(ctx);
 vm.runInContext(app.slice(start,end)+';this.choose=chooseScheduledConnection;',ctx);
 const choose=ctx.choose,now=Date.now(),at=m=>new Date(now+m*60000).toISOString();
 const walks=[{minutes:5},{minutes:5},{minutes:4}];
@@ -104,3 +104,10 @@ assert.equal(alertCtx.alertHasCurrentImpact({periods:[{start:1,end:100}],impact_
 assert.equal(alertCtx.alertHasCurrentImpact({impact_periods:[{start:1,end:100}]},50),true);
 assert.equal(alertCtx.alertHasCurrentImpact({periods:[]},50),false,'undated notice requires review');
 assert.equal(alertCtx.alertAffectsLeg({selectors:[{route:'51B',stop:'c'}]},{p:{route:'51B',stops:['a','b','c']},start:0,end:1}),false,'stop selectors must match selected segment');
+
+const limited={mode:'now',maxWalk:15,stepFree:false};
+assert.equal(choose(schedules,[{minutes:10},{minutes:10},{minutes:0}],null,limited),null,'walking limit includes transfers');
+assert.equal(choose(express,[{minutes:0},{minutes:0}],null,{...limited,mode:'leave',at:now+24*60000}).chain[0].departure,at(30),'leave at excludes earlier buses');
+assert.equal(choose(express,[{minutes:0},{minutes:0}],null,{...limited,mode:'arrive',at:now+90*60000}).chain[0].departure,at(30),'arrive by chooses latest leave');
+assert.equal(choose([[{departure:at(20),arrival:at(35),wheelchair_accessible:'2'}]],[{minutes:0},{minutes:0}],null,{...limited,stepFree:true}).length,0,'explicit inaccessible vehicle excluded');
+assert.equal(choose([[{departure:at(20),arrival:at(35),wheelchair_accessible:'0'}]],[{minutes:0},{minutes:0}],null,{...limited,stepFree:true}).chain.length,1,'unknown flags stay unverified');

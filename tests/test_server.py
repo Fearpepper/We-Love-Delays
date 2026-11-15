@@ -98,7 +98,7 @@ class BackendTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'map'):server.places(query)
             self.assertEqual(fetch.call_count,2)
 
-    def scheduled(self, trips, at, exceptions=None, calendar=None):
+    def scheduled(self, trips, at, exceptions=None, calendar=None, mode="depart"):
         from unittest.mock import patch
         pattern = {'sample_trip': 'pattern', 'stops': ['a', 'b']}
         default_calendar = [{'service_id': 'weekday', 'start_date': '20260101',
@@ -108,7 +108,16 @@ class BackendTests(unittest.TestCase):
         data = {'trips': {'pattern': trips}, 'calendar': calendar if calendar is not None else default_calendar,
                 'exceptions': exceptions or []}
         with patch.object(server, 'gtfs', return_value={'patterns': [pattern]}), patch.dict(server.CACHE_SCHEDULE, data, clear=True):
-            return server.scheduled_journey('pattern', 0, 1, at)['trips']
+            return server.scheduled_journey('pattern', 0, 1, at, mode)['trips']
+
+    def test_arrive_by_filters_by_arrival_and_keeps_access_flags(self):
+        trips=[('weekday',(('09:00:00','09:00:00'),('09:20:00','09:20:00')),'1'),('weekday',(('09:40:00','09:40:00'),('10:10:00','10:10:00')),'2')]
+        rows=self.scheduled(trips,'2026-11-09T10:00:00-08:00',mode='arrive')
+        self.assertTrue(rows)
+        self.assertTrue(all(row['arrival']<='2026-11-09T10:00:00-08:00' for row in rows))
+        self.assertEqual(rows[-1]['wheelchair_accessible'],'1')
+        with self.assertRaises(ValueError):self.scheduled(trips,'2026-11-09T10:00:00')
+        with self.assertRaises(ValueError):self.scheduled(trips,'2026-11-09T10:00:00-08:00',mode='bad')
 
     def test_schedules_respect_weekdays_and_exclude_passed_departures(self):
         def trip(start, end):

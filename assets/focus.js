@@ -190,3 +190,18 @@ window.addEventListener('DOMContentLoaded',()=>{
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
  window.addEventListener('wld:network-ready',()=>{if(visible)render();});window.addEventListener('resize',sync);sync();
 });
+
+/* Commute preferences are set before searching and copied into the selected trip. */
+window.addEventListener('DOMContentLoaded',()=>{
+ const button=document.getElementById('autoFind');if(!button)return;
+ const form=document.createElement('div');form.className='commute-options';
+ form.innerHTML=`<label for="tripWhen">Travel time</label><select id="tripWhen"><option value="now">Leave now</option><option value="leave">Leave at</option><option value="arrive">Arrive by</option></select><label id="tripDateLabel" hidden>Travel date &amp; time<input id="tripDateTime" type="datetime-local"><small>Uses your device timezone. Plan up to 7 days ahead.</small></label><details class="focus-fold"><summary>Walking &amp; accessibility</summary><label for="maxWalking">Maximum walking per journey</label><select id="maxWalking"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label><input id="stepFree" type="checkbox"> Request step-free routes</label><p class="hint">Uses wheelchair routing and published stop/bus accessibility flags. Missing data needs confirmation; ramps and crossings are not independently verified.</p><label><input id="getOffReminders" type="checkbox" checked> Get-off reminders</label><p class="hint">In-app reminders need fresh, accurate GPS with this app open. Use the trip steps if location is unavailable.</p></details>`;
+ button.closest('.actions')?.before(form);
+ const date=document.getElementById('tripDateTime'),when=document.getElementById('tripWhen');
+ const d=new Date(Date.now()+30*60000);date.value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+ when.onchange=()=>{document.getElementById('tripDateLabel').hidden=when.value==='now';};
+ try{const prefs=JSON.parse(localStorage.getItem('wld-commute-prefs')||'{}');for(const id of ['maxWalking','stepFree','getOffReminders']){const el=document.getElementById(id);if(id==='maxWalking'){if(['5','10','15','20','30'].includes(String(prefs[id])))el.value=prefs[id];}else if(typeof prefs[id]==='boolean')el.checked=prefs[id];}}catch{}
+ form.addEventListener('change',()=>{try{localStorage.setItem('wld-commute-prefs',JSON.stringify({maxWalking:document.getElementById('maxWalking').value,stepFree:document.getElementById('stepFree').checked,getOffReminders:document.getElementById('getOffReminders').checked}));}catch{}});
+ const controls=document.getElementById('guideTripControls');
+ if(controls){const leave=document.createElement('p');leave.id='commuteLeave';leave.className='notice';leave.setAttribute('role','status');const alert=document.createElement('p');alert.id='getOffAlert';alert.hidden=true;alert.className='notice get-off-alert';alert.setAttribute('role','alert');controls.before(leave,alert);}
+});

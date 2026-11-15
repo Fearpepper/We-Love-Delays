@@ -202,16 +202,16 @@ def gtfs():
             key=(t['route_id'],t.get('direction_id','0'),tuple(x[1] for x in seq))
             entry=patterns.get(key)
             if entry is None:continue
-            schedule.setdefault(entry['sample_trip'],[]).append((t.get('service_id',''),tuple((row[2] or row[3],row[3] or row[2]) for row in seq)))
+            schedule.setdefault(entry['sample_trip'],[]).append((t.get('service_id',''),tuple((row[2] or row[3],row[3] or row[2]) for row in seq),t.get('wheelchair_accessible','0')))
         # Compact immutable schedule entries avoid thousands of nested dictionaries.
         CACHE_SCHEDULE.clear()
         CACHE_SCHEDULE.update({'trips':schedule,'calendar':calendar,'exceptions':exceptions})
         active_routeids={k[0] for k in patterns}
-        stopmap={s['stop_id']:{'id':s['stop_id'],'name':s.get('stop_name','Stop'), 'code':s.get('stop_code',''),'lat':num(s.get('stop_lat')),'lon':num(s.get('stop_lon'))} for s in stops if s.get('location_type','0') in ('','0')}
+        stopmap={s['stop_id']:{'id':s['stop_id'],'name':s.get('stop_name','Stop'), 'code':s.get('stop_code',''),'lat':num(s.get('stop_lat')),'lon':num(s.get('stop_lon')),'wheelchair_boarding':s.get('wheelchair_boarding','0')} for s in stops if s.get('location_type','0') in ('','0')}
         print('[memory] GTFS parsed; peak RSS:',memory_mb(),'MB; trips:',len(bytrip),'patterns:',len(patterns),flush=True)
         return {'routes':[{'id':r['route_id'],'name':r.get('route_short_name') or r.get('route_long_name') or r['route_id'],'description':r.get('route_long_name','')} for r in routes if r['route_id'] in routeids and r['route_id'] in active_routeids], 'stops':stopmap,'patterns':list(patterns.values()),'updated':int(time.time())}
     return cached('gtfs',12*3600,get)
-def scheduled_journey(sample_trip,board,exit,at=None):
+def scheduled_journey(sample_trip,board,exit,at=None,mode="depart"):
     data=gtfs()
     pattern=next((p for p in data['patterns'] if p.get('sample_trip')==sample_trip),None)
     if not pattern:raise ValueError('Unknown published trip pattern')
@@ -219,8 +219,12 @@ def scheduled_journey(sample_trip,board,exit,at=None):
     # Use America/Los_Angeles for DST-aware service dates.
     from zoneinfo import ZoneInfo
     now=datetime.datetime.now(ZoneInfo('America/Los_Angeles'))
+    if mode not in ('depart','arrive'):raise ValueError('Invalid schedule search mode')
     if at:
-        try:now=datetime.datetime.fromisoformat(at).astimezone(ZoneInfo('America/Los_Angeles'))
+        try:
+            target=datetime.datetime.fromisoformat(at)
+            if target.tzinfo is None:raise ValueError('Timezone required')
+            now=target.astimezone(ZoneInfo('America/Los_Angeles'))
         except (ValueError,TypeError):raise ValueError('Invalid departure date/time')
     def seconds(value):
         try:
@@ -248,10 +252,13 @@ def scheduled_journey(sample_trip,board,exit,at=None):
             midnight=datetime.datetime.combine(day,datetime.time(),ZoneInfo('America/Los_Angeles'))
             start=midnight+datetime.timedelta(seconds=departure)
             end=midnight+datetime.timedelta(seconds=arrival)
-            if start<now-datetime.timedelta(minutes=2) or start>now+datetime.timedelta(hours=24):continue
-            results.append({'departure':start.isoformat(),'arrival':end.isoformat(),'ride_minutes':round((end-start).total_seconds()/60,1),'source':'GTFS scheduled, not live'})
-    results.sort(key=lambda x:x['departure'])
-    return {'trips':results[:12],'source':'511 AC Transit GTFS','timezone':'America/Los_Angeles'}
+            if mode=='arrive':
+                if end>now or start<now-datetime.timedelta(hours=24):continue
+            elif start<now-datetime.timedelta(minutes=2) or start>now+datetime.timedelta(hours=24):continue
+            results.append({'departure':start.isoformat(),'arrival':end.isoformat(),'ride_minutes':round((end-start).total_seconds()/60,1),'source':'GTFS scheduled, not live','wheelchair_accessible':str(trip[2]) if len(trip)>2 else '0'})
+    results.sort(key=lambda x:x['departure'],reverse=mode=='arrive')
+    results=sorted(results[:24],key=lambda x:x['departure'])
+    return {'trips':results,'source':'511 AC Transit GTFS','timezone':'America/Los_Angeles'}
 
 def pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile='foot-walking'):
     """OpenRouteService pedestrian routing; unavailable rather than inventing a walk."""
@@ -393,7 +400,7 @@ class Handler(BaseHTTPRequestHandler):
                 # map). Cache provider results briefly to respect API quotas.
                 key='walk:'+':'.join(f'{x:.6f}' for x in (a_lat,a_lon,b_lat,b_lon))+':'+profile
                 return self.respond(200,cached(key,300,lambda:pedestrian_route(a_lat,a_lon,b_lat,b_lon,profile)))
-            if path.path=='/api/scheduled-journey':return self.respond(200,scheduled_journey(q.get('trip',[''])[0],int(q.get('board',['-1'])[0]),int(q.get('exit',['-1'])[0])))
+            if path.path=='/api/scheduled-journey':return self.respond(200,scheduled_journey(q.get('trip',[''])[0],int(q.get('board',['-1'])[0]),int(q.get('exit',['-1'])[0]),q.get('at',[None])[0],q.get('mode',['depart'])[0]))
             if path.path=='/api/arrivals':return self.respond(200,{'arrivals':arrivals(q.get('code',[''])[0]),'fetched':int(time.time())})
             return self.respond(404,{'error':'Not found'})
         except ValueError as e:return self.respond(400,{'error':str(e)})
