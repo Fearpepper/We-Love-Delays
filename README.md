@@ -54,3 +54,11 @@ Business and address lookup uses the configured OpenRouteService/Pelias API, wit
 When an exact stop pair has no direct or one-transfer connection, the planner retries nearby stops within 500 m, including the opposite side of the street. Selected endpoint coordinates remain the walking origin/destination; actual pedestrian paths and published schedules are checked separately. This is limited AC Transit planning, not a guarantee of every possible regional connection.
 
 The planner uses one interactive map behind a floating location form. The same map moves between Plan, Map and Guide to preserve controls and avoid duplicate map instances. Current-location and map-pin actions are exposed beside the search fields.
+
+### Daily commute controls
+
+Set Leave now, Leave at, or Arrive by before Find routes. Future times use the device timezone and support the next seven days, subject to the published GTFS service calendar. Arrive-by ranking prefers the latest feasible departure. Schedule-based leave guidance includes pedestrian estimates and a five-minute boarding buffer; it is not a live prediction.
+
+Walking defaults to 15 minutes total across the journey, adjustable from 5 to 30 minutes. Direct walks over the preference or 20 minutes are collapsed optional alternatives and never promoted over buses. Step-free requests use the wheelchair pedestrian profile and published stop/vehicle accessibility flags. Explicit inaccessible flags exclude verified connections; unknown flags are labeled and require confirmation. Missing wheelchair paths never silently fall back to walking paths.
+
+Get-off reminders appear in Guide only during an active ride, within 300 metres straight-line of the exit stop, using a GPS fix no older than 30 seconds with accuracy within 60 metres. One alert per bus leg; manually confirm alighting and transfers. Keep the app visible and GPS following enabled. Background, lock-screen, and real-phone reminder reliability require field testing. No location history or external notification permission is added.

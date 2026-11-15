@@ -352,6 +352,7 @@ function renderNavigation(){
  const nextButton=$('navAdvance');
  const leg=step?.legIndex===undefined?null:activeNavigation.legs[step.legIndex];
  nextButton.textContent=!step?'Trip complete':activeNavigation.progress===activeNavigation.steps.length-1?"I've arrived · Finish trip":step.kind==='board'?"I'm on Bus "+routeName(leg.p):step.kind==='ride'?"I'm off the bus":step.kind==='walk-transfer'?"I'm at the next stop":step.kind==='walk-end'?"I've arrived":"I'm at the stop";
+ if($('getOffAlert')&&activeNavigation.steps[activeNavigation.progress]?.kind!=='ride')$('getOffAlert').hidden=true;
  updateCommuteGuidance();
  window.dispatchEvent(new Event('wld:progress'));
 }
@@ -433,7 +434,7 @@ function addAccessNote(card,chain,legs,plan=currentPlan){
  if(!plan.stepFree)return;const note=document.createElement('p');note.className='hint access-note';
  const stops=legs.flatMap(l=>[network.stops[l.p.stops[l.start]],network.stops[l.p.stops[l.end]]]);
  const known=chain?.length&&chain.every(t=>String(t.wheelchair_accessible)==='1')&&stops.every(s=>String(s?.wheelchair_boarding)==='1');
- note.textContent=known?'GTFS reports accessible boarding stops and buses. Wheelchair paths requested; verify current ramps, crossings and conditions.':'Step-free access is not fully reported for this option. Confirm stop, vehicle and path access with AC Transit before traveling.';card.append(note);
+ note.textContent=stops.some(s=>String(s?.wheelchair_boarding)==='2')?'A selected stop is reported as inaccessible. This option does not meet your step-free request.':known?'GTFS reports accessible boarding stops and buses. Wheelchair paths requested; verify current ramps, crossings and conditions.':'Step-free access is not fully reported for this option. Confirm stop, vehicle and path access with AC Transit before traveling.';card.append(note);
 }
 function appendJourneyComparison(card,arrival,chain,walks){
  const summary=document.createElement('div');summary.className='journey-comparison';summary.setAttribute('aria-label','Door-to-door journey comparison');
@@ -470,7 +471,7 @@ async function rankTransferOptions(out,heading,options){
  const anchor=document.createComment('transfer results');options[0]?.card.before(anchor);
  for(const item of results)anchor.before(item.card);
  anchor.remove();
- heading.textContent='One-transfer options · checked published schedules and available walking paths. Timed connections appear first by scheduled arrival; predictions and disruptions may change them.';
+ heading.textContent='One-transfer options · checked published schedules and available walking paths. Timed connections appear first by '+(currentPlan.mode==='arrive'?'latest feasible departure':'scheduled arrival')+'; predictions and disruptions may change them.';
 }
 // Compare door-to-door bus arrivals with walking directly from the chosen endpoints.
 const walkingComparisons=new WeakMap();
@@ -484,7 +485,7 @@ async function showWalkingComparison(out,context){
  const faster=withinLimit&&context.plan?.mode==='now'&&busMinutes!==null&&walkingMinutes<busMinutes;
  const card=document.createElement('section');card.className='walking-option notice';
  const title=document.createElement('h3');title.textContent=faster?'Walking looks faster':withinLimit?'Walk directly':'Long walk · optional';card.append(title);
- const timing=document.createElement('p');timing.textContent=walkingMinutes+' min walking · '+(walk.meters<1000?Math.round(walk.meters)+' m':(walk.meters/1000).toFixed(1)+' km')+(busMinutes===null?' · Bus time could not be verified.':' · Fastest checked bus: about '+busMinutes+' min including waiting, walking and transfers.');card.append(timing);
+ const timing=document.createElement('p');timing.textContent=walkingMinutes+' min walking · '+(walk.meters<1000?Math.round(walk.meters)+' m':(walk.meters/1000).toFixed(1)+' km')+(context.plan?.mode!=='now'?' · Compare against your selected travel time.':busMinutes===null?' · Bus time could not be verified.':' · Fastest checked bus: about '+busMinutes+' min including waiting, walking and transfers.');card.append(timing);
  if(faster){const note=document.createElement('p');note.textContent='Save about '+(busMinutes-walkingMinutes)+' min by walking. Bus options remain available below.';card.append(note);for(const c of out.querySelectorAll('.route-choice'))c.classList.add('slower-than-walking');}
  const actions=document.createElement('div');actions.className='actions';
  const map=document.createElement('button');map.type='button';map.className='btn alt';map.textContent='See walking route';
@@ -625,6 +626,7 @@ function appendTripTiming(panel,legs){
  const status=document.createElement('p');status.textContent='Checking published bus times and pedestrian paths…';block.append(status);
  const line=document.createElement('p');line.textContent='Calculating actual walking routes…';block.append(line);
  const plan={...currentPlan};
+ if(plan.mode!=='now'){const when=document.createElement('p');when.textContent=(plan.mode==='arrive'?'Arrive by ':'Leave at ')+new Date(plan.at).toLocaleString()+'. Times below use your device timezone.';block.append(when);}
  const result=document.createElement('p');result.className='hint';block.append(result);panel.append(block);
  let schedules=null,walks=null;
  const format=ms=>new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
