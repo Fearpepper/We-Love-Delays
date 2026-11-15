@@ -678,3 +678,25 @@ for(const stale of [false,true])test('current location keeps the real walking or
  else {await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);expect(await page.evaluate(()=>walkingEndpoint('originSearch').lon)).toBe(-122.271);}
  expect(errors).toEqual([]);
 });
+
+test('Map explores served stops and selects exact start and destination without losing an active trip',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await page.locator('#appMap').click();await expect(page.locator('#mapExplorer')).toBeVisible();
+ await expect(page.locator('#mapStopList')).toContainText('Alpha boarding');await expect(page.locator('#mapStopList')).toContainText('Buses 51B');
+ await page.locator('#mapStopList [data-stop-id="c"][data-stop-target="place"]').click();
+ await expect(page.locator('#place')).toHaveValue('Gamma destination');expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds.place)).toBe('c');
+ expect(await page.evaluate(()=>Boolean(journey))).toBe(true);
+ await page.locator('#appMap').click();await page.locator('#mapStopList [data-stop-id="b"][data-stop-target="originSearch"]').click();
+ await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds.originSearch)).toBe('b');
+ await page.locator('#appGuide').click();await expect(page.locator('#guideFinishTrip')).toBeVisible();
+ await expect(page.locator('#mapExplorer')).toBeHidden();expect(errors).toEqual([]);
+});
+
+test('Map search refreshes after panning and handles areas without stops',async({page})=>{
+ const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
+ await page.evaluate(()=>routeMap.setView([38.2,-122.8],13,{animate:false}));await page.locator('#searchMapArea').click();
+ await expect(page.locator('#mapExplorerStatus')).toContainText('No served AC Transit stops');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
+ await page.getByRole('button',{name:'Back to Berkeley',exact:true}).click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+122.2585))).toBeLessThan(.001);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:test.info().outputPath('map-explorer.png'),fullPage:true});expect(errors).toEqual([]);
+});
