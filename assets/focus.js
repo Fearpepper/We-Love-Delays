@@ -172,7 +172,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  }
  function render(){
   if(!visible)return;list.hidden=false;list.replaceChildren();if(stopLayer){stopLayer.remove();stopLayer=null;}
-  if(!network){status.textContent='Stop data is unavailable. Open Plan and retry loading transit data.';return;}
+  if(!network){status.textContent=window.wldNetworkReady?'Stop data is unavailable. Open Plan and retry loading transit data.':'Loading AC Transit stops… Nearby stops will appear when the feed is ready.';return;}
   if(!ensureMap()){status.textContent='Interactive map unavailable. Use Plan to search stop names.';return;}
   index();const center=routeMap.getCenter();
   const stops=[...served.keys()].map(id=>network.stops[id]).filter(s=>s&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)).map(s=>({s,meters:distance(center.lat,center.lng,s.lat,s.lon)*1000})).filter(x=>x.meters<=2000).sort((a,b)=>a.meters-b.meters).slice(0,8);
@@ -185,7 +185,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  function sync(){
   const next=mapView();controls.hidden=!next;status.hidden=!next;list.hidden=!next;title.textContent=next?'Explore bus stops':oldTitle;
   if(next&&!visible){visible=true;list.hidden=true;list.replaceChildren();requestAnimationFrame(()=>{if(!visible)return;const tracked=mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000;const origin=network?walkingEndpoint('originSearch'):null;const center=tracked?{lat:lastNavigationFix.lat,lng:lastNavigationFix.lon}:exploreCamera?.center||{lat:origin?.lat??37.8715,lng:origin?.lon??-122.2585},zoom=tracked?routeMap?.getZoom():exploreCamera?.zoom||14;if(routeMap&&center){routeMap.invalidateSize({pan:false});routeMap.setView(center,zoom,{animate:false});}render();});}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}
-  if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible)status.textContent='Map moved. Tap Search this area to refresh nearby stops.';});}
+  if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible&&mapView()){exploreCamera={center:routeMap.getCenter(),zoom:routeMap.getZoom()};status.textContent='Map moved. Tap Search this area to refresh nearby stops.';}});}
  }
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
  window.addEventListener('wld:network-ready',()=>{if(visible)render();});window.addEventListener('resize',sync);sync();
