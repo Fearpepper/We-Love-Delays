@@ -782,3 +782,24 @@ test('missed bus preserves the resolved destination when stop names match opposi
  await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#place').fill('Beta transfer');await page.locator('#autoFind').click();await page.locator('.route-choice').first().click();
  expect(await page.evaluate(()=>activeNavigation.search.stopIds.place)).toBe('b');await page.locator('#missedBus').click();await expect(page.locator('#missedBusStatus')).toContainText('Results checked');await expect(page.locator('#missedBusResults .route-choice').first()).toContainText('Direct');expect(await page.evaluate(()=>selectedStopIds.place)).toBe('b');expect(await page.evaluate(()=>walkingEndpoint('place').lon)).toBe(-122.26);
 });
+
+for(const code of [2,3])test('current location retries standard accuracy after provider error '+code,async({page})=>{
+ await page.addInitScript(code=>{window.locationOptions=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.locationOptions.push(options);setTimeout(()=>options.enableHighAccuracy?fail({code}):ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:80},timestamp:Date.now()}),0);}}});},code);
+ const errors=await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>[o.enableHighAccuracy,o.maximumAge]))).toEqual([[true,0],[false,0]]);await expect(page.locator('#locate')).toBeEnabled();expect(errors).toEqual([]);
+});
+test('denied location does not retry and exposes permission help and map recovery',async({page})=>{
+ await page.addInitScript(()=>{window.locationCalls=0;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail){window.locationCalls++;setTimeout(()=>fail({code:1}),0);}}});});
+ const errors=await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationText')).toContainText('permission denied');expect(await page.evaluate(()=>window.locationCalls)).toBe(1);await expect(page.locator('#locationHelp')).toBeVisible();await page.locator('#locationHelp summary').click();await expect(page.locator('#locationHelp')).toContainText('Safari');await page.locator('#locationHelpMap').click();await expect(page.locator('#mapText')).toContainText('Tap the map');expect(errors).toEqual([]);
+});
+test('unavailable location retries once then keeps the existing starting point',async({page})=>{
+ await page.addInitScript(()=>{window.locationCalls=0;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail){window.locationCalls++;setTimeout(()=>fail({code:2}),0);}}});});
+ const errors=await setup(page);await page.locator('#originSearch').fill('Beta transfer');await page.locator('#originSuggestions button').first().click();await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelp')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');expect(await page.evaluate(()=>window.locationCalls)).toBe(2);await expect(page.locator('#locate')).toBeEnabled();expect(errors).toEqual([]);
+});
+test('approximate position requires map confirmation rather than choosing the wrong stop',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:800},timestamp:Date.now()}),0);}}}));
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelp')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');await page.locator('#locationHelpMap').click();await expect(page.locator('#mapText')).toContainText('Approximate device area only');expect(await page.evaluate(()=>selectedStopIds.originSearch)).toBe(null);
+});
+test('manual origin selection wins over a late location callback',async({page})=>{
+ await page.addInitScript(()=>{window.pendingLocation=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){window.pendingLocation.push(ok);}}});});
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await page.locator('#originSearch').fill('Beta transfer');await page.locator('#originSuggestions button').first().click();await page.evaluate(()=>window.pendingLocation[0]({coords:{latitude:37.87,longitude:-122.27,accuracy:5},timestamp:Date.now()}));await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');await expect(page.locator('#locate')).toBeEnabled();
+});
