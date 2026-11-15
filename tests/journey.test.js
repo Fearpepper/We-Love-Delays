@@ -111,3 +111,9 @@ assert.equal(choose(express,[{minutes:0},{minutes:0}],null,{...limited,mode:'lea
 assert.equal(choose(express,[{minutes:0},{minutes:0}],null,{...limited,mode:'arrive',at:now+90*60000}).chain[0].departure,at(30),'arrive by chooses latest leave');
 assert.equal(choose([[{departure:at(20),arrival:at(35),wheelchair_accessible:'2'}]],[{minutes:0},{minutes:0}],null,{...limited,stepFree:true}).length,0,'explicit inaccessible vehicle excluded');
 assert.equal(choose([[{departure:at(20),arrival:at(35),wheelchair_accessible:'0'}]],[{minutes:0},{minutes:0}],null,{...limited,stepFree:true}).chain.length,1,'unknown flags stay unverified');
+
+const countdownCtx={Math};vm.createContext(countdownCtx);
+vm.runInContext(app.slice(app.indexOf('function formatLeaveCountdown('),app.indexOf('function updateCommuteGuidance('))+';this.formatCountdown=formatLeaveCountdown;',countdownCtx);
+assert.equal(countdownCtx.formatCountdown(4),'4 min');
+assert.equal(countdownCtx.formatCountdown(119),'1h 59m');
+assert.equal(countdownCtx.formatCountdown(1938),'1d 8h');
