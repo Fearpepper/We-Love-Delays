@@ -74,7 +74,7 @@ function updateLiveDashboard(){
  $('liveLastUpdate').textContent=journey?.recorded&&fresh?'Vehicle last reported '+fmt(new Date(journey.recorded).toISOString())+'. Predictions may change.':journey?.demo?'Simulation only; no vehicle report.':journey?.untracked?'Delay prediction tracking is not supported for this route.':'511 predictions update while the trip remains open.';
  const arrival=$('guideArrivalSummary');
  if(arrival){const expected=Date.parse(journey?.expected),valid=fresh&&Number.isFinite(expected);const remaining=valid?Math.ceil((expected-Date.now())/60000):null;
-  arrival.textContent=remaining===null?'Destination arrival prediction unavailable':remaining<0?'Predicted destination arrival time has passed · refresh for an update':(journey.transfer?'Final bus destination':'Destination')+' ETA · '+remaining+' min · ~'+fmt(new Date(expected).toISOString());
+  arrival.textContent=remaining===null?'Destination arrival prediction unavailable':remaining<0?'Predicted destination arrival time has passed · refresh for an update':'Final bus stop'+' ETA · '+remaining+' min · ~'+fmt(new Date(expected).toISOString());
  }
  $('liveRefresh').disabled=!active||journey.demo||journey.untracked;
 }
@@ -308,7 +308,7 @@ function setNavigation(legs){
  if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  stopDelayMonitor();journey=null;$('finishJourney').disabled=true;updateDelayPreview();
- activeNavigation={legs,steps,progress:0,plan:{...currentPlan},reminded:new Set()};
+ activeNavigation={legs,steps,progress:0,plan:{...currentPlan},search:window.wldCaptureSearch?.(),reminded:new Set()};
  window.dispatchEvent(new Event('wld:route-selected'));
  $('startJourney').disabled=false;
  // Guide moves the Leaflet element into its own container after route selection.
