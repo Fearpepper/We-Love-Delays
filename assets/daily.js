@@ -92,7 +92,7 @@
    window.wldRestoreSearch({origin:origin.name||captured.origin||board.name,destination,stopIds:{originSearch:first?captured.stopIds?.originSearch:origin.id,place:captured.stopIds?.place||exit.id},places:{originSearch:first?captured.places?.originSearch:null,place:captured.places?.place||null}});
    const plan={...nav.plan,mode:'now',at:null};$('tripWhen').value='now';$('tripWhen').dispatchEvent(new Event('change'));
    recovery.hidden=false;missed.disabled=true;recoveryStatus.textContent='Checking the next catchable scheduled bus and alternatives. Your active trip stays selected until you choose a replacement.';
-   try{await findDirectTrips({target:recoveryResults,plan});if(activeNavigation!==nav)return;recoveryStatus.textContent='Results checked from '+(origin.name||board.name)+' to '+destination+'. Select an option to replace your trip. Predictions can change; confirm you can reach the stop.';}
+   try{await findDirectTrips({target:recoveryResults,plan,nearby:true});if(activeNavigation!==nav)return;recoveryStatus.textContent='Results checked from '+(origin.name||board.name)+' to '+destination+'. Select an option to replace your trip. Predictions can change; confirm you can reach the stop.';}
    catch{recoveryStatus.textContent='Recovery search unavailable. Your current trip is kept; try the official planner.';}
    finally{missed.disabled=false;}
   }
