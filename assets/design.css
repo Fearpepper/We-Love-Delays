@@ -628,3 +628,5 @@ body.map-led-app #autoResults .route-result-card .journey-comparison strong,#rep
 #mapExplorer>h2{display:block!important;font-size:30px!important;line-height:1.1;letter-spacing:-1px;margin:0 0 12px;color:#153d2d}
 /* Keep Leaflet's high-z-index controls below the app navigation. */
 #map{isolation:isolate;z-index:0!important}
+
+.commute-options{display:grid;gap:10px;margin:16px 0}.commute-options select,.commute-options input[type=datetime-local]{width:100%;min-height:44px}.commute-options label{display:block}.commute-options input[type=checkbox]{width:auto;min-height:0;margin:12px 8px 12px 0}.commute-options [hidden],#getOffAlert[hidden]{display:none!important}.long-walk-option{padding:14px;border:1px solid #d9e3dc;border-radius:16px;margin:14px 0}.long-walk-option summary{cursor:pointer;min-height:32px}.get-off-alert{border:2px solid #c27912;background:#fff3d5;color:#332500}#commuteLeave:empty{display:none}

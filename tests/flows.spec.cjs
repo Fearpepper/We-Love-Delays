@@ -591,8 +591,8 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
  });
  await plan(page,transfer?'Gamma destination':'Beta transfer');
  await page.locator('#appTrips').click();
- const card=page.locator('.walking-option');await expect(card).toBeVisible();
- await expect(card.locator('h3')).toHaveText(minutes===5?'Walking looks faster':'Walk directly');
+ const card=page.locator('.walking-option');if(minutes===60){await expect(card).not.toBeVisible();await page.locator('.long-walk-option summary').click();}await expect(card).toBeVisible();
+ await expect(card.locator('h3')).toHaveText(minutes===5?'Walking looks faster':'Long walk · optional');
  await expect(card).toContainText('Fastest checked bus:');
  if(minutes===5)await expect(page.locator('[data-route-heading]')).toContainText('Bus alternatives');
  if(minutes===5&&!transfer)await page.screenshot({path:test.info().outputPath('walking-first.png'),fullPage:true});
@@ -712,4 +712,28 @@ test('Map keeps its searched area and exact stop actions across repeated Plan tr
  await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
  expect(await page.evaluate(lng=>Math.abs(routeMap.getCenter().lng-lng),center.lng)).toBeLessThan(.002);
  expect(errors).toEqual([]);
+});
+
+for(const mode of ['leave','arrive'])test('future '+mode+' search sends timezone and shows leave guidance',async({page})=>{
+ const errors=await setup(page);const anchor=Date.now()+120*60000,requests=[];
+ await page.locator('#tripWhen').selectOption(mode);
+ const d=new Date(anchor);await page.locator('#tripDateTime').fill(new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16));
+ await page.route('**/api/scheduled-journey?*',route=>{const q=new URL(route.request().url()).searchParams;requests.push({at:q.get('at'),mode:q.get('mode')});const base=Date.parse(q.get('at'));return route.fulfill({json:{trips:[{departure:new Date(base+(mode==='arrive'?-30:10)*60000).toISOString(),arrival:new Date(base+(mode==='arrive'?-10:30)*60000).toISOString(),ride_minutes:20}]}});});
+ await plan(page);await expect(page.locator('#commuteLeave')).toContainText('Leave in');expect(requests.length).toBeGreaterThan(0);expect(requests.every(r=>r.at?.endsWith('Z')&&r.mode===(mode==='arrive'?'arrive':'depart'))).toBe(true);expect(errors).toEqual([]);
+});
+test('40 minute walk stays optional even when the bus takes longer',async({page})=>{
+ await setup(page);await page.route('**/api/walk-route?*',r=>r.fulfill({json:{available:true,minutes:40,meters:3000,geometry:{type:'LineString',coordinates:[[-122.27,37.87],[-122.26,37.87]]}}}));
+ const n=Date.now();await page.route('**/api/scheduled-journey?*',r=>r.fulfill({json:{trips:[{departure:new Date(n+60*60000).toISOString(),arrival:new Date(n+90*60000).toISOString()}]}}));
+ await plan(page);await page.locator('#appTrips').click();await expect(page.locator('.long-walk-option summary')).toContainText('40-minute');await expect(page.locator('.walking-option')).not.toBeVisible();await expect(page.getByText('Walking looks faster',{exact:true})).toHaveCount(0);
+});
+test('step free requests wheelchair paths and marks missing accessibility data',async({page})=>{
+ await setup(page);const profiles=[];await page.route('**/api/walk-route?*',r=>{profiles.push(new URL(r.request().url()).searchParams.get('profile'));return r.fulfill({json:{available:true,minutes:5,meters:300}});});
+ await page.locator('.commute-options summary').click();await page.locator('#stepFree').check();await plan(page);await page.locator('#appTrips').click();await expect(page.locator('.access-note').first()).toContainText('not fully reported');expect(profiles.length).toBeGreaterThan(0);expect(profiles.every(p=>p==='wheelchair')).toBe(true);
+});
+test('get off reminder needs boarded trip and fresh accurate GPS',async({page})=>{
+ await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
+ await page.evaluate(()=>{activeNavigation.progress=activeNavigation.steps.findIndex(s=>s.kind==='ride');renderNavigation();updateNavigationPosition(37.87,-122.26,80);});await expect(page.locator('#getOffAlert')).not.toBeVisible();
+ await page.evaluate(()=>updateNavigationPosition(37.87,-122.26,5,Date.now()-60000));await expect(page.locator('#getOffAlert')).not.toBeVisible();
+ await page.evaluate(()=>updateNavigationPosition(37.87,-122.26,5));await expect(page.locator('#getOffAlert')).toContainText('Get ready to get off');
+ expect(await page.evaluate(()=>activeNavigation.steps[activeNavigation.progress].kind)).toBe('ride');
 });

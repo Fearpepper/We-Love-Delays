@@ -308,7 +308,7 @@ function setNavigation(legs){
  if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  stopDelayMonitor();journey=null;$('finishJourney').disabled=true;updateDelayPreview();
- activeNavigation={legs,steps,progress:0};
+ activeNavigation={legs,steps,progress:0,plan:{...currentPlan},reminded:new Set()};
  window.dispatchEvent(new Event('wld:route-selected'));
  $('startJourney').disabled=false;
  // Guide moves the Leaflet element into its own container after route selection.
@@ -320,9 +320,10 @@ function setNavigation(legs){
  $('navStatus').textContent='Checking real walking paths against published AC Transit departures. GPS is not street-by-street navigation.';
  renderNavigation();
  const current=activeNavigation;
- Promise.all([applyPedestrianTimes(legs,steps),getPublishedLegTimes(legs),getWalkingJourney(legs)]).then(([,schedules,walks])=>{
+ Promise.all([applyPedestrianTimes(legs,steps),getPublishedLegTimes(legs,activeNavigation.plan),getWalkingJourney(legs,activeNavigation.plan)]).then(([,schedules,walks])=>{
   if(activeNavigation!==current)return;
-  const match=chooseScheduledConnection(schedules,walks,null);
+  const match=accessCompatible(legs,current.plan)?chooseScheduledConnection(schedules,walks,null,current.plan):null;
+  current.connection=match?.chain?match:null;current.walks=walks;updateCommuteGuidance();
   for(let k=0;k<legs.length;k++){
    const trip=match&&!Array.isArray(match)?match.chain[k]:null;
    const boardStep=current.steps.find(x=>x.legIndex===k&&x.kind==='board');
@@ -351,6 +352,7 @@ function renderNavigation(){
  const nextButton=$('navAdvance');
  const leg=step?.legIndex===undefined?null:activeNavigation.legs[step.legIndex];
  nextButton.textContent=!step?'Trip complete':activeNavigation.progress===activeNavigation.steps.length-1?"I've arrived · Finish trip":step.kind==='board'?"I'm on Bus "+routeName(leg.p):step.kind==='ride'?"I'm off the bus":step.kind==='walk-transfer'?"I'm at the next stop":step.kind==='walk-end'?"I've arrived":"I'm at the stop";
+ updateCommuteGuidance();
  window.dispatchEvent(new Event('wld:progress'));
 }
 $('navAdvance').onclick=()=>{
@@ -370,6 +372,7 @@ function updateNavigationPosition(lat,lon,accuracy,timestamp=Date.now()){
  window.dispatchEvent(new CustomEvent('wld:gps-fix',{detail:{accuracy,timestamp}}));
  lastNavigationFix={lat,lon,accuracy,timestamp};locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap({center:mapFollowing,accuracy});
  if(!activeNavigation)return;
+ maybeRemindStop(lat,lon,accuracy);
  const steps=activeNavigation.steps;
  // Only advance sequentially when physically near the next waypoint.
  while(activeNavigation.progress<steps.length){
@@ -417,13 +420,29 @@ function routeChoice(out,title,detail,choose){
  };
  out.append(btn);return btn;
 }
+// Search settings are snapshotted for every request; preferences never imply verified access.
+let currentPlan={mode:'now',at:null,maxWalk:15,stepFree:false,reminders:true};
+function readTripPlan(){
+ const mode=$('tripWhen')?.value||'now',value=$('tripDateTime')?.value,at=mode==='now'?null:new Date(value).getTime();
+ if(mode!=='now'&&(!Number.isFinite(at)||at<Date.now()-60000||at>Date.now()+7*86400000))throw Error('Choose a future departure or arrival within the next 7 days. Times use your device timezone.');
+ return {mode,at,maxWalk:Number($('maxWalking')?.value||15),stepFree:Boolean($('stepFree')?.checked),reminders:$('getOffReminders')?.checked!==false};
+}
+function planStart(plan=currentPlan){return plan.mode==='leave'?plan.at:Date.now();}
+function accessCompatible(legs,plan=currentPlan){return !plan.stepFree||legs.every(l=>[l.p.stops[l.start],l.p.stops[l.end]].every(id=>String(network.stops[id]?.wheelchair_boarding||'0')!=='2'));}
+function addAccessNote(card,chain,legs,plan=currentPlan){
+ if(!plan.stepFree)return;const note=document.createElement('p');note.className='hint access-note';
+ const stops=legs.flatMap(l=>[network.stops[l.p.stops[l.start]],network.stops[l.p.stops[l.end]]]);
+ const known=chain?.length&&chain.every(t=>String(t.wheelchair_accessible)==='1')&&stops.every(s=>String(s?.wheelchair_boarding)==='1');
+ note.textContent=known?'GTFS reports accessible boarding stops and buses. Wheelchair paths requested; verify current ramps, crossings and conditions.':'Step-free access is not fully reported for this option. Confirm stop, vehicle and path access with AC Transit before traveling.';card.append(note);
+}
 function appendJourneyComparison(card,arrival,chain,walks){
  const summary=document.createElement('div');summary.className='journey-comparison';summary.setAttribute('aria-label','Door-to-door journey comparison');
  const known=Number.isFinite(arrival)&&chain?.length&&walks?.every(w=>Number.isFinite(w?.minutes));
  if(!known){summary.textContent='Total time unavailable · check departures before traveling';card.append(summary);return;}
- const total=Math.max(0,(arrival-Date.now())/60000),walk=walks.reduce((n,w)=>n+w.minutes,0),ride=chain.reduce((n,t)=>n+(Date.parse(t.arrival)-Date.parse(t.departure))/60000,0),wait=Math.max(0,total-walk-ride);
+ const start=currentPlan.mode==='arrive'?Date.parse(chain[0].departure)-(walks[0].minutes+5)*60000:planStart();
+ const total=Math.max(0,(arrival-start)/60000),walk=walks.reduce((n,w)=>n+w.minutes,0),ride=chain.reduce((n,t)=>n+(Date.parse(t.arrival)-Date.parse(t.departure))/60000,0),wait=Math.max(0,total-walk-ride);
  for(const [label,value] of [['Total',Math.ceil(total)+' min'],['Walk',Math.ceil(walk)+' min'],['Wait',Math.ceil(wait)+' min'],['Ride',Math.ceil(ride)+' min'],['Transfers',String(chain.length-1)]]){const item=document.createElement('span'),name=document.createElement('small'),amount=document.createElement('strong');name.textContent=label;amount.textContent=value;item.append(name,amount);summary.append(item);}
- const note=document.createElement('small');note.className='comparison-source';note.textContent='From now · published schedules + walking estimates';summary.append(note);card.append(summary);
+ const note=document.createElement('small');note.className='comparison-source';note.textContent=(currentPlan.mode==='now'?'From now':currentPlan.mode==='leave'?'From requested departure':'From latest feasible departure')+' · published schedules + walking estimates';summary.append(note);card.append(summary);
 }
 async function rankTransferOptions(out,heading,options){
  const results=[];
@@ -433,12 +452,13 @@ async function rankTransferOptions(out,heading,options){
    const item=options[cursor++];
    try{
     const [schedules,walks]=await Promise.all([getPublishedLegTimes(item.legs),getWalkingJourney(item.legs)]);
-    const match=chooseScheduledConnection(schedules,walks,null);
+    const match=accessCompatible(item.legs)?chooseScheduledConnection(schedules,walks,null):null;
+    addAccessNote(item.card,match?.chain,item.legs);
     item.match=match;
     appendJourneyComparison(item.card,match?.arrival,match?.chain,walks);
     if(Number.isFinite(match?.arrival))item.card.dataset.arrival=String(match.arrival);
     const status=document.createElement('span');status.className='route-timing hint';
-    status.textContent=match?.chain?'Scheduled arrival '+fmt(new Date(match.arrival).toISOString())+' · leave by '+fmt(new Date(match.leave).toISOString())+' · includes walking and transfer buffer':Array.isArray(match)?'No feasible upcoming connection found in the returned schedules. Check another option.':'Transfer timing unverified: pedestrian route unavailable. Check agency times.';
+    status.textContent=match?.chain?'Scheduled arrival '+fmt(new Date(match.arrival).toISOString())+' · leave by '+fmt(new Date(match.leave).toISOString())+' · includes walking and transfer buffer':Array.isArray(match)?'No feasible upcoming connection found in the returned schedules. Check another option.':'Connection unverified within your walking/access preferences. Check paths and agency times.';
     item.card.append(status);
    }catch(e){const status=document.createElement('span');status.className='route-timing hint';status.textContent='Connection timing unavailable. Check agency times before traveling.';item.card.append(status)}
    results.push(item);
@@ -446,7 +466,7 @@ async function rankTransferOptions(out,heading,options){
  }
  await Promise.all([worker(),worker()]);
  if(!heading.isConnected||options.some(x=>!x.card.isConnected))return;
- results.sort((a,b)=>(a.match?.arrival??Infinity)-(b.match?.arrival??Infinity)||options.indexOf(a)-options.indexOf(b));
+ results.sort((a,b)=>currentPlan.mode==='arrive'?(b.match?.leave??-Infinity)-(a.match?.leave??-Infinity):(a.match?.arrival??Infinity)-(b.match?.arrival??Infinity)||options.indexOf(a)-options.indexOf(b));
  const anchor=document.createComment('transfer results');options[0]?.card.before(anchor);
  for(const item of results)anchor.before(item.card);
  anchor.remove();
@@ -459,10 +479,11 @@ async function showWalkingComparison(out,context){
  if(walkingComparisons.get(out)!==context||!walk||out.querySelector('.walking-option'))return;
  const arrivals=[...out.querySelectorAll('[data-arrival]')].map(c=>Number(c.dataset.arrival)).filter(Number.isFinite);
  const bus=arrivals.length?Math.min(...arrivals):null;
- const walkingMinutes=Math.ceil(walk.minutes),busMinutes=bus===null?null:Math.ceil((bus-context.started)/60000);
- const faster=busMinutes!==null&&walkingMinutes<busMinutes;
+ const walkingMinutes=Math.ceil(walk.minutes),busMinutes=bus===null||context.plan?.mode!=='now'?null:Math.ceil((bus-context.started)/60000);
+ const withinLimit=walkingMinutes<=Math.min(context.plan?.maxWalk??15,20);
+ const faster=withinLimit&&context.plan?.mode==='now'&&busMinutes!==null&&walkingMinutes<busMinutes;
  const card=document.createElement('section');card.className='walking-option notice';
- const title=document.createElement('h3');title.textContent=faster?'Walking looks faster':'Walk directly';card.append(title);
+ const title=document.createElement('h3');title.textContent=faster?'Walking looks faster':withinLimit?'Walk directly':'Long walk · optional';card.append(title);
  const timing=document.createElement('p');timing.textContent=walkingMinutes+' min walking · '+(walk.meters<1000?Math.round(walk.meters)+' m':(walk.meters/1000).toFixed(1)+' km')+(busMinutes===null?' · Bus time could not be verified.':' · Fastest checked bus: about '+busMinutes+' min including waiting, walking and transfers.');card.append(timing);
  if(faster){const note=document.createElement('p');note.textContent='Save about '+(busMinutes-walkingMinutes)+' min by walking. Bus options remain available below.';card.append(note);for(const c of out.querySelectorAll('.route-choice'))c.classList.add('slower-than-walking');}
  const actions=document.createElement('div');actions.className='actions';
@@ -478,7 +499,7 @@ async function showWalkingComparison(out,context){
  link.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:context.origin.lat+','+context.origin.lon,destination:context.destination.lat+','+context.destination.lon,travelmode:'walking'});
  actions.append(map,link);card.append(actions);
  const source=document.createElement('p');source.className='hint';source.textContent='Walking estimate: OpenRouteService. Bus comparison: published schedules, not live arrivals. Check pedestrian access and conditions; accessibility is not verified.';card.append(source);
- out.prepend(card);
+ if(!withinLimit){const details=document.createElement('details');details.className='long-walk-option';const summary=document.createElement('summary');summary.textContent='Optional '+walkingMinutes+'-minute walk · longer than the recommended walking limit';details.append(summary,card);out.append(details);}else if(faster)out.prepend(card);else out.append(card);
  if(faster){const heading=out.querySelector('[data-route-heading]');if(heading)heading.textContent='Bus alternatives · walking is faster than the checked services';}
 }
 function estimateTripTiming(legs){
@@ -498,11 +519,11 @@ function walkingEndpoint(inputId){
   ||stopsForInput(inputId)[0]
   ||(inputId==='originSearch'?locationPoint:null);
 }
-async function getPedestrianLeg(a,b){
+async function getPedestrianLeg(a,b,plan=currentPlan){
  if(!a||!b||![a.lat,a.lon,b.lat,b.lon].every(Number.isFinite))return null;
  if((a.id&&b.id&&a.id===b.id)||(Math.abs(a.lat-b.lat)<0.00001&&Math.abs(a.lon-b.lon)<0.00001))
   return {available:true,minutes:0,meters:0,geometry:null,source:'Same stop'};
- const params=new URLSearchParams({from_lat:String(a.lat),from_lon:String(a.lon),to_lat:String(b.lat),to_lon:String(b.lon)});
+ const params=new URLSearchParams({from_lat:String(a.lat),from_lon:String(a.lon),to_lat:String(b.lat),to_lon:String(b.lon),profile:plan.stepFree?'wheelchair':'foot-walking'});
  const data=await api('/api/walk-route?'+params.toString());
  if(!data.available||!Number.isFinite(data.minutes)||!Number.isFinite(data.meters)||data.minutes<0||data.meters<0)return null;
  return data;
@@ -521,16 +542,17 @@ async function applyPedestrianTimes(legs,steps){
   catch(e){x.step.estimate='Walking route unavailable · '+e.message}
  }));
 }
-async function getPublishedLegTimes(legs){
+async function getPublishedLegTimes(legs,plan=currentPlan){
  const results=[];
  for(const leg of legs){
   const query=new URLSearchParams({trip:leg.p.sample_trip,board:String(leg.start),exit:String(leg.end)});
+  if(plan.mode!=='now'){query.set('at',new Date(plan.at).toISOString());query.set('mode',plan.mode==='arrive'?'arrive':'depart');}
   const response=await api('/api/scheduled-journey?'+query.toString());
   results.push(response.trips||[]);
  }
  return results;
 }
-async function getWalkingJourney(legs){
+async function getWalkingJourney(legs,plan=currentPlan){
  const first=network.stops[legs[0].p.stops[legs[0].start]];
  const last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
  const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
@@ -542,7 +564,7 @@ async function getWalkingJourney(legs){
  return Promise.all(tasks.map(async ({a,b})=>{
   if(!a||!b)return null;
   if((a.id&&b.id&&a.id===b.id)||(a.lat===b.lat&&a.lon===b.lon))return {available:true,minutes:0,meters:0,geometry:null,source:'Same stop'};
-  try{return await getPedestrianLeg(a,b)}catch(e){return {error:String(e.message||e).slice(0,180)}}
+  try{return await getPedestrianLeg(a,b,plan)}catch(e){return {error:String(e.message||e).slice(0,180)}}
  }));
 }
 async function drawPedestrianPaths(legs){
@@ -562,10 +584,11 @@ async function drawPedestrianPaths(legs){
   }catch(e){/* Leave the bus map visible if pedestrian routing fails. */}
  }));
 }
-function chooseScheduledConnection(schedules,walks,arrivalDeadline){
- const now=Date.now(),buffer=5*60000,connectionBuffer=3*60000;
- if(!walks||walks.some(x=>!x||!Number.isFinite(x.minutes)))return null;
- const valid=schedules.map(list=>(list||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival))&&Date.parse(t.arrival)>=Date.parse(t.departure)).sort((a,b)=>Date.parse(a.departure)-Date.parse(b.departure)));
+function chooseScheduledConnection(schedules,walks,arrivalDeadline,plan=currentPlan){
+ const now=planStart(plan),buffer=5*60000,connectionBuffer=3*60000;
+ if(!walks||walks.some(x=>!x||!Number.isFinite(x.minutes))||walks.reduce((n,w)=>n+w.minutes,0)>plan.maxWalk)return null;
+ if(arrivalDeadline===null&&plan.mode==='arrive')arrivalDeadline=plan.at;
+ const valid=schedules.map(list=>(list||[]).filter(t=>(!plan.stepFree||String(t.wheelchair_accessible||'0')!=='2')&&Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival))&&Date.parse(t.arrival)>=Date.parse(t.departure)).sort((a,b)=>Date.parse(a.departure)-Date.parse(b.departure)));
  if(valid.some(list=>!list.length))return [];
  const candidates=[];
  for(const first of valid[0]){
@@ -601,7 +624,7 @@ function appendTripTiming(panel,legs){
  const heading=document.createElement('strong');heading.textContent='Journey timing · published schedules + pedestrian routes';block.append(heading);
  const status=document.createElement('p');status.textContent='Checking published bus times and pedestrian paths…';block.append(status);
  const line=document.createElement('p');line.textContent='Calculating actual walking routes…';block.append(line);
- const label=document.createElement('label');label.textContent='When do you need to arrive? ';const input=document.createElement('input');input.type='time';input.setAttribute('aria-label','Desired arrival time');label.append(input);block.append(label);
+ const plan={...currentPlan};
  const result=document.createElement('p');result.className='hint';block.append(result);panel.append(block);
  let schedules=null,walks=null;
  const format=ms=>new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
@@ -610,16 +633,15 @@ function appendTripTiming(panel,legs){
   if(walks.some(x=>!x||!Number.isFinite(x.minutes))){
    result.textContent='A pedestrian leg could not be verified. Departure feasibility and leave-by time are unavailable; choose both locations and retry.';return;
   }
-  let deadline=null;
-  if(input.value){const [h,m]=input.value.split(':').map(Number);const target=new Date();target.setHours(h,m,0,0);if(target.getTime()<Date.now())target.setDate(target.getDate()+1);deadline=target.getTime()}
-  const match=chooseScheduledConnection(schedules,walks,deadline);
+  const deadline=plan.mode==='arrive'?plan.at:null;
+  const match=accessCompatible(legs,plan)?chooseScheduledConnection(schedules,walks,deadline,plan):null;
   if(!match){result.textContent='Unable to verify walking time for this trip.';return}
   if(Array.isArray(match)){result.textContent='No catchable scheduled journey was found in the returned departure window'+(deadline?' for that arrival time':'')+'. Try a different route or time. This is not a live bus prediction.';return}
   const legsText=match.chain.map((trip,i)=>'Bus '+(i+1)+': '+format(Date.parse(trip.departure))+'–'+format(Date.parse(trip.arrival))).join(' · ');
   result.textContent='Leave by approximately '+format(match.leave)+' (5-minute boarding buffer). '+legsText+'. Reach destination around '+format(match.arrival)+'. Transfers include real pedestrian walking time and a 3-minute connection buffer. Published schedules only; actual delays may change feasibility.';
  };
- input.onchange=render;
- Promise.all([getPublishedLegTimes(legs),getWalkingJourney(legs)]).then(([s,w])=>{
+
+ Promise.all([getPublishedLegTimes(legs,plan),getWalkingJourney(legs,plan)]).then(([s,w])=>{
   if(!block.isConnected)return;
   schedules=s;walks=w;
   const descriptions=w.map((x,i)=>i===0?'First walk: ':i===w.length-1?'Final walk: ':'Transfer '+i+': ');
@@ -660,6 +682,7 @@ async function findDirectTrips(options={}){
  let walkingContext=null;
  const out=options.target||$('autoResults');out.textContent='Finding nearby stops and bus routes…';
  try{
+ try{currentPlan=options.plan||readTripPlan();}catch(e){out.textContent=e.message;return;}
  if(!network){out.textContent='Routes have not loaded yet. Check the live-data status.';return}
  const resolved=await Promise.all([resolveTypedLocation('originSearch'),resolveTypedLocation('place')]);
  const unresolved=resolved.find(x=>x);if(unresolved){
@@ -668,7 +691,7 @@ async function findDirectTrips(options={}){
   if(unresolved.id){const pin=document.createElement('button');pin.type='button';pin.className='btn alt';pin.textContent='Choose location on map';pin.onclick=()=>window.wldPickSearchLocation(unresolved.id);out.append(pin);}return;
  }
  const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
- if(origin&&destination){walkingContext={origin:{...origin},destination:{...destination},started:Date.now(),route:getPedestrianLeg(origin,destination).catch(()=>null)};walkingComparisons.set(out,walkingContext);}
+ if(origin&&destination){walkingContext={origin:{...origin},destination:{...destination},started:planStart(),plan:{...currentPlan},route:getPedestrianLeg(origin,destination).catch(()=>null)};walkingComparisons.set(out,walkingContext);}
  let a=stopsForInput('originSearch'),b=stopsForInput('place');
  if(options.nearby){a=[...new Map([...a,...nearbyStops(walkingEndpoint('originSearch'))].map(s=>[s.id,s])).values()];b=[...new Map([...b,...nearbyStops(walkingEndpoint('place'))].map(s=>[s.id,s])).values()];}
 
@@ -731,20 +754,17 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    try{
     const [walks,schedules]=await Promise.all([getWalkingJourney([item.x]),getPublishedLegTimes([item.x])]);
     if(!walks||walks.some(w=>!w||!Number.isFinite(w.minutes)))return {...item,reason:walks?.find(w=>w?.error)?.error||'Pedestrian route unavailable for this pair of stops'};
-    const valid=(schedules[0]||[]).filter(t=>Number.isFinite(Date.parse(t.departure))&&Number.isFinite(Date.parse(t.arrival))&&Date.parse(t.arrival)>=Date.parse(t.departure));
-    const feasible=valid.map(t=>{
-     const leave=Date.parse(t.departure)-(walks[0].minutes+5)*60000;
-     return {leave,arrival:Date.parse(t.arrival)+walks[1].minutes*60000,trip:t};
-    }).filter(t=>t.leave>=Date.now()).sort((a,b)=>a.arrival-b.arrival);
-    if(!feasible.length)return {...item,reason:'No catchable scheduled departure'};
-    return {...item,arrival:feasible[0].arrival,leave:feasible[0].leave,walks,chain:[feasible[0].trip]};
+    const match=accessCompatible([item.x])?chooseScheduledConnection(schedules,walks,null):null;
+    addAccessNote(item.card,match?.chain,[item.x]);
+    if(!match?.chain)return {...item,reason:'No verified journey within the requested time and walking/access preferences'};
+    return {...item,arrival:match.arrival,leave:match.leave,walks,chain:match.chain};
    }catch(e){return {...item,reason:String(e.message||e).slice(0,130)}}
   }));
   // Search may have been replaced by a newer query while remote services responded.
   if(!rankingNotice.isConnected||!heading.isConnected)return;
-  results.sort((a,b)=>(a.arrival??Infinity)-(b.arrival??Infinity)||a.ranking.score-b.ranking.score);
+  results.sort((a,b)=>currentPlan.mode==='arrive'?(b.leave??-Infinity)-(a.leave??-Infinity):(a.arrival??Infinity)-(b.arrival??Infinity)||a.ranking.score-b.ranking.score);
   const verified=results.filter(r=>Number.isFinite(r.arrival)).length;
-  heading.textContent=verified?'Recommended buses · earliest feasible scheduled arrival first':'Direct bus options · estimated convenience order';
+  heading.textContent=verified?(currentPlan.mode==='arrive'?'Recommended buses · latest feasible departure first':'Recommended buses · earliest feasible scheduled arrival first'):'Direct bus options · estimated convenience order';
   rankingNotice.textContent=verified?verified+' of '+results.length+' options have a feasible 511 schedule and ORS walking route. Scheduled times are not live predictions.':'Could not confirm a catchable scheduled journey for these options. You can still explore each route; check the details for walking and departure availability.';
   const fmt=ms=>new Date(ms).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   for(const r of results){
@@ -826,7 +846,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
    }
    await rankTransferOptions(out,heading,timedOptions);
   }else{
-   if(!options.nearby){findingTrip=false;return await findDirectTrips({...options,nearby:true});}
+   if(!options.nearby){findingTrip=false;return await findDirectTrips({...options,plan:{...currentPlan},nearby:true});}
    heading.textContent='No direct or one-transfer AC Transit option was found near these locations. Try a different starting point or check broader transit options below. We could not verify a connection from these stops in the available AC Transit data. Try the full transit planner below for walking transfers and other agencies.';
   }
   const firstStop=walkingEndpoint('originSearch')||a[0],lastStop=walkingEndpoint('place')||b[0];
@@ -965,7 +985,7 @@ function drawRoute(){
  setTimeout(()=>routeMap.invalidateSize(),100);
  $('mapText').textContent='Showing '+segment.length+' ordered stops: '+stops[0].name+' → '+stops[1].name+'. Red line connects published stop coordinates; it is NOT the actual road geometry or a live vehicle position.';
 }
-$('preview').onclick=()=>{const stops=chosenStops();if(!stops){say('Choose a destination after your boarding stop.');return}drawRoute();say((demo?'Simulated':'Published')+' stop order shown on map. The line connects stops, not exact streets. This does not guarantee a departure at your chosen time.');$('startJourney').disabled=false;refreshArrivals();setNavigation([{p:selected,start:Number($('board').value),end:Number($('exit').value)}]);setAppView('guide')};
+$('preview').onclick=()=>{try{currentPlan=readTripPlan()}catch(e){say(e.message);return}const stops=chosenStops();if(!stops){say('Choose a destination after your boarding stop.');return}drawRoute();say((demo?'Simulated':'Published')+' stop order shown on map. The line connects stops, not exact streets. This does not guarantee a departure at your chosen time.');$('startJourney').disabled=false;refreshArrivals();setNavigation([{p:selected,start:Number($('board').value),end:Number($('exit').value)}]);setAppView('guide')};
 async function refreshArrivals(){
  if(demo){$('arrivals').textContent='Demo mode: no real-time arrivals.';return}
  if(!selected||$('board').value==='')return;
@@ -1144,3 +1164,23 @@ window.wldPlanFromMapStop=(stopId,target)=>{
  $('message').textContent=(target==='originSearch'?'Starting stop':'Destination stop')+' selected from the map. Review your locations and Find routes.'+(journey?' Your active trip stays available in Guide until you choose a replacement.':'');
  const other=$(target==='originSearch'?'place':'originSearch');other.focus();other.scrollIntoView({block:'center',behavior:'smooth'});
 };
+
+function updateCommuteGuidance(){
+ const el=$('commuteLeave');if(!el)return;
+ const nav=activeNavigation,match=nav?.connection,board=nav?.steps.findIndex(s=>s.kind==='board');
+ if(!nav){el.textContent='';return;}
+ if(nav.progress>board){el.textContent='Trip in progress · follow your next instruction.';return;}
+ if(!match){el.textContent='Leave-by time unavailable. Check the published departures or find another route.';return;}
+ const mins=Math.ceil((match.leave-Date.now())/60000),dep=Date.parse(match.chain[0].departure),walk=Math.ceil(nav.walks?.[0]?.minutes||0);
+ el.textContent=dep<Date.now()?'Scheduled departure has passed. Use Find another way to recheck your connection.':mins<0?'Scheduled leave-by time has passed. Recheck your connection before traveling.':(mins<=1?'Leave now':'Leave in '+mins+' min')+' · '+walk+'-min walk to board · scheduled bus '+fmt(match.chain[0].departure)+'. Includes a 5-minute boarding buffer.';
+}
+function maybeRemindStop(lat,lon,accuracy){
+ const nav=activeNavigation,step=nav?.steps[nav.progress],el=$('getOffAlert');
+ if(!journey||!nav?.plan?.reminders||!el||step?.kind!=='ride'||accuracy>60)return;
+ const stop=step.stop;if(!stop||![stop.lat,stop.lon].every(Number.isFinite)||distance(lat,lon,stop.lat,stop.lon)>.3)return;
+ const key=String(step.legIndex);if(nav.reminded.has(key))return;nav.reminded.add(key);
+ el.hidden=false;el.textContent='Your stop is close: '+stop.name+'. Get ready to '+(step.legIndex<nav.legs.length-1?'get off and transfer.':'get off.')+' Confirm the stop yourself; GPS cannot verify arrival.';
+ try{navigator.vibrate?.([150,80,150])}catch{}
+}
+setInterval(updateCommuteGuidance,15000);
+for(const event of ['wld:trip-finished','wld:route-selected'])window.addEventListener(event,()=>{const el=$('getOffAlert');if(el){el.hidden=true;el.textContent='';}updateCommuteGuidance();});
