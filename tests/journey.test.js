@@ -117,3 +117,15 @@ vm.runInContext(app.slice(app.indexOf('function formatLeaveCountdown('),app.inde
 assert.equal(countdownCtx.formatCountdown(4),'4 min');
 assert.equal(countdownCtx.formatCountdown(119),'1h 59m');
 assert.equal(countdownCtx.formatCountdown(1938),'1d 8h');
+
+const daily=fs.readFileSync('assets/daily.js','utf8');new vm.Script(daily);
+const evidenceCtx={window:{addEventListener(){}},document:{},navigator:{onLine:true},Date,freshArrivalPrediction:predictionCtx.fresh};vm.createContext(evidenceCtx);vm.runInContext(daily,evidenceCtx);
+const confidence=evidenceCtx.window.wldArrivalEvidence;
+assert.equal(confidence(visit,clock).kind,'Live prediction');
+assert.equal(confidence({...visit,recorded:iso(-7)},clock).kind,'Published schedule');
+assert.equal(confidence({aimed:'bad'},clock).kind,'Unavailable');
+evidenceCtx.navigator.onLine=false;assert.equal(confidence(visit,clock).kind,'Unavailable');
+assert.match(html,/src="\/assets\/daily\.js"/,'daily controller loaded');
+assert.match(fs.readFileSync('sw.js','utf8'),/assets\/daily\.js/,'daily controller works in the saved shell');
+
+assert.equal(confidence({aimed:iso(-1),expected:iso(-1),recorded:iso(0)},clock).kind,'Unavailable','departed buses are not due now');

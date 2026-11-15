@@ -42,7 +42,7 @@ test('direct journey completes once and wallet persists prediction points',async
  await expect(page.locator('#liveRefresh')).toBeEnabled();
  await expect(page.locator('#liveTrackingState')).toContainText('Fresh 511 vehicle prediction');
  await expect(page.locator('#liveDelayValue')).toHaveText('5');
- await expect(page.locator('#guideArrivalSummary')).toContainText('Destination ETA');
+ await expect(page.locator('#guideArrivalSummary')).toContainText('Final bus stop ETA');
  await expect(page.locator('#livePointsValue')).toHaveText('50');
  await expect(page.locator('#guideTripFeedback')).toContainText(/Checking|Destination/);
  await expect(page.locator('#delayPreview')).toContainText('5 min late');
@@ -743,4 +743,35 @@ test('reopening an active trip respects the saved reminder preference',async({pa
  await page.reload();await expect(page.locator('#guideTripFeedback')).toContainText('restored');
  expect(await page.evaluate(()=>activeNavigation.plan.reminders)).toBe(false);
  await page.evaluate(()=>{activeNavigation.progress=activeNavigation.steps.findIndex(s=>s.kind==='ride');renderNavigation();updateNavigationPosition(37.87,-122.26,5);});await expect(page.locator('#getOffAlert')).not.toBeVisible();
+});
+
+test('nearby departures are on demand, bounded and reused between refreshes',async({page})=>{
+ const errors=await setup(page);let calls=0;await page.route('**/api/arrivals?*',r=>{calls++;return r.fulfill({json:{arrivals:[{route:'51B',destination:'Beta',aimed:new Date(Date.now()+600000).toISOString(),expected:new Date(Date.now()+660000).toISOString(),recorded:new Date().toISOString()}]}});});
+ expect(calls).toBe(0);await page.locator('#nearbyDepartures summary').click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyStatus')).toContainText('Choose your starting point');expect(calls).toBe(0);
+ await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyResults')).toContainText('Live prediction');expect(calls).toBeGreaterThan(0);expect(calls).toBeLessThanOrEqual(3);const count=calls;
+ await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyRefresh')).toBeEnabled();expect(calls).toBe(count);await expect(page.locator('#nearbyResults')).toContainText('Vehicle reported');
+ await page.screenshot({path:test.info().outputPath('nearby-departures.png'),fullPage:true});expect(errors).toEqual([]);
+});
+test('nearby departure source ages to schedule only and becomes unavailable offline',async({page,context})=>{
+ await page.clock.install();await setup(page);await page.route('**/api/arrivals?*',r=>r.fulfill({json:{arrivals:[{route:'51B',destination:'Beta',aimed:new Date(Date.now()+20*60000).toISOString(),expected:new Date(Date.now()+21*60000).toISOString(),recorded:new Date(Date.now()-4*60000).toISOString()}]}}));
+ await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#nearbyDepartures summary').click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyResults')).toContainText('Live prediction');await page.clock.fastForward(2*60000);await expect(page.locator('#nearbyResults')).toContainText('Published schedule');await expect(page.locator('#nearbyResults')).not.toContainText('Live prediction');await context.setOffline(true);await expect(page.locator('#nearbyResults')).toContainText('Offline');
+});
+test('missed bus checks current departures and keeps selected trip and destination',async({page})=>{
+ const errors=await setup(page);const now=Date.now();await page.route('**/api/scheduled-journey?*',r=>r.fulfill({json:{trips:[{departure:new Date(now+15*60000).toISOString(),arrival:new Date(now+30*60000).toISOString(),ride_minutes:15}]}}));
+ await plan(page);await page.locator('#navAdvance').click();await page.locator('#guideStartTrip').click();const before=await page.evaluate(()=>({progress:activeNavigation.progress,started:Boolean(journey),destination:activeNavigation.search.destination}));
+ await page.locator('#missedBus').click();await expect(page.locator('#missedBusResults .route-choice')).toHaveCount(1);await expect(page.locator('#missedBusStatus')).toContainText('Select an option');expect(await page.evaluate(()=>({progress:activeNavigation.progress,started:Boolean(journey),destination:activeNavigation.search.destination}))).toEqual(before);await expect(page.locator('#place')).toHaveValue('Beta transfer');await expect(page.locator('#tripWhen')).toHaveValue('now');expect(errors).toEqual([]);
+});
+test('missed transfer recovery starts at the next boarding stop and preserves the final destination',async({page})=>{
+ await setup(page);await plan(page,'Gamma destination');await page.evaluate(()=>{activeNavigation.progress=activeNavigation.steps.findIndex(s=>s.kind==='board'&&s.legIndex===1);renderNavigation();});await page.locator('#missedBus').click();await expect(page.locator('#missedBusStatus')).toContainText('Results checked from Beta transfer to Gamma destination');expect(await page.evaluate(()=>selectedStopIds)).toEqual({originSearch:'b',place:'c'});expect(await page.evaluate(()=>activeNavigation.legs.length)).toBe(2);
+});
+test('arrival confidence is visible before tracking and never labels a schedule live',async({page,context})=>{
+ await setup(page,false);const now=Date.now();await page.route('**/api/scheduled-journey?*',r=>r.fulfill({json:{trips:[{departure:new Date(now+10*60000).toISOString(),arrival:new Date(now+20*60000).toISOString()}]}}));await plan(page);await expect(page.locator('#arrivalConfidence')).toContainText('Published schedule');await expect(page.locator('#arrivalConfidence')).toHaveAttribute('data-confidence','scheduled');await context.setOffline(true);await expect(page.locator('#arrivalConfidence')).toContainText('Offline');await expect(page.locator('#arrivalConfidence')).toHaveAttribute('data-confidence','unavailable');
+});
+test('feedback saves locally, restores safely, and prepares a public issue without GPS',async({page})=>{
+ const errors=await setup(page);await plan(page);await page.locator('#tripFeedback summary').click();await page.locator('#saveFeedback').click();await expect(page.locator('#feedbackStatus')).toContainText('Describe what happened');await page.locator('#feedbackCategory').selectOption('walking');await page.locator('#feedbackMessage').fill('<script>alert(1)</script> Sidewalk is closed.');await page.locator('#saveFeedback').click();await expect(page.locator('#feedbackStatus')).toContainText('Not sent');await expect(page.locator('#feedbackPreview')).toContainText('<script>alert(1)</script>');
+ const url=new URL(await page.locator('#feedbackIssue').getAttribute('href'));expect(url.origin).toBe('https://github.com');const report=await page.evaluate(()=>JSON.parse(localStorage.getItem('wld-feedback-v1'))[0]);expect(Object.keys(report).sort()).toEqual(['category','created','message','routes','stops','version']);expect(url.searchParams.get('body')).not.toContain('37.87');expect(url.searchParams.get('body')).not.toContain('-122.');
+ await page.reload();await page.locator('#appGuide').click();await page.locator('#tripFeedback summary').click();await expect(page.locator('#feedbackPreview')).toContainText('Sidewalk is closed');await expect(page.locator('#feedbackStatus')).toContainText('Not sent');expect(errors).toEqual([]);
+});
+test('planning feedback and the real-phone checklist work without a selected trip',async({page})=>{
+ await setup(page);await page.getByRole('button',{name:'Report a planning problem',exact:true}).click();await expect(page.locator('#feedbackMessage')).toBeVisible();await page.locator('#phoneRideCheck summary').click();await expect(page.locator('#phoneRideCheck')).toContainText('browser tests cannot verify');expect(await page.locator('#phoneRideCheck input[type=checkbox]').count()).toBe(5);await page.locator('#phoneRideCheck input').first().check();await expect(page.locator('#phoneRideCheck input').first()).toBeChecked();
 });
