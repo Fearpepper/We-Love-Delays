@@ -775,3 +775,10 @@ test('feedback saves locally, restores safely, and prepares a public issue witho
 test('planning feedback and the real-phone checklist work without a selected trip',async({page})=>{
  await setup(page);await page.getByRole('button',{name:'Report a planning problem',exact:true}).click();await expect(page.locator('#feedbackMessage')).toBeVisible();await page.locator('#phoneRideCheck summary').click();await expect(page.locator('#phoneRideCheck')).toContainText('browser tests cannot verify');expect(await page.locator('#phoneRideCheck input[type=checkbox]').count()).toBe(5);await page.locator('#phoneRideCheck input').first().check();await expect(page.locator('#phoneRideCheck input').first()).toBeChecked();
 });
+
+test('missed bus preserves the resolved destination when stop names match opposite sides',async({page})=>{
+ await setup(page);const expanded=JSON.parse(JSON.stringify(network));expanded.stops.b2=stop('b2','Beta transfer',-122.2605);expanded.patterns=[{...expanded.patterns[0],stops:['a','b2']}];
+ await page.route('**/api/network',r=>r.fulfill({json:expanded}));await page.reload();await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#place').fill('Beta transfer');await page.locator('#autoFind').click();await page.locator('.route-choice').first().click();
+ expect(await page.evaluate(()=>activeNavigation.search.stopIds.place)).toBe('b');await page.locator('#missedBus').click();await expect(page.locator('#missedBusStatus')).toContainText('Results checked');expect(await page.evaluate(()=>selectedStopIds.place)).toBe('b');expect(await page.evaluate(()=>walkingEndpoint('place').lon)).toBe(-122.26);
+});

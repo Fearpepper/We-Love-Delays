@@ -287,6 +287,17 @@ function navStopTracking(){
  if(gpsWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;if(locationPoint)$('mapText').textContent='Location following stopped. Blue dot shows the last received position.';}
  $('navStart').disabled=false;$('navStop').disabled=true;updateMapFollowControl();
 }
+// Freeze resolved endpoints too: typed stop names can match both sides of a street.
+function captureNavigationSearch(){
+ const state=window.wldCaptureSearch?.();if(!state)return null;
+ for(const [id,key] of [['originSearch','origin'],['place','destination']]){
+  if(state.stopIds[id]||state.places[id])continue;
+  const point=walkingEndpoint(id);if(!point)continue;
+  if(point.id)state.stopIds[id]=point.id;
+  else if(Number.isFinite(point.lat)&&Number.isFinite(point.lon))state.places[id]={lat:point.lat,lon:point.lon,name:state[key]};
+ }
+ return state;
+}
 function setNavigation(legs){
  navStopTracking();
  const timing=estimateTripTiming(legs),steps=[];
@@ -308,7 +319,7 @@ function setNavigation(legs){
  if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  stopDelayMonitor();journey=null;$('finishJourney').disabled=true;updateDelayPreview();
- activeNavigation={legs,steps,progress:0,plan:{...currentPlan},search:window.wldCaptureSearch?.(),reminded:new Set()};
+ activeNavigation={legs,steps,progress:0,plan:{...currentPlan},search:captureNavigationSearch(),reminded:new Set()};
  window.dispatchEvent(new Event('wld:route-selected'));
  $('startJourney').disabled=false;
  // Guide moves the Leaflet element into its own container after route selection.
