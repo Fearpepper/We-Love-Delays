@@ -693,7 +693,7 @@ test('Map explores served stops and selects exact start and destination without 
 });
 
 test('Map search refreshes after panning and handles areas without stops',async({page})=>{
- const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');await page.locator('#appMap').click();
+ const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
  await page.evaluate(()=>routeMap.setView([38.2,-122.8],13,{animate:false}));await page.locator('#searchMapArea').click();
  await expect(page.locator('#mapExplorerStatus')).toContainText('No served AC Transit stops');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
  await page.getByRole('button',{name:'Back to Berkeley',exact:true}).click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+122.2585))).toBeLessThan(.001);
