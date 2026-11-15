@@ -12,8 +12,8 @@
  try{if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>{
    const center=routeMap.getCenter(),zoom=routeMap.getZoom();
    routeMap.invalidateSize({pan:false});
+   routeMap.setView(center,zoom,{animate:false});
    if(map.parentElement===mapHost)window.wldFocusSelectedTripMap?.();
-   else routeMap.setView(center,zoom,{animate:false});
   },180)}catch(e){}
  }
  function syncMap(){
