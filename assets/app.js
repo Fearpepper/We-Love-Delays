@@ -1134,3 +1134,13 @@ window.wldPrepareRecovery=reason=>{
 setInterval(()=>{if(journey)updateLiveDashboard();updateMapFollowControl()},15000);
 
 for(const event of ['wld:trip-finished','wld:route-selected'])window.addEventListener(event,updateMapFollowControl);
+
+window.wldPlanFromMapStop=(stopId,target)=>{
+ const stop=network?.stops?.[stopId];if(!stop||!['originSearch','place'].includes(target))return;
+ if(searchMapClick&&routeMap){routeMap.off('click',searchMapClick);searchMapClick=null;}
+ const item=window.wldCaptureSearch(),key=target==='originSearch'?'origin':'destination';
+ window.wldRestoreSearch({...item,[key]:stop.name,stopIds:{...item.stopIds,[target]:stopId},places:{...item.places,[target]:null}});
+ window.wldSelectTab?.('routes');
+ $('message').textContent=(target==='originSearch'?'Starting stop':'Destination stop')+' selected from the map. Review your locations and Find routes.'+(journey?' Your active trip stays available in Guide until you choose a replacement.':'');
+ const other=$(target==='originSearch'?'place':'originSearch');other.focus();other.scrollIntoView({block:'center',behavior:'smooth'});
+};
