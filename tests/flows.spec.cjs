@@ -700,3 +700,16 @@ test('Map search refreshes after panning and handles areas without stops',async(
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:test.info().outputPath('map-explorer.png'),fullPage:true});expect(errors).toEqual([]);
 });
+
+test('Map keeps its searched area and exact stop actions across repeated Plan transitions',async({page})=>{
+ const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
+ const center=await page.evaluate(()=>({lat:routeMap.getCenter().lat,lng:routeMap.getCenter().lng}));
+ await page.locator('#mapStopList [data-stop-id="a"][data-stop-target="originSearch"]').click();
+ await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
+ await expect.poll(()=>page.evaluate(lng=>Math.abs(routeMap.getCenter().lng-lng),center.lng)).toBeLessThan(.002);
+ await page.locator('#mapStopList [data-stop-id="c"][data-stop-target="place"]').click();await expect(page.locator('#place')).toHaveValue('Gamma destination');
+ await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
+ expect(await page.evaluate(lng=>Math.abs(routeMap.getCenter().lng-lng),center.lng)).toBeLessThan(.002);
+ expect(errors).toEqual([]);
+});

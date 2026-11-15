@@ -10,7 +10,9 @@
  function resize(){
  // Recalculate zoom after the map is moved into the visible Guide container.
  try{if(typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>{
+   const center=routeMap.getCenter(),zoom=routeMap.getZoom();
    routeMap.invalidateSize({pan:false});
+   routeMap.setView(center,zoom,{animate:false});
    if(map.parentElement===mapHost)window.wldFocusSelectedTripMap?.();
   },180)}catch(e){}
  }

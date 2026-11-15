@@ -158,7 +158,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  actions.append(search,reset);controls.append(intro,actions);title.after(controls);
  const status=document.createElement('p');status.id='mapExplorerStatus';status.className='hint';status.setAttribute('role','status');
  const list=document.createElement('div');list.id='mapStopList';list.className='map-stop-list';list.hidden=true;$('mapText').after(status,list);
- let stopLayer=null,cachedNetwork=null,served=new Map(),visible=false,initialized=false;
+ let stopLayer=null,cachedNetwork=null,served=new Map(),visible=false,initialized=false,exploreCamera=null;
  const mapView=()=>innerWidth>790?document.body.dataset.desktopView==='map':document.body.dataset.view==='map';
  function index(){if(cachedNetwork===network)return;cachedNetwork=network;served=new Map();for(const p of network?.patterns||[])for(const id of p.stops||[]){if(!served.has(id))served.set(id,new Set());served.get(id).add(p.route);}}
  function stopCard(stop,meters,popup=false){
@@ -171,12 +171,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   row.append(buttons);if(!popup){const center=document.createElement('button');center.type='button';center.className='map-stop-center';center.textContent='Show stop on map';center.onclick=()=>{mapFollowing=false;updateMapFollowControl();routeMap.setView([stop.lat,stop.lon],17,{animate:false});};row.append(center);}return row;
  }
  function render(){
-  if(!visible)return;list.replaceChildren();if(stopLayer){stopLayer.remove();stopLayer=null;}
-  if(!network){status.textContent='Stop data is unavailable. Open Plan and retry loading transit data.';return;}
+  if(!visible)return;list.hidden=false;list.replaceChildren();if(stopLayer){stopLayer.remove();stopLayer=null;}
+  if(!network){status.textContent=window.wldNetworkReady?'Stop data is unavailable. Open Plan and retry loading transit data.':'Loading AC Transit stops… Nearby stops will appear when the feed is ready.';return;}
   if(!ensureMap()){status.textContent='Interactive map unavailable. Use Plan to search stop names.';return;}
   index();const center=routeMap.getCenter();
   const stops=[...served.keys()].map(id=>network.stops[id]).filter(s=>s&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)).map(s=>({s,meters:distance(center.lat,center.lng,s.lat,s.lon)*1000})).filter(x=>x.meters<=2000).sort((a,b)=>a.meters-b.meters).slice(0,8);
-  stopLayer=L.layerGroup().addTo(routeMap);
+  exploreCamera={center:routeMap.getCenter(),zoom:routeMap.getZoom()};stopLayer=L.layerGroup().addTo(routeMap);
   status.textContent=stops.length?'Showing '+stops.length+' served AC Transit stops within 2 km of the searched center. Select a stop to plan a trip.':'No served AC Transit stops found within 2 km. Move the map or return to Berkeley.';
   for(const {s,meters} of stops){list.append(stopCard(s,meters));L.circleMarker([s.lat,s.lon],{radius:7,color:'#153d2d',weight:2,fillColor:'#d4f67c',fillOpacity:1}).bindPopup(stopCard(s,meters,true),{maxWidth:290}).addTo(stopLayer);}
  }
@@ -184,8 +184,8 @@ window.addEventListener('DOMContentLoaded',()=>{
  reset.onclick=()=>{mapFollowing=false;updateMapFollowControl();if(ensureMap()){routeMap.setView([37.8715,-122.2585],14,{animate:false});render();}};
  function sync(){
   const next=mapView();controls.hidden=!next;status.hidden=!next;list.hidden=!next;title.textContent=next?'Explore bus stops':oldTitle;
-  if(next&&!visible){visible=true;requestAnimationFrame(()=>{if(!visible)return;const center=routeMap?.getCenter(),zoom=routeMap?.getZoom();if(routeMap&&center){routeMap.invalidateSize({pan:false});routeMap.setView(center,zoom,{animate:false});}render();});}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}
-  if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible)status.textContent='Map moved. Tap Search this area to refresh nearby stops.';});}
+  if(next&&!visible){visible=true;list.hidden=true;list.replaceChildren();requestAnimationFrame(()=>{if(!visible)return;const tracked=mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000;const origin=network?walkingEndpoint('originSearch'):null;const center=tracked?{lat:lastNavigationFix.lat,lng:lastNavigationFix.lon}:exploreCamera?.center||{lat:origin?.lat??37.8715,lng:origin?.lon??-122.2585},zoom=tracked?routeMap?.getZoom():exploreCamera?.zoom||14;if(routeMap&&center){routeMap.invalidateSize({pan:false});routeMap.setView(center,zoom,{animate:false});}render();});}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}
+  if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible&&mapView()){exploreCamera={center:routeMap.getCenter(),zoom:routeMap.getZoom()};status.textContent='Map moved. Tap Search this area to refresh nearby stops.';}});}
  }
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
  window.addEventListener('wld:network-ready',()=>{if(visible)render();});window.addEventListener('resize',sync);sync();
