@@ -128,4 +128,5 @@ evidenceCtx.navigator.onLine=false;assert.equal(confidence(visit,clock).kind,'Un
 assert.match(html,/src="\/assets\/daily\.js"/,'daily controller loaded');
 assert.match(fs.readFileSync('sw.js','utf8'),/assets\/daily\.js/,'daily controller works in the saved shell');
 
+evidenceCtx.navigator.onLine=true;
 assert.equal(confidence({aimed:iso(-1),expected:iso(-1),recorded:iso(0)},clock).kind,'Unavailable','departed buses are not due now');

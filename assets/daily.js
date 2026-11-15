@@ -69,6 +69,7 @@
   for(const name of ['wld:route-selected','wld:progress','wld:trip-started','wld:trip-finished','online','offline'])window.addEventListener(name,()=>{renderConfidence();renderNearby();});
   setInterval(()=>{if(document.hidden)return;renderConfidence();if(near.open&&rows.length)renderNearby();},15000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){renderConfidence();renderNearby();}});
+  new MutationObserver(()=>{renderConfidence();renderNearby();}).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
   renderConfidence();
 
   const missed=button('I missed it · check next bus',recover);missed.id='missedBus';const recoveryStatus=node('p',undefined,'hint');recoveryStatus.id='missedBusStatus';recoveryStatus.setAttribute('role','status');$('guideTripControls').append(missed,recoveryStatus);
