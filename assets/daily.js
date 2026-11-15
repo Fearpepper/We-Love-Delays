@@ -19,7 +19,7 @@
   const near=node('details',undefined,'daily-tools focus-fold');near.id='nearbyDepartures';near.append(node('summary','Buses near your starting point'));
   near.append(node('p','Choose a starting point or use your location, then check up to three served stops within 1 km. Distances are straight-line; check walking access.','hint'));
   const actions=node('div',undefined,'actions'),nearStatus=node('p','Departures load when you ask.','hint'),list=node('div');nearStatus.id='nearbyStatus';nearStatus.setAttribute('role','status');list.id='nearbyResults';
-  const refresh=button('Check nearby departures',()=>loadNearby());refresh.id='nearbyRefresh';actions.append(refresh);near.append(actions,nearStatus,list);$('originSearch').closest('.field').before(near);
+  const refresh=button('Check nearby departures',()=>loadNearby());refresh.id='nearbyRefresh';actions.append(refresh);near.append(actions,nearStatus,list);$('originSearch').closest('.field').after(near);
   let indexed=null,served=[],cache=new Map(),inflight=new Map(),version=0,rows=[];
   function indexStops(){if(indexed===network)return;indexed=network;const ids=new Set();for(const p of network?.patterns||[])for(const id of p.stops||[])ids.add(id);served=[...ids].map(id=>network.stops[id]).filter(s=>s?.code&&Number.isFinite(s.lat)&&Number.isFinite(s.lon));cache.clear();}
   async function departures(code){
