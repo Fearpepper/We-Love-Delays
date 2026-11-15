@@ -1171,6 +1171,11 @@ window.wldPlanFromMapStop=(stopId,target)=>{
  const other=$(target==='originSearch'?'place':'originSearch');other.focus();other.scrollIntoView({block:'center',behavior:'smooth'});
 };
 
+function formatLeaveCountdown(minutes){
+ if(minutes<60)return minutes+' min';
+ if(minutes<1440)return Math.floor(minutes/60)+'h '+minutes%60+'m';
+ return Math.floor(minutes/1440)+'d '+Math.floor(minutes%1440/60)+'h';
+}
 function updateCommuteGuidance(){
  const el=$('commuteLeave');if(!el)return;
  const nav=activeNavigation,match=nav?.connection,board=nav?.steps.findIndex(s=>s.kind==='board');
@@ -1178,7 +1183,7 @@ function updateCommuteGuidance(){
  if(nav.progress>board){el.textContent='Trip in progress · follow your next instruction.';return;}
  if(!match){el.textContent='Leave-by time unavailable. Check the published departures or find another route.';return;}
  const mins=Math.ceil((match.leave-Date.now())/60000),dep=Date.parse(match.chain[0].departure),walk=Math.ceil(nav.walks?.[0]?.minutes||0);
- el.textContent=dep<Date.now()?'Scheduled departure has passed. Use Find another way to recheck your connection.':mins<0?'Scheduled leave-by time has passed. Recheck your connection before traveling.':(mins<=1?'Leave now':'Leave in '+mins+' min')+' · '+walk+'-min walk to board · scheduled bus '+fmt(match.chain[0].departure)+'. Includes a 5-minute boarding buffer.';
+ el.textContent=dep<Date.now()?'Scheduled departure has passed. Use Find another way to recheck your connection.':mins<0?'Scheduled leave-by time has passed. Recheck your connection before traveling.':(mins<=1?'Leave now':'Leave in '+formatLeaveCountdown(mins))+' · '+walk+'-min walk to board · scheduled bus '+new Date(match.chain[0].departure).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'. Includes a 5-minute boarding buffer.';
 }
 function maybeRemindStop(lat,lon,accuracy){
  const nav=activeNavigation,step=nav?.steps[nav.progress],el=$('getOffAlert');
