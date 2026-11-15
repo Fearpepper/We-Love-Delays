@@ -181,6 +181,7 @@ function lookupPlaces(value){
  return promise;
 }
 function selectSearchPlace(id,item){
+ if(id==='originSearch'){cancelStartingLocationRequest();if($('locationHelp'))$('locationHelp').hidden=true;}
  selectedPlaces[id]=item;selectedStopIds[id]=null;$(id).value=item.name;
  $(id==='originSearch'?'originSuggestions':'destinationSuggestions').replaceChildren();
  if(ensureMap()){
@@ -192,6 +193,7 @@ function selectSearchPlace(id,item){
 }
 let searchMapClick=null;
 window.wldPickSearchLocation=id=>{
+ if(id==='originSearch')cancelStartingLocationRequest();
  mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();
  if(!['originSearch','place'].includes(id))return;
  window.wldSelectTab?.('map');
@@ -214,6 +216,7 @@ function nearbyStops(point,radius=0.5,limit=18){
 function attachAutocomplete(inputId,listId){
  const field=$(inputId),list=$(listId);let request=0,timer=null;
  field.addEventListener('input',()=>{
+  if(inputId==='originSearch'){cancelStartingLocationRequest();if($('locationHelp'))$('locationHelp').hidden=true;}
   mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();
   selectedPlaces[inputId]=null;selectedStopIds[inputId]=null;const current=++request;clearTimeout(timer);list.innerHTML='';
   const q=field.value.trim().toLowerCase();if(q.length<2)return;
@@ -222,7 +225,7 @@ function attachAutocomplete(inputId,listId){
   matches.sort((a,b)=>(a.name.toLowerCase().startsWith(q)?0:1)-(b.name.toLowerCase().startsWith(q)?0:1)||a.name.localeCompare(b.name));
   const draw=(places=[])=>{if(current!==request)return;list.innerHTML='';
    const choices=[...matches.slice(0,5),...places.slice(0,5).map(p=>({...p,type:'place'}))];
-   for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{request++;clearTimeout(timer);field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;selectedStopIds[inputId]=item.type==='stop'?item.id:null;list.innerHTML='';field.focus();if(item.type==='place')selectSearchPlace(inputId,item);};list.append(btn)}
+   for(const item of choices){const btn=document.createElement('button');btn.type='button';btn.textContent=(item.type==='place'?'📍 ':'🚌 ')+item.name+(item.detail?' · '+item.detail:'');btn.onclick=()=>{if(inputId==='originSearch')cancelStartingLocationRequest();request++;clearTimeout(timer);field.value=item.name;selectedPlaces[inputId]=item.type==='place'?item:null;selectedStopIds[inputId]=item.type==='stop'?item.id:null;list.innerHTML='';field.focus();if(item.type==='place')selectSearchPlace(inputId,item);};list.append(btn)}
   };
   draw();if(q.length>=3){timer=setTimeout(async()=>{try{const data=await lookupPlaces(q);if(current!==request)return;draw(data.places||[]);if(!(data.places||[]).length&&!matches.length){list.textContent='No nearby places found. Try a more specific name.'}}catch(e){if(current===request){const note=document.createElement('div');note.className='hint';note.style.padding='10px';note.textContent='Place search is taking a break. You can still choose the exact location on the map.';const pin=document.createElement('button');pin.type='button';pin.textContent='Choose this location on the map';pin.onclick=()=>{request++;clearTimeout(timer);list.replaceChildren();window.wldPickSearchLocation(inputId);};list.append(note,pin)}}},900)}
  });
@@ -925,35 +928,68 @@ $('chooseMap').onclick=()=>{
  routeMap.once('click',e=>applyStartingCoordinates(e.latlng.lat,e.latlng.lng,'Map-selected location'));
  $('map').scrollIntoView({behavior:'smooth',block:'center'});
 };
-let locationRequestId=0,pendingLocationOrigin=false;
+let locationRequestId=0,pendingLocationOrigin=false,startingLocationTimer=null;
+function showLocationHelp(message,approximate=null){
+ $('locationText').textContent=message;
+ let help=$('locationHelp');
+ if(!help){
+  help=document.createElement('section');help.id='locationHelp';help.className='notice location-help';
+  const title=document.createElement('strong');title.textContent='Choose how to set your starting point';
+  const actions=document.createElement('div');actions.className='actions';
+  const retry=document.createElement('button');retry.type='button';retry.className='btn alt';retry.textContent='Retry location';retry.onclick=()=>$('locate').click();
+  const pin=document.createElement('button');pin.type='button';pin.className='btn alt';pin.textContent='Choose starting point on map';pin.id='locationHelpMap';
+  const settings=document.createElement('details');settings.className='trip-inspector';
+  const summary=document.createElement('summary');summary.textContent='Check location settings';
+  const mac=document.createElement('p');mac.textContent='Mac: System Settings → Privacy & Security → Location Services. Enable Location Services and allow Safari. In Safari → Settings → Websites → Location, allow this website. On older macOS, look in System Preferences → Security & Privacy → Privacy.';
+  const phone=document.createElement('p');phone.textContent='iPhone: Settings → Privacy & Security → Location Services. Enable Location Services, allow Safari Websites while using it, and enable Precise Location for accurate stop selection. Then reload this page and retry.';
+  const note=document.createElement('p');note.textContent='The website cannot switch on device location services. Map selection works without location permission.';note.className='hint';
+  settings.append(summary,mac,phone);actions.append(retry,pin);help.append(title,actions,settings,note);$('originSearch').closest('.field').append(help);
+ }
+ help.hidden=false;
+ $('locationHelpMap').onclick=()=>{
+  cancelStartingLocationRequest();
+  window.wldPickSearchLocation('originSearch');
+  if(approximate&&routeMap){routeMap.setView([approximate.lat,approximate.lon],14);$('mapText').textContent='Approximate device area only (±'+Math.round(approximate.accuracy)+' m). Tap your actual starting point to confirm; no starting stop has been changed.';}
+ };
+}
+function cancelStartingLocationRequest(){
+ locationRequestId++;pendingLocationOrigin=false;clearTimeout(startingLocationTimer);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';
+}
 $('locate').onclick=()=>{
- if(!window.isSecureContext){$('locationText').textContent='Location requires HTTPS. Open the secure website.';return}
- if(!navigator.geolocation){$('locationText').textContent='Location is unavailable in this browser. Enter a starting stop manually.';return}
+ if($('locate').disabled)return;
+ if(!window.isSecureContext){showLocationHelp('Location requires HTTPS. Open the secure website, or choose your starting point on the map.');return}
+ if(!navigator.geolocation){showLocationHelp('Location is unavailable in this browser. Choose your starting point on the map or type a stop.');return}
  const id=++locationRequestId;
- $('locate').disabled=true;
- $('locate').textContent='Locating…';
- $('locationText').textContent='Finding your location and selecting the nearest bus stop. This can take a moment on the first try.';
- // Show the last position immediately while obtaining a fresher GPS fix.
- // Wait for a fresh fix rather than silently replanning from a cached position.
- let done=false;
+ $('locate').disabled=true;$('locate').textContent='Locating…';if($('locationHelp'))$('locationHelp').hidden=true;
+ $('locationText').textContent='Finding your location and selecting the nearest bus stop…';
+ let done=false,phase=0;
  const finish=()=>{
   if(done||id!==locationRequestId)return false;
-  done=true;clearTimeout(watchdog);$('locate').disabled=false;$('locate').textContent='◎ Use my current location';return true
+  done=true;clearTimeout(watchdog);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';return true;
  };
- const watchdog=setTimeout(()=>{
-  if(!finish())return;
-  $('locationText').textContent=locationPoint?'Showing last known location; a fresh GPS fix timed out. Tap again to retry.':'GPS is taking too long. Check location permissions and try again, or choose your position on the map.';
- },30000);
- try{
-  navigator.geolocation.getCurrentPosition(p=>{
+ const watchdog=setTimeout(()=>{if(finish())showLocationHelp('Location took too long. Retry location or choose your starting point on the map. Your previous starting point is kept.');},28000);startingLocationTimer=watchdog;
+ function request(highAccuracy){
+  const currentPhase=++phase;
+  const current=()=>!done&&id===locationRequestId&&phase===currentPhase;
+  const failed=error=>{
+   if(!current())return;
+   if(highAccuracy&&error?.code!==1){$('locationText').textContent='Precise location unavailable. Trying standard device location…';request(false);return;}
    if(!finish())return;
-   const {latitude:lat,longitude:lon,accuracy}=p.coords;if(![lat,lon,accuracy,p.timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||accuracy>200||Date.now()-p.timestamp>30000||p.timestamp>Date.now()+5000){$('locationText').textContent='Device location is outdated or too approximate. Try again outdoors, or choose your location on the map.';return;}
-   applyStartingCoordinates(lat,lon,'Device location',accuracy,p.timestamp);
-  },e=>{
-   if(!finish())return;
-   $('locationText').textContent=e.code===1?'Location permission denied. Allow location access in your browser and device settings.':e.code===2?'Device location unavailable. Check location services or choose your location on the map.':'GPS timed out. Try again or choose your location on the map.';
-  },{timeout:25000,maximumAge:15000,enableHighAccuracy:true});
- }catch(e){if(finish())$('locationText').textContent='Could not start location request: '+e.message}
+   showLocationHelp(error?.code===1?'Location permission denied. Allow this website in your browser and device location settings, then retry.':error?.code===2?'Your browser could not determine your location. Check device Location Services, then retry or choose your starting point on the map.':'Location timed out. Retry location or choose your starting point on the map.');
+  };
+  try{navigator.geolocation.getCurrentPosition(position=>{
+   if(!current())return;
+   const coords=position?.coords||{},lat=coords.latitude,lon=coords.longitude,accuracy=coords.accuracy,stamp=position?.timestamp;
+   const valid=[lat,lon,accuracy,stamp].every(Number.isFinite)&&Math.abs(lat)<=90&&Math.abs(lon)<=180&&accuracy>=0&&Date.now()-stamp<=30000&&stamp<=Date.now()+5000;
+   if(!valid||accuracy>200){
+    if(highAccuracy){$('locationText').textContent='Location is outdated or too approximate. Trying a fresh standard device location…';request(false);return;}
+    if(finish())showLocationHelp('Device location is outdated or too approximate to select the correct bus stop. Choose your actual starting point on the map.',valid&&accuracy<=2000?{lat,lon,accuracy}:null);
+    return;
+   }
+   if(finish())applyStartingCoordinates(lat,lon,'Device location',accuracy,stamp);
+  },failed,{timeout:12000,maximumAge:0,enableHighAccuracy:highAccuracy});}catch{failed({code:2});}
+ }
+ request(true);
 };$('clearLoc').onclick=()=>{locationRequestId++;pendingLocationOrigin=false;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';if(selectedPlaces.originSearch?.source==='device-origin')selectedPlaces.originSearch=null;navStopTracking();locationPoint=null;if(routeMap&&locationAccuracyLayer){routeMap.removeLayer(locationAccuracyLayer);locationAccuracyLayer=null;}if(routeMap&&locationMarker){routeMap.removeLayer(locationMarker);locationMarker=null}$('locationText').textContent='Location cleared. Choose your boarding stop manually.'};
 function chosenStops(){if(!selected||$('board').value===''||$('exit').value==='')return null;const ai=Number($('board').value),bi=Number($('exit').value);if(bi<=ai)return null;return [network.stops[selected.stops[ai]],network.stops[selected.stops[bi]]]}let routeMap=null,routeLayer=null,locationMarker=null,placeMarker=null;
 let locationAccuracyLayer=null,mapFollowControl=null;
@@ -1149,6 +1185,7 @@ load();
 // Capture exact selections so repeated trips do not silently choose another branch.
 window.wldCaptureSearch=()=>({origin:$('originSearch').value.trim(),destination:$('place').value.trim(),stopIds:{...selectedStopIds},places:{...selectedPlaces}});
 window.wldRestoreSearch=item=>{
+ cancelStartingLocationRequest();if($('locationHelp'))$('locationHelp').hidden=true;
  for(const [id,key] of [['originSearch','origin'],['place','destination']]){
   $(id).value=String(item[key]||'');$(id).dispatchEvent(new Event('input',{bubbles:true}));
   const stopId=item.stopIds?.[id];selectedStopIds[id]=typeof stopId==='string'?stopId:null;
