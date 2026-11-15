@@ -953,7 +953,7 @@ function showLocationHelp(message,approximate=null){
  };
 }
 function cancelStartingLocationRequest(){
- locationRequestId++;clearTimeout(startingLocationTimer);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';
+ locationRequestId++;pendingLocationOrigin=false;clearTimeout(startingLocationTimer);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';
 }
 $('locate').onclick=()=>{
  if($('locate').disabled)return;

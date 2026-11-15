@@ -803,3 +803,9 @@ test('manual origin selection wins over a late location callback',async({page})=
  await page.addInitScript(()=>{window.pendingLocation=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){window.pendingLocation.push(ok);}}});});
  await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await page.locator('#originSearch').fill('Beta transfer');await page.locator('#originSuggestions button').first().click();await page.evaluate(()=>window.pendingLocation[0]({coords:{latitude:37.87,longitude:-122.27,accuracy:5},timestamp:Date.now()}));await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');await expect(page.locator('#locate')).toBeEnabled();
 });
+
+test('manual origin is kept when GPS resolves before a slow transit download',async({page})=>{
+ let release;const ready=new Promise(resolve=>release=resolve);
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.87,longitude:-122.27,accuracy:5},timestamp:Date.now()}),0);}}}));
+ await setup(page,false,ready);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationText')).toContainText('Waiting for AC Transit');await page.locator('#originSearch').fill('Beta transfer');release();await expect(page.locator('#message')).toContainText('AC Transit data loaded');await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');
+});
