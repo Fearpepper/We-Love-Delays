@@ -783,9 +783,9 @@ test('missed bus preserves the resolved destination when stop names match opposi
  expect(await page.evaluate(()=>activeNavigation.search.stopIds.place)).toBe('b');await page.locator('#missedBus').click();await expect(page.locator('#missedBusStatus')).toContainText('Results checked');await expect(page.locator('#missedBusResults .route-choice').first()).toContainText('Direct');expect(await page.evaluate(()=>selectedStopIds.place)).toBe('b');expect(await page.evaluate(()=>walkingEndpoint('place').lon)).toBe(-122.26);
 });
 
-for(const code of [2,3])test('current location retries standard accuracy after provider error '+code,async({page})=>{
- await page.addInitScript(code=>{window.locationOptions=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.locationOptions.push(options);setTimeout(()=>options.enableHighAccuracy?fail({code}):ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:80},timestamp:Date.now()}),0);}}});},code);
- const errors=await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>[o.enableHighAccuracy,o.maximumAge]))).toEqual([[true,0],[false,0]]);await expect(page.locator('#locate')).toBeEnabled();expect(errors).toEqual([]);
+for(const code of [2,3])test('current location retries precise accuracy after provider error '+code,async({page})=>{
+ await page.addInitScript(code=>{window.locationOptions=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.locationOptions.push(options);setTimeout(()=>!options.enableHighAccuracy?fail({code}):ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:80},timestamp:Date.now()}),0);}}});},code);
+ const errors=await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>[o.enableHighAccuracy,o.maximumAge]))).toEqual([[false,30000],[true,0]]);await expect(page.locator('#locate')).toBeEnabled();expect(errors).toEqual([]);
 });
 test('denied location does not retry and exposes permission help and map recovery',async({page})=>{
  await page.addInitScript(()=>{window.locationCalls=0;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail){window.locationCalls++;setTimeout(()=>fail({code:1}),0);}}});});
@@ -828,3 +828,12 @@ test('assignment demo keeps an active real trip intact and pauses when closed',a
 test('assignment simulation runs when transit APIs and map scripts are unavailable',async({page})=>{
  await page.route('**/api/**',r=>r.fulfill({status:503,json:{error:'Offline fixture'}}));await page.route('**/unpkg.com/**',r=>r.abort());await page.goto('/');await openAssignmentDemo(page);await expect(page.locator('.demo-map')).toBeVisible();await page.locator('#demoJump').selectOption('5');await page.locator('#demoSkip').click();await page.locator('#demoCollect').click();await expect(page.locator('#demoCompletion')).toContainText('50 fictional points');
 });
+
+ test('current location accepts a recent accurate cached standard fix without waiting for GPS',async({page})=>{
+ await page.addInitScript(()=>{window.locationOptions=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.locationOptions.push(options);setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:80},timestamp:Date.now()-20000}),0);}}});});
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>[o.enableHighAccuracy,o.maximumAge]))).toEqual([[false,30000]]);
+ });
+ test('hung standard location advances to precise GPS and ignores a late first callback',async({page})=>{
+ await page.addInitScript(()=>{window.locationOptions=[];window.firstLocation=null;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.locationOptions.push(options);if(!options.enableHighAccuracy)window.firstLocation=ok;else setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:15},timestamp:Date.now()}),0);}}});});
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await page.evaluate(()=>window.firstLocation({coords:{latitude:37.87,longitude:-122.26,accuracy:10},timestamp:Date.now()}));await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>o.enableHighAccuracy))).toEqual([false,true]);
+ });
