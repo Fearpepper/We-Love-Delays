@@ -962,34 +962,37 @@ $('locate').onclick=()=>{
  const id=++locationRequestId;
  $('locate').disabled=true;$('locate').textContent='Locating…';if($('locationHelp'))$('locationHelp').hidden=true;
  $('locationText').textContent='Finding your location and selecting the nearest bus stop…';
- let done=false,phase=0;
+ let done=false,phase=0,phaseTimer=null;
  const finish=()=>{
   if(done||id!==locationRequestId)return false;
-  done=true;clearTimeout(watchdog);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';return true;
+  done=true;clearTimeout(watchdog);clearTimeout(phaseTimer);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';return true;
  };
- const watchdog=setTimeout(()=>{if(finish())showLocationHelp('Location took too long. Retry location or choose your starting point on the map. Your previous starting point is kept.');},28000);startingLocationTimer=watchdog;
+ const watchdog=setTimeout(()=>{if(finish())showLocationHelp('Location took too long. Retry location or choose your starting point on the map. Your previous starting point is kept.');},34000);startingLocationTimer=watchdog;
  function request(highAccuracy){
+  clearTimeout(phaseTimer);
   const currentPhase=++phase;
   const current=()=>!done&&id===locationRequestId&&phase===currentPhase;
   const failed=error=>{
    if(!current())return;
-   if(highAccuracy&&error?.code!==1){$('locationText').textContent='Precise location unavailable. Trying standard device location…';request(false);return;}
+   if(!highAccuracy&&error?.code!==1){$('locationText').textContent='Getting a more precise location… This can take up to 25 seconds.';request(true);return;}
    if(!finish())return;
    showLocationHelp(error?.code===1?'Location permission denied. Allow this website in your browser and device location settings, then retry.':error?.code===2?'Your browser could not determine your location. Check device Location Services, then retry or choose your starting point on the map.':'Location timed out. Retry location or choose your starting point on the map.');
   };
+  // Some browsers fail to call either callback; advance even if the provider hangs.
+  phaseTimer=setTimeout(()=>failed({code:3}),highAccuracy?26000:7000);
   try{navigator.geolocation.getCurrentPosition(position=>{
    if(!current())return;
    const coords=position?.coords||{},lat=coords.latitude,lon=coords.longitude,accuracy=coords.accuracy,stamp=position?.timestamp;
    const valid=[lat,lon,accuracy,stamp].every(Number.isFinite)&&Math.abs(lat)<=90&&Math.abs(lon)<=180&&accuracy>=0&&Date.now()-stamp<=30000&&stamp<=Date.now()+5000;
    if(!valid||accuracy>200){
-    if(highAccuracy){$('locationText').textContent='Location is outdated or too approximate. Trying a fresh standard device location…';request(false);return;}
+    if(!highAccuracy){$('locationText').textContent='Refining your location to find the correct stop…';request(true);return;}
     if(finish())showLocationHelp('Device location is outdated or too approximate to select the correct bus stop. Choose your actual starting point on the map.',valid&&accuracy<=2000?{lat,lon,accuracy}:null);
     return;
    }
    if(finish())applyStartingCoordinates(lat,lon,'Device location',accuracy,stamp);
-  },failed,{timeout:12000,maximumAge:0,enableHighAccuracy:highAccuracy});}catch{failed({code:2});}
+  },failed,{timeout:highAccuracy?25000:6000,maximumAge:highAccuracy?0:30000,enableHighAccuracy:highAccuracy});}catch{failed({code:2});}
  }
- request(true);
+ request(false);
 };$('clearLoc').onclick=()=>{locationRequestId++;pendingLocationOrigin=false;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';if(selectedPlaces.originSearch?.source==='device-origin')selectedPlaces.originSearch=null;navStopTracking();locationPoint=null;if(routeMap&&locationAccuracyLayer){routeMap.removeLayer(locationAccuracyLayer);locationAccuracyLayer=null;}if(routeMap&&locationMarker){routeMap.removeLayer(locationMarker);locationMarker=null}$('locationText').textContent='Location cleared. Choose your boarding stop manually.'};
 function chosenStops(){if(!selected||$('board').value===''||$('exit').value==='')return null;const ai=Number($('board').value),bi=Number($('exit').value);if(bi<=ai)return null;return [network.stops[selected.stops[ai]],network.stops[selected.stops[bi]]]}let routeMap=null,routeLayer=null,locationMarker=null,placeMarker=null;
 let locationAccuracyLayer=null,mapFollowControl=null;
