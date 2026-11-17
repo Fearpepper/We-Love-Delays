@@ -943,21 +943,9 @@ function showLocationHelp(message,approximate=null){
   const mac=document.createElement('p');mac.textContent='Mac: System Settings → Privacy & Security → Location Services. Enable Location Services and allow Safari. In Safari → Settings → Websites → Location, allow this website. On older macOS, look in System Preferences → Security & Privacy → Privacy.';
   const phone=document.createElement('p');phone.textContent='iPhone: Settings → Privacy & Security → Location Services. Enable Location Services, allow Safari Websites while using it, and enable Precise Location for accurate stop selection. Then reload this page and retry.';
   const note=document.createElement('p');note.textContent='The website cannot switch on device location services. Map selection works without location permission.';note.className='hint';
-  const approximateButton=document.createElement('button');approximateButton.type='button';approximateButton.className='btn alt';approximateButton.id='locationHelpApproximate';approximateButton.textContent='Use approximate starting point';approximateButton.hidden=true;
-  const accuracyNote=document.createElement('p');accuracyNote.id='locationHelpAccuracy';accuracyNote.className='hint';accuracyNote.hidden=true;
-  settings.append(summary,mac,phone);actions.append(approximateButton,retry,pin);help.append(accuracyNote);help.append(title,actions,settings,note);$('originSearch').closest('.field').append(help);
+  settings.append(summary,mac,phone);actions.append(retry,pin);help.append(title,actions,settings,note);$('originSearch').closest('.field').append(help);
  }
  help.hidden=false;
- const usable=approximate&&Date.now()-approximate.timestamp<=120000&&approximate.accuracy<=2000;
- $('locationHelpApproximate').hidden=!usable;$('locationHelpAccuracy').hidden=!usable;
- if(usable){
-  $('locationHelpAccuracy').textContent='Your device found an approximate position (±'+Math.round(approximate.accuracy)+' m). You can use it for planning, or move the map pin for a more accurate walking route and boarding stop. It is not precise navigation GPS.';
-  $('locationHelpApproximate').onclick=()=>{
-   if(Date.now()-approximate.timestamp>120000){showLocationHelp('That approximate position has expired. Retry location or choose a starting point on the map.');return;}
-   cancelStartingLocationRequest();help.hidden=true;applyStartingCoordinates(approximate.lat,approximate.lon,'Approximate device location',approximate.accuracy,approximate.timestamp);
-   $('locationText').textContent+=' Approximate position (±'+Math.round(approximate.accuracy)+' m): confirm the boarding stop and walking route before starting.';
-  };
- }
  $('locationHelpMap').onclick=()=>{
   cancelStartingLocationRequest();
   window.wldPickSearchLocation('originSearch');
@@ -974,8 +962,7 @@ $('locate').onclick=()=>{
  const id=++locationRequestId;
  $('locate').disabled=true;$('locate').textContent='Locating…';if($('locationHelp'))$('locationHelp').hidden=true;
  $('locationText').textContent='Finding your location and selecting the nearest bus stop…';
- let done=false,phase=0,phaseTimer=null,approximate=null;
- const offerApproximate=()=>showLocationHelp('Your device found only an approximate location. Use it for planning or confirm your actual starting point on the map.',approximate);
+ let done=false,phase=0,phaseTimer=null;
  const finish=()=>{
   if(done||id!==locationRequestId)return false;
   done=true;clearTimeout(watchdog);clearTimeout(phaseTimer);startingLocationTimer=null;$('locate').disabled=false;$('locate').textContent='◎ Use my current location';return true;
@@ -989,7 +976,6 @@ $('locate').onclick=()=>{
    if(!current())return;
    if(!highAccuracy&&error?.code!==1){$('locationText').textContent='Getting a more precise location… This can take up to 25 seconds.';request(true);return;}
    if(!finish())return;
-   if(error?.code!==1&&approximate){offerApproximate();return;}
    showLocationHelp(error?.code===1?'Location permission denied. Allow this website in your browser and device location settings, then retry.':error?.code===2?'Your browser could not determine your location. Check device Location Services, then retry or choose your starting point on the map.':'Location timed out. Retry location or choose your starting point on the map.');
   };
   // Some browsers fail to call either callback; advance even if the provider hangs.
@@ -999,13 +985,20 @@ $('locate').onclick=()=>{
    const coords=position?.coords||{},lat=coords.latitude,lon=coords.longitude,accuracy=coords.accuracy,stamp=position?.timestamp;
    const sane=[lat,lon,accuracy,stamp].every(Number.isFinite)&&Math.abs(lat)<=90&&Math.abs(lon)<=180&&accuracy>=0&&stamp<=Date.now()+5000;
    const valid=sane&&Date.now()-stamp<=30000;
-   if(sane&&Date.now()-stamp<=120000&&accuracy<=2000&&(!approximate||accuracy<approximate.accuracy))approximate={lat,lon,accuracy,timestamp:stamp};
-   if(!valid||accuracy>200){
-    if(!highAccuracy){$('locationText').textContent='Refining your location to find the correct stop…';request(true);return;}
-    if(finish()){if(approximate)offerApproximate();else showLocationHelp(!valid?'Device location is outdated. Retry for a fresh position or choose your starting point on the map.':'Your device location covers too wide an area. Choose your actual starting point on the map.');}
+   // Planning can use a recent approximate origin; live navigation keeps stricter GPS checks.
+   if(sane&&Date.now()-stamp<=120000&&accuracy<=2000){
+    if(finish()){
+     const approximate=accuracy>200||!valid;
+     applyStartingCoordinates(lat,lon,approximate?'Approximate device location':'Device location',accuracy,stamp);
+     if(approximate)$('locationText').textContent+=' Approximate position (±'+Math.round(accuracy)+' m): check your boarding stop and walking route.';
+    }
     return;
    }
-   if(finish())applyStartingCoordinates(lat,lon,'Device location',accuracy,stamp);
+   if(!valid||accuracy>200){
+    if(!highAccuracy){$('locationText').textContent='Refining your location to find the correct stop…';request(true);return;}
+    if(finish()){showLocationHelp(!valid?'Device location is outdated. Retry for a fresh position or choose your starting point on the map.':'Your device location covers too wide an area. Choose your actual starting point on the map.');}
+    return;
+   }
   },failed,{timeout:highAccuracy?25000:6000,maximumAge:highAccuracy?0:30000,enableHighAccuracy:highAccuracy});}catch{failed({code:2});}
  }
  request(false);
