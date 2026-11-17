@@ -671,7 +671,7 @@ test('a throwing GPS provider keeps trip finish and location retry usable',async
 });
 
 for(const stale of [false,true])test('current location keeps the real walking origin '+(stale?'and rejects stale fixes':'instead of snapping to a stop'),async({page})=>{
- await page.addInitScript(stale=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:10},timestamp:Date.now()-(stale?60000:0)}),0)},clearWatch(){}}}),stale);
+ await page.addInitScript(stale=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:10},timestamp:Date.now()-(stale?180000:0)}),0)},clearWatch(){}}}),stale);
  const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();
  if(stale){await expect(page.locator('#locationText')).toContainText('outdated');await expect(page.locator('#originSearch')).toHaveValue('');}
@@ -837,3 +837,12 @@ test('assignment simulation runs when transit APIs and map scripts are unavailab
  await page.addInitScript(()=>{window.locationOptions=[];window.firstLocation=null;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.locationOptions.push(options);if(!options.enableHighAccuracy)window.firstLocation=ok;else setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:15},timestamp:Date.now()}),0);}}});});
  await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await page.evaluate(()=>window.firstLocation({coords:{latitude:37.87,longitude:-122.26,accuracy:10},timestamp:Date.now()}));await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>o.enableHighAccuracy))).toEqual([false,true]);
  });
+
+test('approximate location is available for planning only after explicit confirmation',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:800},timestamp:Date.now()}),0);}}}));
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelpApproximate')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');await expect(page.locator('#locationHelpAccuracy')).toContainText('800 m');await page.locator('#locationHelpApproximate').click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#locationText')).toContainText('confirm the boarding stop');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);
+});
+test('standard approximate fix survives a precise provider failure',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){setTimeout(()=>options.enableHighAccuracy?fail({code:3}):ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:900},timestamp:Date.now()}),0);}}}));
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelpApproximate')).toBeVisible();await expect(page.locator('#locationHelpAccuracy')).toContainText('900 m');await expect(page.locator('#originSearch')).toHaveValue('');
+});
