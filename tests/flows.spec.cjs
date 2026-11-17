@@ -795,9 +795,9 @@ test('unavailable location retries once then keeps the existing starting point',
  await page.addInitScript(()=>{window.locationCalls=0;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail){window.locationCalls++;setTimeout(()=>fail({code:2}),0);}}});});
  const errors=await setup(page);await page.locator('#originSearch').fill('Beta transfer');await page.locator('#originSuggestions button').first().click();await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelp')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');expect(await page.evaluate(()=>window.locationCalls)).toBe(2);await expect(page.locator('#locate')).toBeEnabled();expect(errors).toEqual([]);
 });
-test('approximate position requires map confirmation rather than choosing the wrong stop',async({page})=>{
- await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:800},timestamp:Date.now()}),0);}}}));
- await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelp')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');await page.locator('#locationHelpMap').click();await expect(page.locator('#mapText')).toContainText('Approximate device area only');expect(await page.evaluate(()=>selectedStopIds.originSearch)).toBe(null);
+test('very broad position requires map confirmation rather than choosing the wrong stop',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:8000},timestamp:Date.now()}),0);}}}));
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelp')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');await page.locator('#locationHelpMap').click();await expect(page.locator('#mapText')).toContainText('Tap the map');expect(await page.evaluate(()=>selectedStopIds.originSearch)).toBe(null);
 });
 test('manual origin selection wins over a late location callback',async({page})=>{
  await page.addInitScript(()=>{window.pendingLocation=[];Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){window.pendingLocation.push(ok);}}});});
@@ -838,11 +838,11 @@ test('assignment simulation runs when transit APIs and map scripts are unavailab
  await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await page.evaluate(()=>window.firstLocation({coords:{latitude:37.87,longitude:-122.26,accuracy:10},timestamp:Date.now()}));await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');expect(await page.evaluate(()=>window.locationOptions.map(o=>o.enableHighAccuracy))).toEqual([false,true]);
  });
 
-test('approximate location is available for planning only after explicit confirmation',async({page})=>{
+test('one click applies approximate location directly with an accuracy warning',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:800},timestamp:Date.now()}),0);}}}));
- await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelpApproximate')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');await expect(page.locator('#locationHelpAccuracy')).toContainText('800 m');await page.locator('#locationHelpApproximate').click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#locationText')).toContainText('confirm the boarding stop');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#locationText')).toContainText('800 m');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);
 });
-test('standard approximate fix survives a precise provider failure',async({page})=>{
+test('standard approximate fix works without requiring the precise provider',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){setTimeout(()=>options.enableHighAccuracy?fail({code:3}):ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:900},timestamp:Date.now()}),0);}}}));
- await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationHelpApproximate')).toBeVisible();await expect(page.locator('#locationHelpAccuracy')).toContainText('900 m');await expect(page.locator('#originSearch')).toHaveValue('');
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#locationText')).toContainText('900 m');
 });
