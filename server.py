@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Local-only Berkeley bus prototype. Python standard library only."""
+import transit_provider
 import csv, datetime, io, json, math, os, pathlib, resource, sys, threading, time, urllib.parse, urllib.request, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parent
@@ -358,8 +359,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
-        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js','/assets/daily.js','/assets/assignment-demo.js'):
-            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8','/assets/dashboard.js':'text/javascript; charset=utf-8','/assets/guide.js':'text/javascript; charset=utf-8','/assets/experience.js':'text/javascript; charset=utf-8','/assets/focus.js':'text/javascript; charset=utf-8','/assets/reliability.js':'text/javascript; charset=utf-8','/assets/alerts.js':'text/javascript; charset=utf-8','/assets/daily.js':'text/javascript; charset=utf-8','/assets/assignment-demo.js':'text/javascript; charset=utf-8'}
+        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js','/assets/daily.js','/assets/assignment-demo.js','/assets/transit-planner.js'):
+            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8','/assets/dashboard.js':'text/javascript; charset=utf-8','/assets/guide.js':'text/javascript; charset=utf-8','/assets/experience.js':'text/javascript; charset=utf-8','/assets/focus.js':'text/javascript; charset=utf-8','/assets/reliability.js':'text/javascript; charset=utf-8','/assets/alerts.js':'text/javascript; charset=utf-8','/assets/daily.js':'text/javascript; charset=utf-8','/assets/assignment-demo.js':'text/javascript; charset=utf-8','/assets/transit-planner.js':'text/javascript; charset=utf-8'}
             data=(ROOT/path.path.lstrip('/')).read_bytes()
             self.send_response(200)
             self.send_header('Content-Type',assets[path.path])
@@ -385,8 +386,9 @@ class Handler(BaseHTTPRequestHandler):
             data=(ROOT/'index.html').read_bytes();self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data);return
         try:
             if path.path=='/api/alerts':return self.respond(200,cached('alerts:AC',600,lambda:normalize_alerts(upstream('servicealerts',{'agency':'AC','format':'json'}))))
-            if path.path=='/api/status':return self.respond(200,{'configured':bool(KEY),'agency':'AC Transit','location':'Berkeley, California','local':False})
+            if path.path=='/api/status':return self.respond(200,{'configured':bool(KEY),'transit_configured':transit_provider.configured(),'agency':'AC Transit','location':'Berkeley, California','local':False})
             if path.path=='/health':return self.respond(200,{'ok':True})
+            if path.path=='/api/transit-plan':return self.respond(200,transit_provider.plan(q,cached))
             if path.path=='/api/network':return self.respond(200,gtfs())
             if path.path=='/api/places':return self.respond(200,{'places':cached('places:'+q.get('q',[''])[0].strip().casefold(),900,lambda:places(q.get('q',[''])[0]))})
             if path.path=='/api/network/status':
