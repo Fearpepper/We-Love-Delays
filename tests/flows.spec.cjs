@@ -238,6 +238,7 @@ test('tabs preserve selected route and remain within the viewport',async({page})
  expect(errors).toEqual([]);
 });
 test('transit outage shows a useful error without simulated routes',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('wld-onboarded','1'));
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/status',route=>route.fulfill({json:{configured:true}}));
  await page.route('**/api/network',route=>route.fulfill({status:503,json:{error:'Transit feed temporarily unavailable'}}));
@@ -811,7 +812,7 @@ test('manual origin is kept when GPS resolves before a slow transit download',as
  await setup(page,false,ready);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationText')).toContainText('Waiting for AC Transit');await page.locator('#originSearch').fill('Beta transfer');release();await expect(page.locator('#message')).toContainText('AC Transit data loaded');await expect(page.locator('#originSearch')).toHaveValue('Beta transfer');
 });
 
-async function openAssignmentDemo(page){if(!(await page.locator('#assignmentDemo').isVisible()))await page.locator('#appTrips').click();await page.getByRole('button',{name:'Assignment demo',exact:true}).click();await expect(page.locator('#assignmentDemoDialog')).toBeVisible();}
+async function openAssignmentDemo(page){if(await page.locator('.onboarding-overlay').isVisible())await page.locator('.onboarding-panel').getByRole('button',{name:'Close',exact:true}).click();if(!(await page.locator('#assignmentDemo').isVisible()))await page.locator('#appTrips').click();await page.getByRole('button',{name:'Assignment demo',exact:true}).click();await expect(page.locator('#assignmentDemoDialog')).toBeVisible();}
 test('small assignment demo opens without GPS and completes with separate replayable points',async({page})=>{
  await page.addInitScript(()=>{window.demoGpsCalls=0;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(){window.demoGpsCalls++},watchPosition(){window.demoGpsCalls++},clearWatch(){}}});});
  const errors=await setup(page);await page.screenshot({path:test.info().outputPath('assignment-demo-entry.png'),fullPage:false});const before=await page.evaluate(()=>({points:localStorage.getItem('wld-berkeley-points'),history:localStorage.getItem('wld-berkeley-reward-history')}));await openAssignmentDemo(page);
