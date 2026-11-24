@@ -127,12 +127,19 @@ def plan(q,cache):
     if not configured():return {'available':False,'reason':'Transit is not configured. Using 511.'}
     def run():
         params=dict(points,mode='transit',secondary_mode='walk',allowed_modes='Bus',
-            num_result=3,max_num_legs=5,should_include_directions='true',should_update_realtime='true',consider_downtimes='true',
+            num_result=6,max_num_legs=7,should_use_walk_path_duration='true',should_include_directions='true',should_update_realtime='true',consider_downtimes='true',
             accessibility_need='strict' if step_free else 'none',walk_speed=1.25,
             max_distance_between_location_and_stop=min(1500,max_walk*75))
         if at is not None:params['arrival_time' if mode=='arrive' else 'leave_time']=at
-        results=normalize(request('plan',params),None,max_walk,step_free)
-        return {'available':True,'source':'Transit','fetched':int(time.time()),'results':results}
-    key='transit:national-plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
+        raw=request('plan',params)
+        results=normalize(raw,None,max_walk,step_free)
+        empty_reason=None
+        if not results:
+            if max_walk<30 and normalize(raw,None,30,step_free):empty_reason='walking_limit'
+            elif step_free and normalize(raw,None,max_walk,False):empty_reason='accessibility'
+            elif any(any(leg.get('leg_mode')=='transit' for leg in result.get('legs',[]) if isinstance(leg,dict)) for result in raw.get('results',[]) if isinstance(result,dict)):empty_reason='unusable_plan'
+            else:empty_reason='no_departures'
+        return {'available':True,'source':'Transit','fetched':int(time.time()),'results':results,'empty_reason':empty_reason}
+    key='transit:walk-path-plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
     try:return cache(key,90,run)
     except RuntimeError as e:return {'available':False,'reason':str(e)}

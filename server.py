@@ -131,9 +131,11 @@ def places(query,focus=None,area=""):
     key=os.getenv('ORS_API_KEY','').strip()
     providers=[]
     if key:
-        params={'text':query,'focus.point.lat':lat,'focus.point.lon':lon,'size':12}
+        params={'text':query,'size':12}
+        if focus or not area:params.update({'focus.point.lat':lat,'focus.point.lon':lon})
         providers.append(('OpenRouteService','https://api.heigit.org/pelias/v1/autocomplete?'+urllib.parse.urlencode(params),dict(headers,Authorization=key)))
-    params={'q':query,'lat':lat,'lon':lon,'limit':12,'lang':'en'}
+    params={'q':query,'limit':12,'lang':'en'}
+    if focus or not area:params.update(lat=lat,lon=lon)
     providers.append(('Photon / OpenStreetMap','https://photon.komoot.io/api/?'+urllib.parse.urlencode(params),headers))
     succeeded=False;out=[];seen=set()
     for source,url,request_headers in providers:

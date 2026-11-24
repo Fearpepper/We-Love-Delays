@@ -10,6 +10,11 @@ class FeedbackTests(unittest.TestCase):
   with patch.dict(os.environ,{'ORS_API_KEY':'test'}),patch.dict(server.PLACE_RETRY,{},clear=True),patch('urllib.request.urlopen',side_effect=fetch):
    result=server.places('cafe',(29.7604,-95.3698),'Houston, TX')
   self.assertEqual(result[0]['lat'],29.7604);self.assertIn('Houston',result[0]['detail']);self.assertIn('Houston',requests[0].full_url);self.assertNotIn('boundary.rect',requests[0].full_url);self.assertNotIn('bbox=',requests[1].full_url);self.assertIn('29.7604',requests[0].full_url)
+ def test_explicit_city_does_not_keep_default_berkeley_focus(self):
+  requests=[]
+  def fetch(req,timeout):requests.append(req.full_url);return io.BytesIO(b'{"features":[]}')
+  with patch.dict(os.environ,{'ORS_API_KEY':'test'}),patch.dict(server.PLACE_RETRY,{},clear=True),patch('urllib.request.urlopen',side_effect=fetch):server.places('Foothill High School',None,'Bakersfield, CA')
+  self.assertEqual(len(requests),2);self.assertTrue(all('Bakersfield' in u for u in requests));self.assertTrue(all('focus.point' not in u and 'lat=' not in u and 'lon=' not in u for u in requests))
  def test_rider_sessions_count_deduplicate_move_and_expire(self):
   token='a'*24
   with patch('crowd.time.time',return_value=1000):

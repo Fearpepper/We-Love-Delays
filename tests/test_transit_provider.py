@@ -39,7 +39,7 @@ class TransitTests(unittest.TestCase):
         with patch.object(transit,'request',side_effect=request):
             a=transit.plan(self.query(),cached);b=transit.plan(self.query(),cached)
         self.assertTrue(a['available']);self.assertEqual(a,b);self.assertEqual(len(calls),1)
-        self.assertNotIn('allowed_networks',calls[0][1]);self.assertEqual(calls[0][1]['accessibility_need'],'strict')
+        self.assertEqual(calls[0][1]['should_use_walk_path_duration'],'true');self.assertEqual(calls[0][1]['num_result'],6);self.assertNotIn('allowed_networks',calls[0][1]);self.assertEqual(calls[0][1]['accessibility_need'],'strict')
         self.assertEqual(calls[0][1]['max_distance_between_location_and_stop'],1125)
     def test_upstream_failure_hides_secret_and_circuit_breaks(self):
         with patch.object(transit.urllib.request,'urlopen',side_effect=Exception('test-only-secret')) as upstream:
@@ -71,3 +71,10 @@ class NationalTests(unittest.TestCase):
    for route in leg.get('routes',[]):route['route_network_id']='METRO|Houston'
   self.assertEqual(len(transit.normalize(raw,None,15,False)),1)
   self.assertEqual(transit.normalize(raw,None,15,False)[0]['legs'][1]['network_id'],'METRO|Houston')
+
+class EmptyPlanTests(unittest.TestCase):
+ def test_empty_plan_distinguishes_walking_accessibility_and_missing_departures(self):
+  q={k:[str(v)] for k,v in dict(from_lat=35.36,from_lon=-118.92,to_lat=35.3375,to_lon=-119.0337,max_walk=5,mode='now').items()}
+  with patch.dict(os.environ,{'TRANSIT_API_KEY':'test'}):
+   with patch.object(transit,'request',return_value=FIXTURE):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'walking_limit')
+   with patch.object(transit,'request',return_value={'results':[]}):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'no_departures')
