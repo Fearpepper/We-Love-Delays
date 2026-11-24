@@ -96,15 +96,15 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),card=$('autoFind').closest('.card');
  document.body.classList.add('map-led-app');
- const workspace=document.createElement('section');workspace.id='plannerWorkspace';workspace.setAttribute('aria-label','Plan a trip on the East Bay map');
+ const workspace=document.createElement('section');workspace.id='plannerWorkspace';workspace.setAttribute('aria-label','Plan a bus trip');
  const mapHost=document.createElement('div');mapHost.id='planMapHost';mapHost.className='planner-map-host';
  const stageTitle=document.createElement('div');stageTitle.className='map-stage-title';stageTitle.setAttribute('aria-hidden','true');
- const eyebrow=document.createElement('span');eyebrow.textContent='EAST BAY / AC TRANSIT';
+ const eyebrow=document.createElement('span');eyebrow.textContent='YOUR NEXT RIDE';
  const headline=document.createElement('strong');headline.textContent="Make moves.";
  const subtitle=document.createElement('span');subtitle.textContent='Your next ride starts here.';stageTitle.append(eyebrow,headline,subtitle);
  card.before(workspace);workspace.append(mapHost,stageTitle,card);
  card.querySelector('h2').textContent="Let's go.";
- const intro=document.createElement('p');intro.className='planner-intro';intro.textContent='Places, addresses, or bus stops. Pick a location, then compare your ride.';card.querySelector('h2').after(intro);
+ const intro=document.createElement('p');intro.className='planner-intro';intro.textContent='Choose a start and destination.';card.querySelector('h2').after(intro);
  for(const [id,label] of [['originSearch','From'],['place','To']]){
   const input=$(id),field=input.closest('.field'),fieldLabel=field.querySelector('label');
   if(fieldLabel)fieldLabel.textContent=label;
@@ -123,7 +123,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  if(manual){manual.classList.add('advanced-planner');if(preview)manual.append(preview);}
  const legacyLocation=document.querySelector('.focus-location-tools')?.closest('.field');if(manual&&legacyLocation)manual.append(legacyLocation);
  const arrivalCard=$('arrivals').closest('.card');
- if(arrivalCard&&arrivalCard!==card){const arrivalDetails=document.createElement('details');arrivalDetails.className='arrival-drawer';const title=document.createElement('summary');title.textContent='Boarding-stop arrivals & all service notices';arrivalDetails.append(title);arrivalCard.before(arrivalDetails);arrivalDetails.append(arrivalCard);}
+ if(arrivalCard&&arrivalCard!==card){const arrivalDetails=document.createElement('details');arrivalDetails.className='arrival-drawer';const title=document.createElement('summary');title.textContent='Arrivals & alerts';arrivalDetails.append(title);arrivalCard.before(arrivalDetails);arrivalDetails.append(arrivalCard);}
  window.wldSyncGuideMap?.();
  if(ensureMap()){setTimeout(()=>{routeMap.invalidateSize();routeMap.zoomControl.setPosition('bottomright');},180);}
 });
@@ -195,7 +195,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('autoFind');if(!button)return;
  const form=document.createElement('div');form.className='commute-options';
- form.innerHTML=`<label for="tripWhen">Travel time</label><select id="tripWhen"><option value="now">Leave now</option><option value="leave">Leave at</option><option value="arrive">Arrive by</option></select><label id="tripDateLabel" hidden>Travel date &amp; time<input id="tripDateTime" type="datetime-local"><small>Uses your device timezone. Plan up to 7 days ahead.</small></label><details class="focus-fold"><summary>Walking &amp; accessibility</summary><label for="maxWalking">Maximum walking per journey</label><select id="maxWalking"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label><input id="stepFree" type="checkbox"> Request step-free routes</label><p class="hint">Uses wheelchair routing and published stop/bus accessibility flags. Missing data needs confirmation; ramps and crossings are not independently verified.</p><label><input id="getOffReminders" type="checkbox" checked> Get-off reminders</label><p class="hint">In-app reminders need fresh, accurate GPS with this app open. Use the trip steps if location is unavailable.</p></details>`;
+ form.innerHTML=`<label for="tripWhen">Travel time</label><select id="tripWhen"><option value="now">Leave now</option><option value="leave">Leave at</option><option value="arrive">Arrive by</option></select><label id="tripDateLabel" hidden>Travel date &amp; time<input id="tripDateTime" type="datetime-local"><small>Uses your device timezone. Plan up to 7 days ahead.</small></label><details class="focus-fold"><summary>Trip options</summary><label for="maxWalking">Walking limit</label><select id="maxWalking"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label><input id="stepFree" type="checkbox"> Step-free routes</label><p class="hint">Based on agency data. Check access before you go.</p><label><input id="getOffReminders" type="checkbox" checked> Get-off reminders</label><p class="hint">Keep the app open for reminders.</p></details>`;
  button.closest('.actions')?.before(form);
  const date=document.getElementById('tripDateTime'),when=document.getElementById('tripWhen');
  const d=new Date(Date.now()+30*60000);date.value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);

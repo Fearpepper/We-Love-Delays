@@ -133,13 +133,14 @@ def plan(q,cache):
         if at is not None:params['arrival_time' if mode=='arrive' else 'leave_time']=at
         raw=request('plan',params)
         results=normalize(raw,None,max_walk,step_free)
-        empty_reason=None
+        empty_reason=None;walking_options=[]
         if not results:
-            if max_walk<30 and normalize(raw,None,30,step_free):empty_reason='walking_limit'
+            if max_walk<30 and normalize(raw,None,30,step_free):
+                empty_reason='walking_limit';walking_options=normalize(raw,None,30,step_free)
             elif step_free and normalize(raw,None,max_walk,False):empty_reason='accessibility'
             elif any(any(leg.get('leg_mode')=='transit' for leg in result.get('legs',[]) if isinstance(leg,dict)) for result in raw.get('results',[]) if isinstance(result,dict)):empty_reason='unusable_plan'
             else:empty_reason='no_departures'
-        return {'available':True,'source':'Transit','fetched':int(time.time()),'results':results,'empty_reason':empty_reason}
+        return {'available':True,'source':'Transit','fetched':int(time.time()),'results':results,'empty_reason':empty_reason,'walking_options':walking_options}
     key='transit:walk-path-plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
     try:return cache(key,90,run)
     except RuntimeError as e:return {'available':False,'reason':str(e)}
