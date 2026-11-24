@@ -17,7 +17,7 @@ async function setup(page,delayed=true,networkReady=Promise.resolve()){
   await route.fulfill({json:data});
  });
 
- await page.goto('/');
+ await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.locator('#feedStatus')).toContainText('connected');
  return errors;
 }
