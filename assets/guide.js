@@ -71,7 +71,9 @@
    complete.querySelector('h2').textContent=event.detail?.cancelled?'Trip cancelled':'Trip finished!';
    empty.hidden=true;
    const earned=event.detail?.earned||0;
-   summary.textContent=event.detail?.cancelled?'Trip cancelled. No points were awarded.':event.detail?.demo?'Simulation complete. '+earned+' demo-only points; your saved prototype balance was unchanged.':earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':event.detail?.verified?'Your trip is complete. The matching 511 prediction reported no delay, so no delay points were earned.':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
+   const detailText=event.detail?.cancelled?'Trip cancelled. No points were awarded.':event.detail?.demo?'Simulation complete. '+earned+' demo-only points; your saved prototype balance was unchanged.':earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':event.detail?.verified?'Your trip is complete. The matching 511 prediction reported no delay, so no delay points were earned.':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
+   summary.textContent=event.detail?.cancelled?'Trip cancelled. No points.':event.detail?.demo?'Demo finished. +'+earned+' demo points.':earned>0?'You earned '+earned+' prototype points.':event.detail?.verified?'Trip finished. No delay points.':'Trip finished. No points earned.';
+   let more=document.getElementById('tripPointsDetails');if(!more){more=document.createElement('details');more.id='tripPointsDetails';const title=document.createElement('summary');title.textContent='About points';more.append(title,document.createElement('p'));summary.after(more);}more.querySelector('p').textContent=detailText;more.open=false;
    complete.scrollIntoView({behavior:'smooth',block:'start'});
   }
   window.wldSelectTab?.('guide');

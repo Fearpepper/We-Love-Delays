@@ -492,7 +492,7 @@ test('a fresh on-time prediction completes without a false missing-data warning'
  await expect(page.locator('#liveTrackingState')).toContainText('Fresh 511');
  await expect(page.locator('#liveDelayValue')).toHaveText('0');
  await page.locator('#guideFinishTrip').click();
- await expect(page.locator('#tripCompleteSummary')).toContainText('reported no delay');
+ await expect(page.locator('#tripPointsDetails')).toContainText('reported no delay');
  expect(errors).toEqual([]);
 });
 test('replanning an active trip gives visible origin guidance and preserves progress',async({page})=>{
