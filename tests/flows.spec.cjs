@@ -932,4 +932,5 @@ test('Use my location reuses the blue dot and sends that origin to Transit',asyn
  await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Current location');
  await enableTransitFixture(page,transitFixture());let query;await page.route('**/api/transit-plan?**',r=>{query=new URL(r.request().url()).searchParams;return r.fulfill({json:transitFixture()});});
  await page.locator('#autoFind').click();await expect.poll(()=>query?.get('from_lat')).toBe('37.8706');expect(query.get('from_lon')).toBe('-122.271');
+ await page.evaluate(()=>document.getElementById('clearLoc').click());await expect(page.locator('#originSearch')).toHaveValue('');
 });
