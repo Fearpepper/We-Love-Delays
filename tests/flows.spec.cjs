@@ -899,3 +899,23 @@ test('demo redemption applies 60 point pricing and 600 point monthly presentatio
 test('live line activity is opt in and demo crowd count is labeled simulated',async({page})=>{
  let posts=[];await setup(page);await page.route('**/api/riders**',async r=>{if(r.request().method()==='POST')posts.push(r.request().postDataJSON());await r.fulfill({json:{count:posts.at(-1)?.active?1:0}});});await plan(page);await expect(page.locator('#lineRiderCount')).toContainText('0 active');await page.locator('#guideStartTrip').click();expect(posts).toEqual([]);await page.locator('#shareLineActivity').check();await expect(page.locator('#lineRiderCount')).toContainText('1 active');expect(Object.keys(posts[0]).sort()).toEqual(['active','route','token']);await page.locator('#guideFinishTrip').click();await expect.poll(()=>posts.at(-1)?.active).toBe(false);await openAssignmentDemo(page);await expect(page.locator('#demoRidePanel')).toContainText('simulated count');
 });
+
+test('changing search area preserves selected places and stop choices',async({page})=>{
+ await setup(page);await plan(page);await page.locator('#appTrips').click();const before=await page.evaluate(()=>window.wldCaptureSearch());
+ await page.locator('.search-area-settings summary').click();await page.locator('#searchArea').fill('Houston, TX');await page.locator('#applySearchArea').click();
+ expect(await page.evaluate(()=>window.wldCaptureSearch())).toEqual(before);await page.locator('#resetSearchArea').click();await page.locator('#autoFind').click();await expect(page.locator('.route-choice').first()).toBeVisible();
+});
+test('GPS selection survives an outstanding origin lookup and local context refresh',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:37.87,longitude:-122.27,accuracy:20},timestamp:Date.now()});}}}));
+ await setup(page);let release;const wait=new Promise(r=>release=r);let requested=false;await page.route('**/api/places?**',async r=>{requested=true;await wait;await r.fulfill({json:{places:[]}});});
+ await page.locator('#originSearch').fill('old text');await expect.poll(()=>requested).toBe(true);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();release();
+ await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#originSuggestions')).toBeEmpty();expect(await page.evaluate(()=>window.wldCaptureSearch().places.originSearch.lat)).toBe(37.87);
+ await page.locator('#place').fill('Beta transfer');await page.locator('#destinationSuggestions button').first().click();await page.locator('#autoFind').click();await expect(page.locator('.route-choice').first()).toBeVisible();
+});
+test('outside-region GPS remains coordinates instead of geocoding Current location',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29.7604,longitude:-95.3698,accuracy:20},timestamp:Date.now()});}}}));
+ await setup(page);const terms=[];await page.route('**/api/places?**',r=>{terms.push(new URL(r.request().url()).searchParams.get('q'));return r.fulfill({json:{places:[]}});});
+ await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#originSearch')).toHaveValue('Current location');
+ await page.locator('#place').fill('cafe');await expect(page.locator('#destinationSuggestions')).toContainText('No nearby places');await expect(page.locator('#originSuggestions')).toBeEmpty();expect(terms).not.toContain('current location');
+ expect(await page.evaluate(()=>window.wldCaptureSearch().places.originSearch)).toMatchObject({lat:29.7604,lon:-95.3698});
+});

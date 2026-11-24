@@ -189,7 +189,7 @@ function lookupPlaces(value){
  if(placeRequests.size>50)placeRequests.delete(placeRequests.keys().next().value);
  return promise;
 }
-window.wldRefreshPlaceSuggestions=()=>{placeRequests.clear();for(const id of ['originSearch','place'])if($(id).value.trim())$(id).dispatchEvent(new Event('input',{bubbles:true}));};
+window.wldRefreshPlaceSuggestions=()=>{placeRequests.clear();for(const id of ['originSearch','place'])$(id).dispatchEvent(new Event('wld:search-context'));};
 function selectSearchPlace(id,item){
  if(id==='originSearch'){cancelStartingLocationRequest();if($('locationHelp'))$('locationHelp').hidden=true;}
  selectedPlaces[id]=item;selectedStopIds[id]=null;$(id).value=item.name;
@@ -225,13 +225,17 @@ function nearbyStops(point,radius=0.5,limit=18){
 }
 function attachAutocomplete(inputId,listId){
  const field=$(inputId),list=$(listId);let request=0,timer=null;
+ field.addEventListener('wld:search-context',()=>{
+  request++;clearTimeout(timer);list.replaceChildren();
+  if(field.value.trim()&&!selectedPlaces[inputId]&&!selectedStopIds[inputId])field.dispatchEvent(new Event('input',{bubbles:true}));
+ });
  field.addEventListener('input',()=>{
   if(inputId==='originSearch'){cancelStartingLocationRequest();if($('locationHelp'))$('locationHelp').hidden=true;}
   mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();
   selectedPlaces[inputId]=null;selectedStopIds[inputId]=null;const current=++request;clearTimeout(timer);list.innerHTML='';
   const q=field.value.trim().toLowerCase();if(q.length<2)return;
   const seen=new Set(),matches=[];
-  for(const stop of Object.values(network?.stops||{})){const name=stop.name||'';if(name.toLowerCase().includes(q)&&!seen.has(name)){seen.add(name);matches.push({name,type:'stop',id:stop.id})}}
+  for(const stop of matchStops(q)){const name=stop.name||'';if(name.toLowerCase().includes(q)&&!seen.has(name)){seen.add(name);matches.push({name,type:'stop',id:stop.id})}}
   matches.sort((a,b)=>(a.name.toLowerCase().startsWith(q)?0:1)-(b.name.toLowerCase().startsWith(q)?0:1)||a.name.localeCompare(b.name));
   const draw=(places=[])=>{if(current!==request)return;list.innerHTML='';
    const choices=[...matches.slice(0,5),...places.slice(0,5).map(p=>({...p,type:'place'}))];
@@ -969,8 +973,9 @@ function applyStartingCoordinates(lat,lon,source,accuracy,timestamp=Date.now()){
  for(const stop of Object.values(network.stops)){if(stop.transitOnly||!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;const km=distance(lat,lon,stop.lat,stop.lon);if(km<best){best=km;nearestStop=stop}}
  if(!nearestStop){$('locationText').textContent=source+' shown on map. No bus stop coordinates available.';return}
  pendingLocationOrigin=false;
- $('originSearch').value=nearestStop.name;selectedPlaces.originSearch={name:source,source:'device-origin',lat,lon};selectedStopIds.originSearch=nearestStop.id;$('originSuggestions').innerHTML='';
- $('locationText').textContent='✓ Starting bus stop automatically selected: '+nearestStop.name+' ('+Math.round(best*1000)+' m straight-line from '+source.toLowerCase()+'). You can change it before finding a route.';
+ $('originSearch').value=nearestStop.name;selectedPlaces.originSearch={name:source,source:'device-origin',lat,lon};selectedStopIds.originSearch=null;$('originSuggestions').innerHTML='';
+ window.wldRefreshPlaceSuggestions?.();
+ $('locationText').textContent='✓ Current location set. Nearest stop: '+nearestStop.name+' ('+Math.round(best*1000)+' m straight-line). Routes compare nearby stops and keep your actual walking origin.';
  if($('place').value.trim())findDirectTrips();
 }
 $('chooseMap').onclick=()=>{
