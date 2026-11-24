@@ -85,7 +85,7 @@
    populateRoutes();document.getElementById('route').value=first.p.route;
    selected=first.p;populateBoarding();document.getElementById('board').value=String(first.start);boardChanged();
    document.getElementById('exit').value=String(first.end);document.getElementById('exit').onchange();
-   if(saved.legs.length===2)showTransferMap(first,last);else drawRoute();
+   if(saved.legs.length>2&&ensureMap()){if(routeLayer)routeMap.removeLayer(routeLayer);routeLayer=L.featureGroup().addTo(routeMap);for(const leg of saved.legs){const points=leg.p.stops.slice(leg.start,leg.end+1).map(id=>network.stops[id]).map(stop=>[stop.lat,stop.lon]);L.polyline(points,{color:'#003262',weight:5}).addTo(routeLayer);}}else if(saved.legs.length===2)showTransferMap(first,last);else drawRoute();
    setNavigation(saved.legs);
    activeNavigation.progress=Math.min(saved.progress,activeNavigation.steps.length-1);renderNavigation();
    document.getElementById('startJourney').click();
