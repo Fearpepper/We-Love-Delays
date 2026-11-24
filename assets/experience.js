@@ -12,9 +12,9 @@
  }
  apply();
  const steps=[
-  {icon:'①',title:'Track your route',text:'Choose your places, pick a bus, then Start trip in Guide.'},
-  {icon:'②',title:'Earn delay points',text:'Qualifying 511 delay predictions earn prototype points. Actual arrival delays are not verified.'},
-  {icon:'③',title:'Explore rewards',text:'60 points represent a $1 reward concept. Try cafés, charities and transit rewards in Demo. Nothing is redeemable yet.'}
+  {icon:'①',title:'Track your route',text:'Pick a route. Tap Start trip.'},
+  {icon:'②',title:'Earn delay points',text:'See sample points from bus delay estimates.'},
+  {icon:'③',title:'Explore rewards',text:'Try rewards in Demo. Points cannot be spent yet.'}
  ];
  let index=0;
  const modal=document.createElement('div');modal.className='onboarding-overlay';modal.hidden=true;

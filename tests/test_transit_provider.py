@@ -39,7 +39,7 @@ class TransitTests(unittest.TestCase):
         with patch.object(transit,'request',side_effect=request):
             a=transit.plan(self.query(),cached);b=transit.plan(self.query(),cached)
         self.assertTrue(a['available']);self.assertEqual(a,b);self.assertEqual(len(calls),1)
-        self.assertEqual(calls[0][1]['should_use_walk_path_duration'],'true');self.assertEqual(calls[0][1]['num_result'],6);self.assertNotIn('allowed_networks',calls[0][1]);self.assertEqual(calls[0][1]['accessibility_need'],'strict')
+        self.assertEqual(calls[0][1]['should_use_walk_path_duration'],'true');self.assertEqual(calls[0][1]['num_result'],6);self.assertNotIn('allowed_modes',calls[0][1]);self.assertNotIn('allowed_networks',calls[0][1]);self.assertEqual(calls[0][1]['accessibility_need'],'strict')
         self.assertEqual(calls[0][1]['max_distance_between_location_and_stop'],1125)
     def test_upstream_failure_hides_secret_and_circuit_breaks(self):
         with patch.object(transit.urllib.request,'urlopen',side_effect=Exception('test-only-secret')) as upstream:
@@ -78,3 +78,13 @@ class EmptyPlanTests(unittest.TestCase):
   with patch.dict(os.environ,{'TRANSIT_API_KEY':'test'}):
    with patch.object(transit,'request',return_value=FIXTURE):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'walking_limit');self.assertEqual(len(transit.plan(q,lambda k,t,fn:fn())['walking_options']),1)
    with patch.object(transit,'request',return_value={'results':[]}):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'no_departures')
+
+class MultimodalTests(unittest.TestCase):
+ def test_rail_ferry_and_other_public_transit_are_normalized(self):
+  for name,mode in [('Metro','metro'),('Train','train'),('Tram','tram'),('Light Rail','tram'),('Ferry','ferry'),('Cable Car','cable_car'),('Funicular','funicular'),('Gondola','gondola'),('Other','transit')]:
+   raw=copy.deepcopy(FIXTURE)
+   for leg in raw['results'][0]['legs']:
+    for route in leg.get('routes',[]):route['mode_name']=name;route['route_network_name']='Example Agency'
+   data=transit.normalize(raw,None,15,False);self.assertEqual(len(data),1);self.assertEqual(data[0]['legs'][1]['mode'],mode)
+ def test_bart_brand_is_kept(self):
+  self.assertEqual(transit.transport({'mode_name':'Metro','route_network_name':'Bay Area Rapid Transit'}),('metro','BART'));self.assertEqual(transit.transport({'route_network_id':'BART|East Bay'}),('metro','BART'))

@@ -19,12 +19,12 @@
  const startupTimer=setTimeout(()=>{if(!window.wldNetworkReady){startup.hidden=false;startup.textContent='Opening saved app screens while the free server wakes. Live routes and predictions still need the server; this can take about a minute.';}},2500);
  window.addEventListener('wld:network-ready',()=>{clearTimeout(startupTimer);startup.hidden=true;});
  const gps=document.createElement('p');gps.id='gpsDiagnostics';gps.className='hint';gps.setAttribute('role','status');
- gps.textContent='GPS is optional. No location history is stored. Keep the app open while following your trip.';
+ gps.textContent='GPS is optional. Keep the app open while following.';
  document.getElementById('navStart').closest('.actions')?.after(gps);
  let lastFix=null;
  window.addEventListener('wld:trip-finished',()=>{lastFix=null;gps.textContent='GPS following ended with this trip.';});
  window.addEventListener('wld:route-selected',()=>{lastFix=null;gps.textContent='GPS is optional. Start following to check reception and accuracy.';});
- window.addEventListener('wld:gps-fix',event=>{lastFix=event.detail;gps.textContent=event.detail.accuracy>60?'GPS accuracy is low (±'+Math.round(event.detail.accuracy)+' m). Walking steps will not advance automatically. Move outdoors or follow written directions.':'GPS received · accuracy ±'+Math.round(event.detail.accuracy)+' m. Boarding and leaving buses still require your confirmation.';});
+ window.addEventListener('wld:gps-fix',event=>{lastFix=event.detail;gps.textContent=event.detail.accuracy>60?'GPS accuracy is low (±'+Math.round(event.detail.accuracy)+' m). Walking steps will not advance automatically. Move outdoors or follow written directions.':'GPS · ±'+Math.round(event.detail.accuracy)+' m. Confirm boarding and arrival yourself.';});
  document.getElementById('navStart').addEventListener('click',async()=>{
   try{const permission=await navigator.permissions?.query({name:'geolocation'});if(permission?.state==='denied')gps.textContent='Location permission is blocked. Enable it in this site’s browser settings, then try again. Written directions still work.';}catch{}
  });
@@ -44,7 +44,7 @@
   }
   const routes=network.routes.filter(r=>legs.some(l=>l.p.route===r.id)).map(r=>({id:r.id,name:r.name}));
   const data={version:1,startedAt,legs,stops,routes,progress:activeNavigation.progress,vehicle:journey.vehicle};
-  try{localStorage.setItem(key,JSON.stringify(data));recovery.textContent='Active bus trip saved on this device. Reopening restores bus directions, not GPS following or old predictions.';cancel.hidden=false;}
+  try{localStorage.setItem(key,JSON.stringify(data));recovery.textContent='Trip saved on this device. GPS stays off when reopened.';cancel.hidden=false;}
   catch{cancel.hidden=false;recovery.textContent='Browser storage is unavailable. Keep this page open; the trip cannot recover after a refresh.';}
  }
  function updateAlternatives(){
@@ -52,7 +52,7 @@
   const first=network.stops[legs[0].p.stops[legs[0].start]],lastLeg=legs[legs.length-1],last=network.stops[lastLeg.p.stops[lastLeg.end]];
   if(!first||!last)return;
   const params=new URLSearchParams({api:'1',origin:first.lat+','+first.lon,destination:last.lat+','+last.lon,travelmode:'transit'});
-  planner.href='https://www.google.com/maps/dir/?'+params.toString();
+  planner.href='https://www.google.com/maps/dir/?'+params.toString();alerts.hidden=activeNavigation.provider==='Transit'&&legs.every(l=>!l.p.rewardTrackingVerified);
  }
  function restore(){
   if(journey||restoring)return;
@@ -61,7 +61,7 @@
    const raw=localStorage.getItem(key);if(!raw)return;
    if(raw.length>500000)throw Error('Oversize saved trip');
    saved=JSON.parse(raw);
-   if(saved.version!==1||!Number.isFinite(saved.startedAt)||Date.now()-saved.startedAt>maxAge||saved.startedAt>Date.now()+60000||!Array.isArray(saved.legs)||!saved.legs.length||saved.legs.length>2||!Array.isArray(saved.routes)||!saved.stops)throw Error('Invalid saved trip');
+   if(saved.version!==1||!Number.isFinite(saved.startedAt)||Date.now()-saved.startedAt>maxAge||saved.startedAt>Date.now()+60000||!Array.isArray(saved.legs)||!saved.legs.length||saved.legs.length>6||!Array.isArray(saved.routes)||!saved.stops)throw Error('Invalid saved trip');
    for(const leg of saved.legs){
     if(!leg.p||typeof leg.p.route!=='string'||!Array.isArray(leg.p.stops)||leg.p.stops.length>1000||!Number.isInteger(leg.start)||!Number.isInteger(leg.end)||leg.start<0||leg.end<=leg.start||leg.end>=leg.p.stops.length)throw Error('Invalid saved route');
     for(const id of leg.p.stops){const s=saved.stops[id];if(!s||typeof s.name!=='string'||s.name.length>300||!Number.isFinite(s.lat)||!Number.isFinite(s.lon)||Math.abs(s.lat)>90||Math.abs(s.lon)>180)throw Error('Invalid saved stop');}
@@ -91,8 +91,8 @@
    document.getElementById('startJourney').click();
    if(journey){journey.vehicle=typeof saved.vehicle==='string'?saved.vehicle:null;}
    setAppView('guide');updateAlternatives();
-   document.getElementById('guideTripFeedback').textContent='Active bus trip restored. Recheck walking directions and current service. GPS following is off; old delay predictions were discarded.';
-   if(offline){status.hidden=false;status.textContent='Saved bus directions restored. Live transit data is unavailable; use official sources before boarding.';}
+   document.getElementById('guideTripFeedback').textContent='Trip restored. Check times and restart GPS if needed.';
+   if(offline){status.hidden=false;status.textContent='Saved steps only. Check live service before boarding.';}
   }catch{clear();}
   finally{restoring=false;}
   save();
@@ -138,7 +138,7 @@
   retry.hidden=Boolean(network&&network!==recoveredNetwork);
   if(journey&&recoveredNetwork){
    if(network!==recoveredNetwork){recoveredNetwork=null;connection();}
-   else{document.getElementById('feedStatus').textContent='Saved trip only · live routes unavailable';status.hidden=false;status.textContent='Saved bus directions restored. Live transit data is unavailable; use official sources before boarding.';}
+   else{document.getElementById('feedStatus').textContent='Saved trip only · live routes unavailable';status.hidden=false;status.textContent='Saved steps only. Check live service before boarding.';}
   }else restore();
  });
  window.addEventListener('pagehide',save);

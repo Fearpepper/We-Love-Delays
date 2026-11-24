@@ -48,7 +48,7 @@
  function setTracking(active){if(start)start.hidden=active;if(finish)finish.hidden=!active;}
  start?.addEventListener('click',()=>{
   const original=$('startJourney');
-  if(!original||original.disabled){feedback.textContent='Select a bus route first to begin tracking.';return}
+  if(!original||original.disabled){feedback.textContent='Choose a route first.';return}
   original.click();
   const message=$('journeyStatus')?.textContent||'Trip tracking requested.';
   feedback.textContent=message;

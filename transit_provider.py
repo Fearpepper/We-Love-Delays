@@ -47,8 +47,20 @@ def stop(raw):
     if not isinstance(raw,dict):return None
     lat,lon=raw.get('stop_lat'),raw.get('stop_lon')
     if not number(lat) or not number(lon) or not -90<=lat<=90 or not -180<=lon<=180:return None
-    return {'id':str(raw.get('global_stop_id',''))[:180], 'name':str(raw.get('stop_name','Bus stop'))[:200],
+    return {'id':str(raw.get('global_stop_id',''))[:180], 'name':str(raw.get('stop_name','Stop'))[:200],
             'lat':lat,'lon':lon,'raw_id':str(raw.get('raw_stop_id',''))[:180], 'code':str(raw.get('stop_code',''))[:80]}
+
+
+def transport(route):
+    gtfs={0:'Tram',1:'Metro',2:'Train',3:'Bus',4:'Ferry',5:'Cable Car',6:'Gondola',7:'Funicular',11:'Bus',12:'Train'}
+    name=str(route.get('mode_name') or route.get('mode_key') or gtfs.get(route.get('route_type')) or 'Transit')[:60]
+    key=name.casefold().replace(' ','').replace('_','').replace('-','')
+    modes={'bus':'bus','metro':'metro','subway':'metro','tram':'tram','lightrail':'tram','streetcar':'tram','train':'train','rail':'train','commuterrail':'train','regionalrail':'train','heavyrail':'train','ferry':'ferry','boat':'ferry','cablecar':'cable_car','funicular':'funicular','gondola':'gondola','aeriallift':'gondola'}
+    kind=modes.get(key,'transit')
+    labels={'bus':'Bus','metro':'Metro','tram':'Tram','train':'Train','ferry':'Ferry','cable_car':'Cable car','funicular':'Funicular','gondola':'Gondola','transit':'Transit'}
+    agency=str(route.get('route_network_name',''))+' '+str(route.get('route_network_id',''))
+    if 'bart' in agency.casefold() or 'bay area rapid transit' in agency.casefold():return 'metro','BART'
+    return kind,labels[kind]
 
 
 def normalize(raw,network_id,max_walk,step_free):
@@ -86,7 +98,8 @@ def normalize(raw,network_id,max_walk,step_free):
                     # The selected departure, route and itinerary must describe the same leg.
                     start,end=departure.get('departure_time'),arrival.get('departure_time')
                     if not number(start) or not number(end) or end<start:continue
-                    chosen=dict(base,mode='bus',start_time=start,end_time=end,duration=end-start,
+                    kind,label=transport(route)
+                    chosen=dict(base,mode=kind,mode_label=label,start_time=start,end_time=end,duration=end-start,
                         route=str(route.get('route_short_name') or route.get('route_long_name') or 'Transit')[:100],network_id=str(route.get('route_network_id',''))[:180],
                         route_id=str(route.get('real_time_route_id') or '')[:100],headsign=str(itinerary.get('headsign',''))[:200],
                         realtime=bool(departure.get('is_real_time') and arrival.get('is_real_time')),
@@ -96,7 +109,7 @@ def normalize(raw,network_id,max_walk,step_free):
                 base=chosen
             else:valid=False;break
             legs.append(base)
-        if not valid or not legs or walk_total>max_walk*60 or not any(l['mode']=='bus' for l in legs):continue
+        if not valid or not legs or walk_total>max_walk*60 or not any(l['mode']!='walk' for l in legs):continue
         if any(legs[i]['end_time']>legs[i+1]['start_time'] for i in range(len(legs)-1)):continue
         results.append({'start_time':result['start_time'],'end_time':result['end_time'],'duration':result['duration'],
             'walk_minutes':math.ceil(walk_total/60),'accessibility':result.get('accessibility','None'),'legs':legs})
@@ -126,7 +139,7 @@ def plan(q,cache):
     points,max_walk,step_free,mode,at=parameters(q)
     if not configured():return {'available':False,'reason':'Transit is not configured. Using 511.'}
     def run():
-        params=dict(points,mode='transit',secondary_mode='walk',allowed_modes='Bus',
+        params=dict(points,mode='transit',secondary_mode='walk',
             num_result=6,max_num_legs=7,should_use_walk_path_duration='true',should_include_directions='true',should_update_realtime='true',consider_downtimes='true',
             accessibility_need='strict' if step_free else 'none',walk_speed=1.25,
             max_distance_between_location_and_stop=min(1500,max_walk*75))
@@ -141,6 +154,6 @@ def plan(q,cache):
             elif any(any(leg.get('leg_mode')=='transit' for leg in result.get('legs',[]) if isinstance(leg,dict)) for result in raw.get('results',[]) if isinstance(result,dict)):empty_reason='unusable_plan'
             else:empty_reason='no_departures'
         return {'available':True,'source':'Transit','fetched':int(time.time()),'results':results,'empty_reason':empty_reason,'walking_options':walking_options}
-    key='transit:walk-path-plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
+    key='transit:all-modes-plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
     try:return cache(key,90,run)
     except RuntimeError as e:return {'available':False,'reason':str(e)}
