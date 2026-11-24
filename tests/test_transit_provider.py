@@ -25,7 +25,7 @@ class TransitTests(unittest.TestCase):
         data=copy.deepcopy(FIXTURE);data['results'][0]['legs'][1]['departures'][0]['plan_details']['arrival_schedule_item']['is_real_time']=False
         self.assertFalse(transit.normalize(data,NETWORK,15,False)[0]['legs'][1]['realtime'])
     def test_parameter_validation(self):
-        for field,value in [('from_lat','nan'),('to_lon','0'),('max_walk','100'),('mode','other')]:
+        for field,value in [('from_lat','nan'),('to_lon','181'),('max_walk','100'),('mode','other')]:
             q=self.query();q[field]=[value]
             with self.assertRaises(ValueError):transit.parameters(q)
     def test_plan_caches_discovery_and_results_and_passes_preferences(self):
@@ -38,9 +38,9 @@ class TransitTests(unittest.TestCase):
             return {'networks':[{'network_name':'AC Transit','network_id':NETWORK}]} if path=='available_networks' else FIXTURE
         with patch.object(transit,'request',side_effect=request):
             a=transit.plan(self.query(),cached);b=transit.plan(self.query(),cached)
-        self.assertTrue(a['available']);self.assertEqual(a,b);self.assertEqual(len(calls),2)
-        self.assertEqual(calls[1][1]['allowed_networks'],NETWORK);self.assertEqual(calls[1][1]['accessibility_need'],'strict')
-        self.assertEqual(calls[1][1]['max_distance_between_location_and_stop'],1125)
+        self.assertTrue(a['available']);self.assertEqual(a,b);self.assertEqual(len(calls),1)
+        self.assertNotIn('allowed_networks',calls[0][1]);self.assertEqual(calls[0][1]['accessibility_need'],'strict')
+        self.assertEqual(calls[0][1]['max_distance_between_location_and_stop'],1125)
     def test_upstream_failure_hides_secret_and_circuit_breaks(self):
         with patch.object(transit.urllib.request,'urlopen',side_effect=Exception('test-only-secret')) as upstream:
             for _ in range(2):
@@ -61,3 +61,13 @@ class TransitTests(unittest.TestCase):
             data=transit.plan(self.query(),lambda k,t,fn:fn());self.assertFalse(data['available'])
 
 if __name__=='__main__':unittest.main()
+
+class NationalTests(unittest.TestCase):
+ def test_city_coordinates_and_foreign_network_normalization(self):
+  for lat,lon in [(29.7604,-95.3698),(40.7128,-74.006),(21.3099,-157.8581),(61.2181,-149.9003)]:
+   q={k:[str(v)] for k,v in dict(from_lat=lat,from_lon=lon,to_lat=lat+.01,to_lon=lon+.01).items()};self.assertEqual(transit.parameters(q)[0]['from_lat'],lat)
+  raw=copy.deepcopy(FIXTURE)
+  for leg in raw['results'][0]['legs']:
+   for route in leg.get('routes',[]):route['route_network_id']='METRO|Houston'
+  self.assertEqual(len(transit.normalize(raw,None,15,False)),1)
+  self.assertEqual(transit.normalize(raw,None,15,False)[0]['legs'][1]['network_id'],'METRO|Houston')
