@@ -5,16 +5,17 @@
  const time=seconds=>new Date(seconds*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  window.wldTransitPlanner=async(out,origin,destination,plan)=>{
   if(!window.wldTransitConfigured||!origin||!destination)return false;
-  const snapshot=JSON.stringify([document.getElementById('originSearch').value,document.getElementById('place').value,plan]);
-  out.textContent='Checking bus journeys with Transit…';
+  const searchState=(a,b,p)=>JSON.stringify([document.getElementById('originSearch').value,document.getElementById('place').value,a?.lat,a?.lon,b?.lat,b?.lon,p]);
+  const snapshot=searchState(origin,destination,plan);
+  out.textContent='Finding buses…';
   const q=new URLSearchParams({from_lat:origin.lat,from_lon:origin.lon,to_lat:destination.lat,to_lon:destination.lon,max_walk:plan.maxWalk,step_free:plan.stepFree,mode:plan.mode});
   if(plan.at)q.set('at',Math.floor(plan.at/1000));
   let data;try{const r=await fetch('/api/transit-plan?'+q);if(!r.ok)throw Error();data=await r.json();}catch{data={available:false,reason:'Transit could not be reached.'};}
   let latestPlan;try{latestPlan=readTripPlan();}catch{out.textContent='Travel preferences changed. Choose a valid travel time and search again.';return true;}
-  if(snapshot!==JSON.stringify([document.getElementById('originSearch').value,document.getElementById('place').value,latestPlan])){out.textContent='Locations or preferences changed. Search again.';return true;}
+  if(snapshot!==searchState(walkingEndpoint('originSearch'),walkingEndpoint('place'),latestPlan)){out.textContent='Start or destination changed. Updating…';return true;}
   if(!data.available||!Array.isArray(data.results)||!data.results.length){
-   const messages={walking_limit:'Bus options require more walking than your selected limit.',accessibility:'No bus plan could be confirmed for your step-free requirement.',unusable_plan:'Transit returned trip data that this app could not validate into usable directions.',no_departures:'Transit returned no bus departure for this trip at the selected time.'};
-   window.wldTransitFallbackNote=data.available?(messages[data.empty_reason]||'No bus trip was returned for the selected time, walking limit and accessibility settings.'):(data.reason||'Transit is unavailable.');
+   const messages={walking_limit:'No bus within your walking limit.',accessibility:'No confirmed step-free trip.',unusable_plan:'We couldn’t confirm these directions.',no_departures:'No bus found at this time.'};
+   window.wldTransitFallbackNote=data.available?(messages[data.empty_reason]||'No bus found with these settings.'):(data.reason||'Transit is unavailable.');
    out.textContent=window.wldTransitFallbackNote;return false;
   }
   out.replaceChildren();const heading=el('p','Bus journeys · planned by Transit');heading.className='notice';heading.dataset.routeHeading='true';out.append(heading);
@@ -23,7 +24,7 @@
    const buses=item.legs.filter(l=>l.mode==='bus');if(!buses.length)continue;
    const names=buses.map(l=>l.route).join(' → '),button=el('button');button.type='button';button.className='route-choice transit-route-choice';button.dataset.arrival=String(item.end_time*1000);
    button.setAttribute('aria-pressed','false');button.append(el('strong','Bus '+names+' · '+(buses.length===1?'Direct':(buses.length-1)+' transfer'+(buses.length>2?'s':''))));
-   button.append(el('small',Math.ceil(item.duration/60)+' min · Walk '+item.walk_minutes+' min · '+time(item.start_time)+'–'+time(item.end_time)+' · '+(buses.every(b=>b.realtime)?'Live estimates':'Includes scheduled times')));
+   button.append(el('small',Math.ceil(item.duration/60)+' min · Walk '+item.walk_minutes+' min · '+time(item.start_time)+'–'+time(item.end_time)+' · '+(buses.every(b=>b.realtime)?'Live estimates':'Scheduled times')));
    const details=el('span');details.className='transit-route-summary';for(const leg of item.legs){const p=el('span',leg.mode==='walk'?'Walk '+Math.ceil(leg.duration/60)+' min ('+Math.round(leg.distance)+' m)':'Bus '+leg.route+' toward '+leg.headsign+' · '+leg.stops[0].name+' → '+leg.stops.at(-1).name);details.append(p);}button.append(details);
    button.onclick=()=>{
     for(const b of out.querySelectorAll('.route-choice'))b.setAttribute('aria-pressed','false');button.setAttribute('aria-pressed','true');
