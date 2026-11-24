@@ -1,0 +1,187 @@
+{
+  "results": [
+    {
+      "start_time": 2000000000,
+      "end_time": 2000001080,
+      "duration": 1080,
+      "accessibility": "WheelchairStrict",
+      "legs": [
+        {
+          "leg_mode": "walk",
+          "start_time": 2000000000,
+          "end_time": 2000000120,
+          "duration": 120,
+          "distance": 100,
+          "polyline": "",
+          "directions": [
+            {
+              "instruction": "Continue to the bus stop"
+            }
+          ]
+        },
+        {
+          "leg_mode": "transit",
+          "start_time": 2000000180,
+          "end_time": 2000000480,
+          "duration": 300,
+          "departures": [
+            {
+              "departure_time": 2000000180,
+              "scheduled_departure_time": 2000000180,
+              "is_cancelled": false,
+              "is_real_time": true,
+              "plan_details": {
+                "global_route_id": "AC:51B",
+                "internal_itinerary_id": "it",
+                "arrival_schedule_item": {
+                  "departure_time": 2000000480,
+                  "scheduled_departure_time": 2000000480,
+                  "is_cancelled": false,
+                  "is_real_time": true
+                },
+                "stop_schedule_items": [
+                  {
+                    "global_stop_id": "AC:a"
+                  },
+                  {
+                    "global_stop_id": "AC:b"
+                  }
+                ]
+              }
+            }
+          ],
+          "routes": [
+            {
+              "global_route_id": "AC:51B",
+              "route_network_id": "AC Transit|East Bay",
+              "route_network_name": "AC Transit",
+              "route_short_name": "51B",
+              "real_time_route_id": "51B",
+              "itineraries": [
+                {
+                  "headsign": "Destination",
+                  "plan_details": {
+                    "internal_itinerary_id": "it",
+                    "plan_shape": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+                  },
+                  "stops": [
+                    {
+                      "global_stop_id": "AC:a",
+                      "raw_stop_id": "a",
+                      "stop_name": "Alpha boarding",
+                      "stop_lat": 37.87,
+                      "stop_lon": -122.27,
+                      "stop_code": "a"
+                    },
+                    {
+                      "global_stop_id": "AC:b",
+                      "raw_stop_id": "b",
+                      "stop_name": "Beta transfer",
+                      "stop_lat": 37.87,
+                      "stop_lon": -122.26,
+                      "stop_code": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "leg_mode": "walk",
+          "start_time": 2000000480,
+          "end_time": 2000000600,
+          "duration": 120,
+          "distance": 100,
+          "polyline": "",
+          "directions": [
+            {
+              "instruction": "Continue to the bus stop"
+            }
+          ]
+        },
+        {
+          "leg_mode": "transit",
+          "start_time": 2000000660,
+          "end_time": 2000000960,
+          "duration": 300,
+          "departures": [
+            {
+              "departure_time": 2000000660,
+              "scheduled_departure_time": 2000000660,
+              "is_cancelled": false,
+              "is_real_time": true,
+              "plan_details": {
+                "global_route_id": "AC:6",
+                "internal_itinerary_id": "it",
+                "arrival_schedule_item": {
+                  "departure_time": 2000000960,
+                  "scheduled_departure_time": 2000000960,
+                  "is_cancelled": false,
+                  "is_real_time": true
+                },
+                "stop_schedule_items": [
+                  {
+                    "global_stop_id": "AC:b"
+                  },
+                  {
+                    "global_stop_id": "AC:c"
+                  }
+                ]
+              }
+            }
+          ],
+          "routes": [
+            {
+              "global_route_id": "AC:6",
+              "route_network_id": "AC Transit|East Bay",
+              "route_network_name": "AC Transit",
+              "route_short_name": "6",
+              "real_time_route_id": "6",
+              "itineraries": [
+                {
+                  "headsign": "Destination",
+                  "plan_details": {
+                    "internal_itinerary_id": "it",
+                    "plan_shape": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+                  },
+                  "stops": [
+                    {
+                      "global_stop_id": "AC:b",
+                      "raw_stop_id": "b",
+                      "stop_name": "Beta transfer",
+                      "stop_lat": 37.87,
+                      "stop_lon": -122.26,
+                      "stop_code": "b"
+                    },
+                    {
+                      "global_stop_id": "AC:c",
+                      "raw_stop_id": "c",
+                      "stop_name": "Gamma destination",
+                      "stop_lat": 37.87,
+                      "stop_lon": -122.25,
+                      "stop_code": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "leg_mode": "walk",
+          "start_time": 2000000960,
+          "end_time": 2000001080,
+          "duration": 120,
+          "distance": 100,
+          "polyline": "",
+          "directions": [
+            {
+              "instruction": "Continue to the bus stop"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

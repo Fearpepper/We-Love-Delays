@@ -1,0 +1,107 @@
+{
+  "available": true,
+  "source": "Transit",
+  "fetched": 2000000000,
+  "results": [
+    {
+      "start_time": 2000000000,
+      "end_time": 2000001080,
+      "duration": 1080,
+      "walk_minutes": 6,
+      "accessibility": "WheelchairStrict",
+      "legs": [
+        {
+          "start_time": 2000000000,
+          "end_time": 2000000120,
+          "duration": 120,
+          "mode": "walk",
+          "distance": 100,
+          "polyline": "",
+          "directions": [
+            "Continue to the bus stop"
+          ]
+        },
+        {
+          "start_time": 2000000180,
+          "end_time": 2000000480,
+          "duration": 300,
+          "mode": "bus",
+          "route": "51B",
+          "route_id": "51B",
+          "headsign": "Destination",
+          "realtime": true,
+          "stops": [
+            {
+              "id": "AC:a",
+              "name": "Alpha boarding",
+              "lat": 37.87,
+              "lon": -122.27,
+              "raw_id": "a",
+              "code": "a"
+            },
+            {
+              "id": "AC:b",
+              "name": "Beta transfer",
+              "lat": 37.87,
+              "lon": -122.26,
+              "raw_id": "b",
+              "code": "b"
+            }
+          ],
+          "polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+        },
+        {
+          "start_time": 2000000480,
+          "end_time": 2000000600,
+          "duration": 120,
+          "mode": "walk",
+          "distance": 100,
+          "polyline": "",
+          "directions": [
+            "Continue to the bus stop"
+          ]
+        },
+        {
+          "start_time": 2000000660,
+          "end_time": 2000000960,
+          "duration": 300,
+          "mode": "bus",
+          "route": "6",
+          "route_id": "6",
+          "headsign": "Destination",
+          "realtime": true,
+          "stops": [
+            {
+              "id": "AC:b",
+              "name": "Beta transfer",
+              "lat": 37.87,
+              "lon": -122.26,
+              "raw_id": "b",
+              "code": "b"
+            },
+            {
+              "id": "AC:c",
+              "name": "Gamma destination",
+              "lat": 37.87,
+              "lon": -122.25,
+              "raw_id": "c",
+              "code": "c"
+            }
+          ],
+          "polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+        },
+        {
+          "start_time": 2000000960,
+          "end_time": 2000001080,
+          "duration": 120,
+          "mode": "walk",
+          "distance": 100,
+          "polyline": "",
+          "directions": [
+            "Continue to the bus stop"
+          ]
+        }
+      ]
+    }
+  ]
+}

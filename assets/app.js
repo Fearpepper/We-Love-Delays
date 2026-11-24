@@ -160,7 +160,7 @@ function say(s){$('message').textContent=s}function option(sel,label,value){cons
  }catch(e){if(e.name==='AbortError')throw Error('Transit service took too long to respond. Check your connection and retry.');throw e}
  finally{clearTimeout(timer)}
 }function show(){ $('welcome').classList.add('off');$('welcome').style.pointerEvents='none';$('welcome').style.visibility='hidden';window.scrollTo({top:0,behavior:'smooth'})} $('startNow').onclick=show;$('home').onclick=()=>{$('welcome').classList.remove('off');$('welcome').style.pointerEvents='auto';$('welcome').style.visibility='visible';};
-async function load(){try{const st=await api('/api/status');$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint&&pendingLocationOrigin)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location',locationPoint.accuracy,locationPoint.timestamp);say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
+async function load(){try{const st=await api('/api/status');window.wldTransitConfigured=Boolean(st.transit_configured);$('feedStatus').textContent=st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');network=await api('/api/network');demo=false;populateRoutes();populateStopSuggestions();if(locationPoint&&pendingLocationOrigin)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location',locationPoint.accuracy,locationPoint.timestamp);say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
 function populateRoutes(){const r=$('route'),filter=$('routeFilter').value.trim().toLowerCase(),previous=r.value;reset(r,'Select an AC Transit bus route');const routes=(network.routes||[]).filter(x=>(x.name+' '+(x.description||'')).toLowerCase().includes(filter));routes.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).forEach(x=>option(r,x.name+(x.description?' · '+x.description:''),x.id));r.disabled=!routes.length;if(routes.some(x=>x.id===previous))r.value=previous;else {reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true}if(!routes.length)say('No routes match this filter. Clear the filter or try a different route number.')} $('routeFilter').oninput=()=>{if(network)populateRoutes()};
 
 function populateStopSuggestions(){
@@ -169,7 +169,7 @@ function populateStopSuggestions(){
   if($(id).value.trim()&&!selectedStopIds[id]&&!selectedPlaces[id])$(id).dispatchEvent(new Event('input',{bubbles:true}));
  }
 }
-function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const all=Object.values(network.stops);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
+function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const all=Object.values(network.stops).filter(s=>!s.transitOnly);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
 const selectedPlaces={originSearch:null,place:null};const selectedStopIds={originSearch:null,place:null};
 const placeRequests=new Map(),searchPins=new Map();
 function lookupPlaces(value){
@@ -236,7 +236,7 @@ function attachAutocomplete(inputId,listId){
 function stopsForInput(id){
  if(selectedStopIds[id]&&network.stops[selectedStopIds[id]])return [network.stops[selectedStopIds[id]]];
  const place=selectedPlaces[id];if(!place)return matchStops($(id).value);
- const candidates=Object.values(network.stops).filter(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lon))
+ const candidates=Object.values(network.stops).filter(s=>!s.transitOnly&&Number.isFinite(s.lat)&&Number.isFinite(s.lon))
   .map(s=>({s,d:distance(Number(place.lat),Number(place.lon),s.lat,s.lon)}))
   .filter(x=>Number.isFinite(x.d)).sort((a,b)=>a.d-b.d);
  // Search up to a 1.2 km walk-radius for stops. Keep the closest 25 candidates
@@ -244,7 +244,7 @@ function stopsForInput(id){
  return candidates.filter(x=>x.d<=1.2).slice(0,25).map(x=>x.s);
 }
 attachAutocomplete('originSearch','originSuggestions');attachAutocomplete('place','destinationSuggestions');
-function routeName(p){return network.routes.find(r=>r.id===p.route)?.name||p.route}
+function routeName(p){if(p.displayName)return p.displayName;return network.routes.find(r=>r.id===p.route)?.name||p.route}
 function showTransferMap(first,second){
  if(!ensureMap()){$('mapText').textContent='Interactive map unavailable. See the transfer instructions above.';return}
  if(routeLayer)routeMap.removeLayer(routeLayer);
@@ -301,7 +301,7 @@ function captureNavigationSearch(){
  }
  return state;
 }
-function setNavigation(legs){
+function setNavigation(legs,transitPlan=null){
  navStopTracking();
  const timing=estimateTripTiming(legs),steps=[];
  const walk=(a,b)=>a&&b&&Number.isFinite(a.lat)&&Number.isFinite(a.lon)&&Number.isFinite(b.lat)&&Number.isFinite(b.lon)?Math.ceil(distance(a.lat,a.lon,b.lat,b.lon)*1000/75):null;
@@ -322,7 +322,8 @@ function setNavigation(legs){
  if(timing.walkEnd!==null&&timing.walkEnd>0)steps.push({stop:selectedPlaces.place||null,kind:'walk-end',label:'Walk from '+(last?.name||'last stop')+' to your destination',estimate:'Checking pedestrian walking route…'});
  else if(timing.walkEnd===null)steps.push({stop:null,label:'Continue from the last stop to your destination',estimate:'Walking route unavailable until a destination place is provided'});
  stopDelayMonitor();journey=null;$('finishJourney').disabled=true;updateDelayPreview();
- activeNavigation={legs,steps,progress:0,plan:{...currentPlan},search:captureNavigationSearch(),reminded:new Set()};
+ activeNavigation={legs,steps,progress:0,plan:{...currentPlan},search:captureNavigationSearch(),reminded:new Set(),provider:transitPlan?'Transit':'511'};
+ if(transitPlan)applyTransitNavigation(activeNavigation,transitPlan);
  window.dispatchEvent(new Event('wld:route-selected'));
  $('startJourney').disabled=false;
  // Guide moves the Leaflet element into its own container after route selection.
@@ -333,6 +334,7 @@ function setNavigation(legs){
  $('navTitle').textContent=legs.length===1?'Direct bus directions':'Transfer directions';
  $('navStatus').textContent='Checking real walking paths against published AC Transit departures. GPS is not street-by-street navigation.';
  renderNavigation();
+ if(transitPlan){$('navStatus').textContent='Transit journey snapshot · live estimates are labeled per bus. Replan if service changes. Prototype points still require a fresh matching 511 destination prediction; Transit times do not award points.';renderNavigation();return;}
  const current=activeNavigation;
  Promise.all([applyPedestrianTimes(legs,steps),getPublishedLegTimes(legs,activeNavigation.plan),getWalkingJourney(legs,activeNavigation.plan)]).then(([,schedules,walks])=>{
   if(activeNavigation!==current)return;
@@ -349,6 +351,44 @@ function setNavigation(legs){
   renderNavigation();
  }).catch(e=>{if(activeNavigation===current){$('navStatus').textContent='Journey timing unavailable: '+e.message+'. No catchable connection verified.';renderNavigation()}});
 
+}
+function transitPath(encoded){
+ const points=[];let i=0,lat=0,lon=0;
+ try{while(i<encoded.length&&points.length<10000){const values=[];for(let c=0;c<2;c++){let value=0,shift=0,b;do{if(i>=encoded.length||shift>30)return [];b=encoded.charCodeAt(i++)-63;if(b<0||b>63)return [];value|=(b&31)<<shift;shift+=5;}while(b>=32);values.push(value&1?~(value>>1):value>>1);}lat+=values[0];lon+=values[1];if(Math.abs(lat/1e5)>90||Math.abs(lon/1e5)>180)return [];points.push([lat/1e5,lon/1e5]);}}catch{return [];}return points;
+}
+let transitStopKeys=[];
+window.wldUseTransitPlan=plan=>{
+ for(const id of transitStopKeys)delete network.stops[id];transitStopKeys=[];
+ const buses=plan.legs.filter(l=>l.mode==='bus'),legs=buses.map((bus,k)=>{
+  const mappedRoute=network.routes.find(r=>r.id===bus.route_id)||network.routes.find(r=>r.name===bus.route);
+  const ids=bus.stops.map((stop,i)=>{const id='transit-plan:'+k+':'+i,canonical=network.stops[stop.raw_id],matched=canonical&&distance(stop.lat,stop.lon,canonical.lat,canonical.lon)<.02;network.stops[id]={...stop,id,code:matched?canonical.code||'':'',transitOnly:true};transitStopKeys.push(id);return id;});
+  return {p:{route:mappedRoute?.id||bus.route_id||bus.route,displayName:bus.route,headsign:bus.headsign,stops:ids,rewardTrackingVerified:Boolean(mappedRoute)},start:0,end:ids.length-1};
+ });
+ setNavigation(legs,plan);
+ if(ensureMap()){
+  if(routeLayer)routeMap.removeLayer(routeLayer);routeLayer=L.featureGroup().addTo(routeMap);
+  for(const leg of plan.legs){let path=transitPath(leg.polyline||'');if(path.length<2&&leg.mode==='bus')path=leg.stops.map(s=>[s.lat,s.lon]);if(path.length>1)L.polyline(path,{color:leg.mode==='walk'?'#b57a15':'#003262',weight:leg.mode==='walk'?4:6,dashArray:leg.mode==='walk'?'8 8':null}).addTo(routeLayer);}
+  $('mapText').textContent='Transit planned journey · blue bus route, dashed walking legs. Follow written instructions and check current service.';
+ }
+ setAppView('guide');window.wldUpdateGuide?.();
+};
+function applyTransitNavigation(nav,plan){
+ const steps=[],chain=[],walks=[];let busIndex=0;
+ const clock=sec=>new Date(sec*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+ for(const leg of plan.legs){
+  if(leg.mode==='walk'){
+   const nextBus=plan.legs.slice(plan.legs.indexOf(leg)+1).find(l=>l.mode==='bus');
+   const point=nextBus?.stops[0]||selectedPlaces.place||walkingEndpoint('place');
+   steps.push({stop:point,kind:busIndex===0?'walk-start':nextBus?'walk-transfer':'walk-end',legIndex:Math.max(0,busIndex-1),label:nextBus?'Walk to '+nextBus.stops[0].name:'Walk to your destination',estimate:Math.ceil(leg.duration/60)+' min · '+Math.round(leg.distance)+' m · '+(leg.directions.join(' · ')||'Transit pedestrian path')});
+   walks.push({minutes:leg.duration/60,meters:leg.distance,source:'Transit'});
+  }else{
+   const from=network.stops[nav.legs[busIndex].p.stops[0]],to=network.stops[nav.legs[busIndex].p.stops.at(-1)];
+   steps.push({stop:from,kind:'board',legIndex:busIndex,label:'Board Bus '+leg.route+' toward '+leg.headsign+' at '+from.name,estimate:(leg.realtime?'Live estimate: ':'Scheduled: ')+clock(leg.start_time)});
+   steps.push({stop:to,kind:'ride',legIndex:busIndex,label:'Ride Bus '+leg.route+' and get off at '+to.name,estimate:Math.ceil(leg.duration/60)+' min · '+(leg.realtime?'estimated':'scheduled')+' arrival '+clock(leg.end_time)});
+   chain.push({departure:new Date(leg.start_time*1000).toISOString(),arrival:new Date(leg.end_time*1000).toISOString(),ride_minutes:leg.duration/60});busIndex++;
+  }
+ }
+ nav.steps=steps;nav.connection={chain,arrival:plan.end_time*1000,leave:plan.start_time*1000};nav.walks=walks;nav.transitPlan=plan;
 }
 function renderNavigation(){
  if(!activeNavigation)return;
@@ -517,7 +557,7 @@ async function showWalkingComparison(out,context){
  const link=document.createElement('a');link.className='btn';link.textContent='Open walking directions ↗';link.target='_blank';link.rel='noopener noreferrer';
  link.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:context.origin.lat+','+context.origin.lon,destination:context.destination.lat+','+context.destination.lon,travelmode:'walking'});
  actions.append(map,link);card.append(actions);
- const source=document.createElement('p');source.className='hint';source.textContent='Walking estimate: OpenRouteService. Bus comparison: published schedules, not live arrivals. Check pedestrian access and conditions; accessibility is not verified.';card.append(source);
+ const source=document.createElement('p');source.className='hint';source.textContent=out.querySelector('.transit-route-choice')?'Walking estimate: OpenRouteService. Bus comparison: Transit plan snapshot; live and scheduled times are labeled. Check conditions before traveling.':'Walking estimate: OpenRouteService. Bus comparison: published schedules, not live arrivals. Check pedestrian access and conditions; accessibility is not verified.';card.append(source);
  if(!withinLimit){const details=document.createElement('details');details.className='long-walk-option';const summary=document.createElement('summary');summary.textContent='Optional '+walkingMinutes+'-minute walk · longer than the recommended walking limit';details.append(summary,card);out.append(details);}else if(faster)out.prepend(card);else out.append(card);
  if(faster){const heading=out.querySelector('[data-route-heading]');if(heading)heading.textContent='Bus alternatives · walking is faster than the checked services';}
 }
@@ -712,6 +752,7 @@ async function findDirectTrips(options={}){
  }
  const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
  if(origin&&destination){walkingContext={origin:{...origin},destination:{...destination},started:planStart(),plan:{...currentPlan},route:getPedestrianLeg(origin,destination).catch(()=>null)};walkingComparisons.set(out,walkingContext);}
+ if(!options.skipTransit&&!options.avoid&&await window.wldTransitPlanner?.(out,origin,destination,currentPlan))return;
  let a=stopsForInput('originSearch'),b=stopsForInput('place');
  if(options.nearby){a=[...new Map([...a,...nearbyStops(walkingEndpoint('originSearch'))].map(s=>[s.id,s])).values()];b=[...new Map([...b,...nearbyStops(walkingEndpoint('place'))].map(s=>[s.id,s])).values()];}
 
@@ -900,7 +941,7 @@ direct.sort((x,y)=>directRank(x).score-directRank(y).score||directRank(x).stops-
   timedOptions.push({card,legs:[t.first,t.second]});
  }
  await rankTransferOptions(out,heading,timedOptions);
- }finally{if(walkingContext)await showWalkingComparison(out,walkingContext);findingTrip=false;button.disabled=false;window.dispatchEvent(new Event('wld:planning-idle'))}
+ }finally{if(window.wldTransitFallbackNote){const note=document.createElement('p');note.className='notice';note.textContent=window.wldTransitFallbackNote;out.prepend(note);window.wldTransitFallbackNote=null;}if(walkingContext)await showWalkingComparison(out,walkingContext);findingTrip=false;button.disabled=false;window.dispatchEvent(new Event('wld:planning-idle'))}
 }
 $('autoFind').onclick=()=>findDirectTrips();
 function setDemo(){demo=true;network={routes:[{id:'51B',name:'51B',description:'Demo: Berkeley corridor'},{id:'6',name:'6',description:'Demo: Telegraph Avenue'}],stops:{a:{id:'a',name:'Downtown Berkeley BART',code:'',lat:37.8695,lon:-122.2686},b:{id:'b',name:'UC Berkeley / Bancroft Way',code:'',lat:37.8688,lon:-122.2586},c:{id:'c',name:'College Ave / Ashby Ave',code:'',lat:37.8564,lon:-122.2534},d:{id:'d',name:'Rockridge BART',code:'',lat:37.8447,lon:-122.2514}},patterns:[{route:'51B',direction:'0',headsign:'Rockridge (simulated)',stops:['a','b','c','d']},{route:'51B',direction:'1',headsign:'Downtown Berkeley (simulated)',stops:['d','c','b','a']},{route:'6',direction:'0',headsign:'Telegraph Avenue (simulated)',stops:['a','b','c']}]};$('feedStatus').textContent='● Berkeley demonstration';populateRoutes();populateStopSuggestions();say('Demo mode is simulated. Routes, stop sequences, and delays shown here are illustrative, not live service.');$('arrivals').textContent='Demo mode: no real-time arrivals.';$('scheduled').textContent=$('predicted').textContent=$('delay').textContent='—'}
@@ -913,7 +954,7 @@ function applyStartingCoordinates(lat,lon,source,accuracy,timestamp=Date.now()){
  locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap();
  if(!network?.stops){pendingLocationOrigin=true;$('locationText').textContent=source+' found. Waiting for AC Transit stop data to load; your location is saved and will be applied automatically.';return}
  let nearestStop=null,best=Infinity;
- for(const stop of Object.values(network.stops)){if(!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;const km=distance(lat,lon,stop.lat,stop.lon);if(km<best){best=km;nearestStop=stop}}
+ for(const stop of Object.values(network.stops)){if(stop.transitOnly||!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;const km=distance(lat,lon,stop.lat,stop.lon);if(km<best){best=km;nearestStop=stop}}
  if(!nearestStop){$('locationText').textContent=source+' shown on map. No bus stop coordinates available.';return}
  pendingLocationOrigin=false;
  $('originSearch').value=nearestStop.name;selectedPlaces.originSearch={name:source,source:'device-origin',lat,lon};selectedStopIds.originSearch=nearestStop.id;$('originSuggestions').innerHTML='';
@@ -1112,7 +1153,7 @@ $('startJourney').onclick=()=>{
  const exit=legs?.length?network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]]:stops[1];
  const routeId=leg?leg.p.route:$('route').value;
  const route=legs?.length?legs.map(x=>'Bus '+routeName(x.p)).join(' → '):$('route').selectedOptions[0].textContent;
- const untracked=Boolean(!exit?.code);
+ const untracked=Boolean(!exit?.code||(activeNavigation?.provider==='Transit'&&!leg?.p.rewardTrackingVerified));
  journey={demo,untracked,transfer:Boolean(legs?.length>1),finalLegIndex:legs?.length?legs.length-1:0,route,routeId,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
  $('finishJourney').disabled=false;updateDelayPreview();
  if(demo){$('journeyStatus').textContent='Simulation started. Demo points only.'}
@@ -1123,7 +1164,7 @@ $('startJourney').onclick=()=>{
  // Starting a trip also begins GPS following, using the same permission/error UI.
  // Keep an existing watch so starting after manual following never duplicates it.
  if(activeNavigation&&gpsWatchId===null)$('navStart').click();
- if(journey?.transfer)$('guideTripFeedback').textContent='Trip started. Transfer rewards track the final bus only after you mark boarding complete.';
+ if(journey?.transfer&&!journey.untracked)$('guideTripFeedback').textContent='Trip started. Transfer rewards track the final bus only after you mark boarding complete.';
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
@@ -1242,6 +1283,7 @@ function updateCommuteGuidance(){
  if(!nav){el.textContent='';return;}
  if(nav.progress>board){el.textContent='Trip in progress · follow your next instruction.';return;}
  if(!match){el.textContent='Leave-by time unavailable. Check the published departures or find another route.';return;}
+ if(nav.provider==='Transit'){el.textContent='Transit plan · leave '+new Date(match.leave).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+' · '+(nav.transitPlan?.walk_minutes||0)+' min total walking. Recheck your route if service changes.';return;}
  const mins=Math.ceil((match.leave-Date.now())/60000),dep=Date.parse(match.chain[0].departure),walk=Math.ceil(nav.walks?.[0]?.minutes||0);
  el.textContent=dep<Date.now()?'Scheduled departure has passed. Use Find another way to recheck your connection.':mins<0?'Scheduled leave-by time has passed. Recheck your connection before traveling.':(mins<=1?'Leave now':'Leave in '+formatLeaveCountdown(mins))+' · '+walk+'-min walk to board · scheduled bus '+new Date(match.chain[0].departure).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'. Includes a 5-minute boarding buffer.';
 }

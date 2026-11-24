@@ -17,7 +17,7 @@ async function setup(page,delayed=true,networkReady=Promise.resolve()){
   await route.fulfill({json:data});
  });
 
- await page.goto('/');
+ await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.locator('#feedStatus')).toContainText('connected');
  return errors;
 }
@@ -857,4 +857,27 @@ test('demo points redeem for cafes charity and BART without changing regular rew
 });
 test('sample balance and ride earnings add together and switching to redeem pauses playback',async({page})=>{
  await setup(page);await openAssignmentDemo(page);await page.locator('#demoPlay').click();await page.locator('#demoRedeemTab').click();await page.locator('#demoLoadPoints').click();await page.locator('#demoRideTab').click();await expect(page.locator('#demoPlay')).toHaveText('Play simulation');await page.locator('#demoJump').selectOption('5');await page.locator('#demoSkip').click();await page.locator('#demoCollect').click();await expect(page.locator('#demoPoints')).toHaveText('250');await expect(page.locator('#demoCollect')).toBeDisabled();await page.locator('#demoScenario').selectOption('transfer');await expect(page.locator('#demoPoints')).toHaveText('0');
+});
+
+async function enableTransitFixture(page,response){
+ await page.route('**/api/transit-plan?**',r=>r.fulfill({json:response}));
+ await page.evaluate(()=>window.wldTransitConfigured=true);
+}
+function transitFixture(){
+ const fixture=JSON.parse(JSON.stringify(require('./fixtures/transit-response.json'))),shift=Math.floor(Date.now()/1000)-2000000000+120;
+ fixture.fetched=Math.floor(Date.now()/1000);for(const p of fixture.results){p.start_time+=shift;p.end_time+=shift;for(const l of p.legs){l.start_time+=shift;l.end_time+=shift;}}return fixture;
+}
+test('Transit transfer plan uses Guide start finish and accurate provider times',async({page})=>{
+ const errors=await setup(page);await enableTransitFixture(page,transitFixture());await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#place').fill('Gamma destination');await page.locator('#autoFind').click();await expect(page.locator('.transit-route-choice')).toHaveCount(1);await expect(page.locator('.transit-route-choice')).toContainText('18 min');await expect(page.locator('.transit-route-choice')).toContainText('1 transfer');await page.locator('.transit-route-choice').click();await expect(page.locator('#navSteps')).toContainText('Continue to the bus stop');await expect(page.locator('#navSteps')).toContainText('Live estimate:');await expect(page.locator('#commuteLeave')).toContainText('Transit plan');await page.locator('#guideStartTrip').click();await expect(page.locator('#guideFinishTrip')).toBeVisible();await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();await expect(page.locator('#points')).toHaveText('0');expect(errors).toEqual([]);
+});
+test('Transit failure falls back to 511 without dropping chosen places',async({page})=>{
+ const errors=await setup(page);await enableTransitFixture(page,{available:false,reason:'Transit request allowance reached.'});await plan(page);await expect(page.locator('#autoResults')).toContainText('Transit request allowance reached');await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#guideStartTrip')).toBeEnabled();expect(errors).toEqual([]);
+});
+test('Transit request forwards departure walking and accessibility preferences',async({page})=>{
+ await setup(page);await enableTransitFixture(page,transitFixture());let query;await page.route('**/api/transit-plan?**',r=>{query=new URL(r.request().url()).searchParams;return r.fulfill({json:transitFixture()});});
+ await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#place').fill('Gamma destination');await page.locator('.focus-fold summary').filter({hasText:'Walking & accessibility'}).click();await page.locator('#maxWalking').selectOption('5');await page.locator('#stepFree').check();await page.locator('#autoFind').click();await expect(page.locator('.transit-route-choice')).toBeVisible();expect(query.get('max_walk')).toBe('5');expect(query.get('step_free')).toBe('true');expect(query.get('mode')).toBe('now');
+});
+test('Transit offers 511 comparison and ignores late results after input changes',async({page})=>{
+ await setup(page);await enableTransitFixture(page,transitFixture());await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#place').fill('Gamma destination');await page.locator('#autoFind').click();await page.getByRole('button',{name:'Compare 511 alternatives',exact:true}).click();await expect(page.locator('#autoResults .route-choice').first()).not.toHaveClass(/transit-route-choice/);
+ let release;const waiting=new Promise(r=>release=r);await page.route('**/api/transit-plan?**',async r=>{await waiting;await r.fulfill({json:transitFixture()});});await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('Checking AC Transit journeys with Transit');await page.locator('#place').fill('Different destination');release();await expect(page.locator('#autoResults')).toContainText('changed');await expect(page.locator('.transit-route-choice')).toHaveCount(0);
 });
