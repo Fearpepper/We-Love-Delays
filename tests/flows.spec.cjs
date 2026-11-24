@@ -922,7 +922,7 @@ test('outside-region GPS remains coordinates instead of geocoding Current locati
 
 test('map location sets a visible coordinate origin before the network loads',async({page})=>{
  await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:20},timestamp:Date.now()});}}}));
- let release;const waiting=new Promise(r=>release=r);await setup(page,true,waiting);await page.locator('#mapFollow').click();await expect(page.locator('#originSearch')).toHaveValue('Current location');
+ let release;const waiting=new Promise(r=>release=r);await setup(page,true,waiting);await page.locator('#appMap').click();await page.locator('#mapFollow').click();await expect(page.locator('#originSearch')).toHaveValue('Current location');
  expect(await page.evaluate(()=>window.wldCaptureSearch().places.originSearch)).toMatchObject({lat:37.8706,lon:-122.271});release();await expect(page.locator('#message')).toContainText('AC Transit data loaded');await expect(page.locator('#originSearch')).toHaveValue('Current location');
 });
 test('Use my location reuses the blue dot and sends that origin to Transit',async({page})=>{
