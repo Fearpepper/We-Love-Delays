@@ -962,3 +962,8 @@ test('Use my location requests fresh GPS instead of reusing a two-minute-old blu
  await setup(page);await page.evaluate(()=>{locationPoint={lat:35.366,lon:-118.917,accuracy:20,timestamp:Date.now()-60000};Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){window.newGpsOptions=options;ok({coords:{latitude:35.365,longitude:-118.919,accuracy:15},timestamp:Date.now()});}}});});
  await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();expect(await page.evaluate(()=>window.wldCaptureSearch().places.originSearch.lon)).toBe(-118.919);expect(await page.evaluate(()=>window.newGpsOptions.maximumAge)).toBe(0);
 });
+
+test('a longer-walk bus option is offered without silently raising the walking limit',async({page})=>{
+ await setup(page);const data=transitFixture();data.results[0].walk_minutes=16;await enableTransitFixture(page,{available:true,results:[],empty_reason:'walking_limit',walking_options:data.results});await page.evaluate(()=>{selectSearchPlace('originSearch',{name:'Current location',lat:35.366,lon:-118.917});selectSearchPlace('place',{name:'Valley Plaza',lat:35.33753,lon:-119.033756});});
+ await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('above your 15 min limit');await expect(page.locator('#maxWalking')).toHaveValue('15');await page.locator('#extraWalkingOptions summary').click();await expect(page.locator('.transit-route-choice')).toContainText('Walk 16 min');await page.locator('.transit-route-choice').click();await expect(page.locator('#guideStartTrip')).toBeVisible();await expect(page.locator('#maxWalking')).toHaveValue('15');
+});

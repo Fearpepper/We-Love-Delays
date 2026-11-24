@@ -76,5 +76,5 @@ class EmptyPlanTests(unittest.TestCase):
  def test_empty_plan_distinguishes_walking_accessibility_and_missing_departures(self):
   q={k:[str(v)] for k,v in dict(from_lat=35.36,from_lon=-118.92,to_lat=35.3375,to_lon=-119.0337,max_walk=5,mode='now').items()}
   with patch.dict(os.environ,{'TRANSIT_API_KEY':'test'}):
-   with patch.object(transit,'request',return_value=FIXTURE):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'walking_limit')
+   with patch.object(transit,'request',return_value=FIXTURE):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'walking_limit');self.assertEqual(len(transit.plan(q,lambda k,t,fn:fn())['walking_options']),1)
    with patch.object(transit,'request',return_value={'results':[]}):self.assertEqual(transit.plan(q,lambda k,t,fn:fn())['empty_reason'],'no_departures')
