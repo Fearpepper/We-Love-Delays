@@ -169,17 +169,27 @@ function populateStopSuggestions(){
   if($(id).value.trim()&&!selectedStopIds[id]&&!selectedPlaces[id])$(id).dispatchEvent(new Event('input',{bubbles:true}));
  }
 }
-function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const all=Object.values(network.stops).filter(s=>!s.transitOnly);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
+function matchStops(q){q=(q||'').trim().toLowerCase();if(!q||!network)return [];const ctx=placeSearchContext();if((ctx.area&&!/berkeley|oakland|emeryville|east bay/i.test(ctx.area))||(ctx.focus&&distance(ctx.focus.lat,ctx.focus.lon,37.8715,-122.2585)>80))return [];const all=Object.values(network.stops).filter(s=>!s.transitOnly);const exact=all.filter(s=>s.name.toLowerCase()===q||String(s.code||'').toLowerCase()===q);return (exact.length?exact:q.length>=3?all.filter(s=>s.name.toLowerCase().includes(q)):[]).slice(0,100)}
 const selectedPlaces={originSearch:null,place:null};const selectedStopIds={originSearch:null,place:null};
 const placeRequests=new Map(),searchPins=new Map();
+function placeSearchContext(){
+ const area=String(window.wldSearchArea||'').trim();
+ const fix=locationPoint&&Number.isFinite(locationPoint.lat)&&Number.isFinite(locationPoint.lon)&&Number.isFinite(locationPoint.timestamp)&&Date.now()-locationPoint.timestamp<120000?locationPoint:null;
+ const focus=area?null:fix||(routeMap?{lat:routeMap.getCenter().lat,lon:routeMap.getCenter().lng}:null);
+ return {area,focus};
+}
 function lookupPlaces(value){
- const q=value.trim().toLowerCase();const hit=placeRequests.get(q);
+ const q=value.trim().toLowerCase(),context=placeSearchContext(),params=new URLSearchParams({q});
+ if(context.area)params.set('area',context.area);
+ if(context.focus){params.set('lat',context.focus.lat.toFixed(3));params.set('lon',context.focus.lon.toFixed(3));}
+ const key=params.toString(),hit=placeRequests.get(key);
  if(hit&&Date.now()-hit.time<900000)return hit.promise;
- const promise=api('/api/places?q='+encodeURIComponent(q)).catch(e=>{placeRequests.delete(q);throw e});
- placeRequests.set(q,{time:Date.now(),promise});
+ const promise=api('/api/places?'+params).catch(e=>{placeRequests.delete(key);throw e});
+ placeRequests.set(key,{time:Date.now(),promise});
  if(placeRequests.size>50)placeRequests.delete(placeRequests.keys().next().value);
  return promise;
 }
+window.wldRefreshPlaceSuggestions=()=>{placeRequests.clear();for(const id of ['originSearch','place'])if($(id).value.trim())$(id).dispatchEvent(new Event('input',{bubbles:true}));};
 function selectSearchPlace(id,item){
  if(id==='originSearch'){cancelStartingLocationRequest();if($('locationHelp'))$('locationHelp').hidden=true;}
  selectedPlaces[id]=item;selectedStopIds[id]=null;$(id).value=item.name;
@@ -751,6 +761,7 @@ async function findDirectTrips(options={}){
   if(unresolved.id){const pin=document.createElement('button');pin.type='button';pin.className='btn alt';pin.textContent='Choose location on map';pin.onclick=()=>window.wldPickSearchLocation(unresolved.id);out.append(pin);}return;
  }
  const origin=walkingEndpoint('originSearch'),destination=walkingEndpoint('place');
+ if([origin,destination].some(p=>p&&![p.lat>=37.3&&p.lat<=38.3,p.lon>=-123&&p.lon<=-121.5].every(Boolean))){out.textContent='Place search works in your selected city. Transit routing currently supports AC Transit in Berkeley and the East Bay; Houston and other regions are not supported yet.';return;}
  if(origin&&destination){walkingContext={origin:{...origin},destination:{...destination},started:planStart(),plan:{...currentPlan},route:getPedestrianLeg(origin,destination).catch(()=>null)};walkingComparisons.set(out,walkingContext);}
  if(!options.skipTransit&&!options.avoid&&await window.wldTransitPlanner?.(out,origin,destination,currentPlan))return;
  let a=stopsForInput('originSearch'),b=stopsForInput('place');
@@ -952,6 +963,7 @@ function boardChanged(){reset($('exit'),'Choose your destination stop');$('previ
 function applyStartingCoordinates(lat,lon,source,accuracy,timestamp=Date.now()){
  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return;
  locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap();
+ if(lat<37.3||lat>38.3||lon<-123||lon>-121.5){pendingLocationOrigin=false;selectedStopIds.originSearch=null;selectedPlaces.originSearch={name:'Current location',source:'device-origin',lat,lon};$('originSearch').value='Current location';$('originSuggestions').replaceChildren();$('locationText').textContent='Location set. Place suggestions use this area; AC Transit trip planning is available in Berkeley and the East Bay only.';window.wldRefreshPlaceSuggestions?.();return;}
  if(!network?.stops){pendingLocationOrigin=true;$('locationText').textContent=source+' found. Waiting for AC Transit stop data to load; your location is saved and will be applied automatically.';return}
  let nearestStop=null,best=Infinity;
  for(const stop of Object.values(network.stops)){if(stop.transitOnly||!Number.isFinite(stop.lat)||!Number.isFinite(stop.lon))continue;const km=distance(lat,lon,stop.lat,stop.lon);if(km<best){best=km;nearestStop=stop}}
@@ -1168,6 +1180,8 @@ $('startJourney').onclick=()=>{
 };
 $('finishJourney').onclick=()=>{
  if(!journey)return;
+ const impactKm=activeNavigation?.legs?.reduce((sum,leg)=>{const stops=leg.p.stops.slice(leg.start,leg.end+1).map(id=>network.stops[id]);return sum+stops.slice(1).reduce((n,stop,i)=>n+(stop&&stops[i]?distance(stops[i].lat,stops[i].lon,stop.lat,stop.lon):0),0);},0)||0;
+ window.dispatchEvent(new CustomEvent('wld:impact-offer',{detail:{km:impactKm}}));
  if(!journey.demo&&(!navigator.onLine||!isFreshJourneyPrediction(journey))){
   $('journeyStatus').textContent='Trip finished. No points awarded because 511 did not provide a verified matching delay prediction.';
   navStopTracking();stopDelayMonitor();journey=null;activeNavigation=null;updateDelayPreview();$('finishJourney').disabled=true;

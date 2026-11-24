@@ -90,3 +90,13 @@ Plans include pedestrian legs, transfers, provider geometry, requested departure
 To conserve the free allowance, identical plans share a 90-second server cache, AC Transit network discovery is cached for a day, and a per-process guard permits four upstream requests per minute and 45 per UTC day. Limits and cache reset on server restart; these are conservative guards, not persistent account billing controls. Failed requests use a short circuit breaker. There is no background Transit polling. Higher public usage needs an increased allowance from Transit.
 
 Offline adapter regressions use representative v4 response fixtures; real account/region validation is a separate live deployment check.
+
+## Showcase feedback update
+
+Place autocomplete uses a recent device fix (coordinates rounded to three decimal places), the current map area, or an explicit city override. Geocoders no longer impose a Bay Area boundary. A separate cache key is used for each query and area. Without a city override, focused suggestions are limited to roughly 150 km around the chosen area. An outside-region device fix sets the exact planning origin without selecting an unrelated AC Transit stop. Global place search does not expand bus-service coverage beyond the Berkeley/East Bay pilot.
+
+First launch now shows a three-step tutorial. My Points shows progress toward a 60-point/$1 concept reward. The Partners dialog lists Kash Café and Sharetea as prospective only, explains the proposed $10 monthly cap and reward-cost sponsorship model, and separates current 10-points/min prototype accrual from the planning doc's proposed 1-point/min pilot rules. Demo redemptions use 60 points/$1 and enforce a 600-point per-month presentation cap; Reset clears the in-memory demo cap.
+
+Riders can opt into ephemeral anonymous line-activity counts. Only a random session token and route label are sent; GPS, accounts, and trip histories are not shared. Sessions expire after 100 seconds and all counts reset with the server. These are active app sessions, not verified passenger counts. The Demo's crowd example is explicitly simulated.
+
+The CO₂ card counts only completed rides the user confirms replaced driving. Stop-to-stop distance is an approximation. The calculation compares potential car tailpipe emissions at EPA's 0.4 kg/mile and does not subtract bus emissions; it is not measured net CO₂ savings. App-highlight controls support annotated presentation screenshots.

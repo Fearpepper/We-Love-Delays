@@ -1,5 +1,5 @@
-const CACHE='wld-shell-v53';
-const SHELL=['/','/index.html','/icon.svg','/manifest.webmanifest','/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js','/assets/daily.js','/assets/assignment-demo.js','/assets/transit-planner.js'];
+const CACHE='wld-shell-v54';
+const SHELL=['/','/index.html','/icon.svg','/manifest.webmanifest','/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js','/assets/daily.js','/assets/assignment-demo.js','/assets/transit-planner.js','/assets/feedback-updates.js'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL.map(url=>new Request(url,{cache:'reload'})))).then(()=>self.skipWaiting()));
 });

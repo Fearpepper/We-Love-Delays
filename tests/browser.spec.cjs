@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('wld-onboarded','1'));});
 const base = process.env.BASE_URL || 'https://we-love-delays.onrender.com';
 test.use({ baseURL: base });
 test('deployed app loads and exposes three primary actions', async ({ page }) => {
