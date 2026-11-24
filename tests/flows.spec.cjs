@@ -551,7 +551,7 @@ test('a disconnected exact stop retries nearby opposite-direction stops',async({
 test('geocoder outage can recover with a map pin instead of a dead-end error',async({page})=>{
  const errors=await setup(page);await page.route('**/api/places?*',route=>route.fulfill({status:502,json:{error:'Provider down'}}));
  await page.locator('#place').fill('Local business');
- await expect(page.locator('#destinationSuggestions')).toContainText('choose the exact location');
+ await expect(page.locator('#destinationSuggestions')).toContainText('Choose a point on the map');
  await page.locator('#destinationSuggestions button').filter({hasText:'map'}).click();
  await expect(page.locator('#map')).toBeVisible();await page.locator('#map').click({position:{x:140,y:140}});
  await expect(page.locator('#place')).toHaveValue('Map-selected destination');
