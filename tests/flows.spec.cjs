@@ -596,7 +596,7 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
  const card=page.locator('.walking-option');if(minutes===60){await expect(card).not.toBeVisible();await page.locator('.long-walk-option summary').click();}await expect(card).toBeVisible();
  await expect(card.locator('h3')).toHaveText(minutes===5?'Walking looks faster':'Long walk · optional');
  await expect(card).toContainText('Fastest trip:');
- if(minutes===5)await expect(page.locator('[data-route-heading]')).toContainText('Bus alternatives');
+ if(minutes===5)await expect(page.locator('[data-route-heading]')).toContainText('Walking is faster');
  if(minutes===5&&!transfer)await page.screenshot({path:test.info().outputPath('walking-first.png'),fullPage:true});
  const link=card.getByRole('link',{name:'Open walking directions ↗'});
  await expect(link).toHaveAttribute('href',/travelmode=walking/);
@@ -965,7 +965,7 @@ test('Use my location requests fresh GPS instead of reusing a two-minute-old blu
 
 test('a longer-walk bus option is offered without silently raising the walking limit',async({page})=>{
  await setup(page);const data=transitFixture();data.results[0].walk_minutes=16;await enableTransitFixture(page,{available:true,results:[],empty_reason:'walking_limit',walking_options:data.results});await page.evaluate(()=>{selectSearchPlace('originSearch',{name:'Current location',lat:35.366,lon:-118.917});selectSearchPlace('place',{name:'Valley Plaza',lat:35.33753,lon:-119.033756});});
- await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('above your 15 min limit');await expect(page.locator('#maxWalking')).toHaveValue('15');await page.locator('#extraWalkingOptions summary').click();await expect(page.locator('.transit-route-choice')).toContainText('Walk 16 min');await page.locator('.transit-route-choice').click();await expect(page.locator('#guideStartTrip')).toBeVisible();await expect(page.locator('#maxWalking')).toHaveValue('15');
+ await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('above your 15 min limit');await expect(page.locator('#maxWalking')).toHaveValue('15');await page.locator('#extraWalkingOptions > summary').click();await expect(page.locator('.transit-route-choice')).toContainText('Walk 16 min');await page.locator('.transit-route-choice').click();await expect(page.locator('#guideStartTrip')).toBeVisible();await expect(page.locator('#maxWalking')).toHaveValue('15');
 });
 
 for(const type of [{mode:'metro',label:'BART'},{mode:'train',label:'Train'},{mode:'tram',label:'Tram'},{mode:'ferry',label:'Ferry'}])test('multimodal trip uses '+type.label+' labels and completes without bus rewards',async({page})=>{
