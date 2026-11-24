@@ -160,7 +160,7 @@ function say(s){$('message').textContent=s}function option(sel,label,value){cons
  }catch(e){if(e.name==='AbortError')throw Error('Transit service took too long to respond. Check your connection and retry.');throw e}
  finally{clearTimeout(timer)}
 }function show(){ $('welcome').classList.add('off');$('welcome').style.pointerEvents='none';$('welcome').style.visibility='hidden';window.scrollTo({top:0,behavior:'smooth'})} $('startNow').onclick=show;$('home').onclick=()=>{$('welcome').classList.remove('off');$('welcome').style.pointerEvents='auto';$('welcome').style.visibility='visible';};
-async function load(){try{const st=await api('/api/status');window.wldTransitConfigured=Boolean(st.transit_configured);$('feedStatus').textContent=st.transit_configured?'● Transit connected · local 511 backup':st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');const loaded=await api('/api/network');network={...loaded,stops:{...loaded.stops,...Object.fromEntries(Object.entries(network?.stops||{}).filter(([,stop])=>stop.transitOnly))}};demo=false;populateRoutes();populateStopSuggestions();if(locationPoint&&pendingLocationOrigin)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location',locationPoint.accuracy,locationPoint.timestamp);say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
+async function load(){try{const st=await api('/api/status');window.wldTransitConfigured=Boolean(st.transit_configured);$('feedStatus').textContent=st.transit_configured?'● Transit connected':st.configured?'● AC Transit · 511 connected':'● API token not configured';if(!st.configured){say('511 API token is missing in Render environment settings. Live routes cannot load. Demo is available only if you explicitly choose it.');$('feedStatus').textContent='● 511 token missing';return}say('Downloading AC Transit routes and stop patterns from 511. First load may take a moment…');const loaded=await api('/api/network');network={...loaded,stops:{...loaded.stops,...Object.fromEntries(Object.entries(network?.stops||{}).filter(([,stop])=>stop.transitOnly))}};demo=false;populateRoutes();populateStopSuggestions();if(locationPoint&&pendingLocationOrigin)applyStartingCoordinates(locationPoint.lat,locationPoint.lon,'Your location',locationPoint.accuracy,locationPoint.timestamp);say('AC Transit data loaded. Enter two stops to find direct or one-transfer bus options.')}catch(e){say('Live data unavailable: '+e.message+' · The app will not substitute simulated routes. You may choose demo mode manually.');$('feedStatus').textContent='● Live data unavailable';reset($('route'),'Live routes unavailable');reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first')}finally{window.wldNetworkReady=true;window.dispatchEvent(new Event('wld:network-ready'))}}
 function populateRoutes(){const r=$('route'),filter=$('routeFilter').value.trim().toLowerCase(),previous=r.value;reset(r,'Select an AC Transit bus route');const routes=(network.routes||[]).filter(x=>(x.name+' '+(x.description||'')).toLowerCase().includes(filter));routes.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).forEach(x=>option(r,x.name+(x.description?' · '+x.description:''),x.id));r.disabled=!routes.length;if(routes.some(x=>x.id===previous))r.value=previous;else {reset($('pattern'),'Select a route first');reset($('board'),'Select a direction first');reset($('exit'),'Select a boarding stop first');$('preview').disabled=true;$('startJourney').disabled=true}if(!routes.length)say('No routes match this filter. Clear the filter or try a different route number.')} $('routeFilter').oninput=()=>{if(network)populateRoutes()};
 
 function populateStopSuggestions(){
@@ -258,6 +258,7 @@ function stopsForInput(id){
  return candidates.filter(x=>x.d<=1.2).slice(0,25).map(x=>x.s);
 }
 attachAutocomplete('originSearch','originSuggestions');attachAutocomplete('place','destinationSuggestions');
+function transportLabel(p){return (p.transportLabel||'Bus')+' '+routeName(p);}
 function routeName(p){if(p.displayName)return p.displayName;return network.routes.find(r=>r.id===p.route)?.name||p.route}
 function showTransferMap(first,second){
  if(!ensureMap()){$('mapText').textContent='Interactive map unavailable. See the transfer instructions above.';return}
@@ -325,8 +326,8 @@ function setNavigation(legs,transitPlan=null){
  for(let k=0;k<legs.length;k++){
   const leg=legs[k],from=network.stops[leg.p.stops[leg.start]],to=network.stops[leg.p.stops[leg.end]];
   const count=Math.max(1,leg.end-leg.start),low=Math.max(2,Math.round(count*1.5)),high=Math.max(low+2,Math.round(count*3));
-  steps.push({stop:from,kind:'board',legIndex:k,label:'Wait for and board Bus '+routeName(leg.p)+' at '+(from?.name||'boarding stop'),estimate:'Scheduled departure loading below · waiting time depends on actual service'});
-  steps.push({stop:to,kind:'ride',legIndex:k,label:'Ride Bus '+routeName(leg.p)+' and get off at '+(to?.name||'destination stop'),estimate:'Scheduled riding time loading below · '+count+' stops'});
+  steps.push({stop:from,kind:'board',legIndex:k,label:'Wait for and board '+transportLabel(leg.p)+' at '+(from?.name||'boarding stop'),estimate:'Scheduled departure loading below · waiting time depends on actual service'});
+  steps.push({stop:to,kind:'ride',legIndex:k,label:'Ride '+transportLabel(leg.p)+' and get off at '+(to?.name||'destination stop'),estimate:'Scheduled riding time loading below · '+count+' stops'});
   if(k<legs.length-1){
    const next=network.stops[legs[k+1].p.stops[legs[k+1].start]];
    if(next?.id!==to?.id){const minutes=walk(to,next);steps.push({stop:next,kind:'walk-transfer',legIndex:k,label:'Walk to '+(next?.name||'next boarding stop')+' for the transfer',estimate:'Checking pedestrian transfer route…'});}
@@ -345,10 +346,11 @@ function setNavigation(legs,transitPlan=null){
  const currentTrip=activeNavigation;
  setTimeout(()=>{if(activeNavigation===currentTrip)focusSelectedTripMap()},250);
  $('navigationPanel').classList.remove('hidden');
- $('navTitle').textContent=legs.length===1?'Direct bus directions':'Transfer directions';
+ $('navTitle').textContent=legs.length===1?(legs[0].p.transportMode&&legs[0].p.transportMode!=='bus'?'Trip steps':'Direct bus directions'):'Transfer directions';
  $('navStatus').textContent='Checking real walking paths against published AC Transit departures. GPS is not street-by-street navigation.';
  renderNavigation();
- if(transitPlan){$('navStatus').textContent='Transit journey snapshot · live estimates are labeled per bus. Replan if service changes. Prototype points still require a fresh matching 511 destination prediction; Transit times do not award points.';renderNavigation();return;}
+ if(!transitPlan&&legs.some(l=>l.p.transportMode&&l.p.transportMode!=='bus')){activeNavigation.provider='Transit';$('navStatus').textContent='Saved steps. Check times before travel.';renderNavigation();return;}
+ if(transitPlan){$('navStatus').textContent='Follow the steps. Recheck if service changes.';renderNavigation();return;}
  const current=activeNavigation;
  Promise.all([applyPedestrianTimes(legs,steps),getPublishedLegTimes(legs,activeNavigation.plan),getWalkingJourney(legs,activeNavigation.plan)]).then(([,schedules,walks])=>{
   if(activeNavigation!==current)return;
@@ -373,17 +375,17 @@ function transitPath(encoded){
 let transitStopKeys=[];
 window.wldUseTransitPlan=plan=>{
  for(const id of transitStopKeys)delete network.stops[id];transitStopKeys=[];
- const buses=plan.legs.filter(l=>l.mode==='bus'),legs=buses.map((bus,k)=>{
+ const buses=plan.legs.filter(l=>l.mode!=='walk'),legs=buses.map((bus,k)=>{
   const localStops=bus.stops.every(stop=>{const canonical=network.stops[stop.raw_id];return canonical&&!canonical.transitOnly&&distance(stop.lat,stop.lon,canonical.lat,canonical.lon)<.02;});
-  const mappedRoute=localStops?(network.routes.find(r=>r.id===bus.route_id)||network.routes.find(r=>r.name===bus.route)):null;
+  const mappedRoute=bus.mode==='bus'&&localStops?(network.routes.find(r=>r.id===bus.route_id)||network.routes.find(r=>r.name===bus.route)):null;
   const ids=bus.stops.map((stop,i)=>{const id='transit-plan:'+k+':'+i,canonical=network.stops[stop.raw_id],matched=canonical&&distance(stop.lat,stop.lon,canonical.lat,canonical.lon)<.02;network.stops[id]={...stop,id,code:matched&&mappedRoute?canonical.code||'':'',transitOnly:true};transitStopKeys.push(id);return id;});
-  return {p:{route:mappedRoute?.id||bus.route_id||bus.route,displayName:bus.route,headsign:bus.headsign,stops:ids,rewardTrackingVerified:Boolean(mappedRoute)},start:0,end:ids.length-1};
+  return {p:{route:mappedRoute?.id||bus.route_id||bus.route,displayName:bus.route,transportMode:bus.mode,transportLabel:bus.mode_label||({metro:'Metro',train:'Train',tram:'Tram',ferry:'Ferry'}[bus.mode]||'Bus'),headsign:bus.headsign,stops:ids,rewardTrackingVerified:Boolean(mappedRoute)},start:0,end:ids.length-1};
  });
  setNavigation(legs,plan);
  if(ensureMap()){
   if(routeLayer)routeMap.removeLayer(routeLayer);routeLayer=L.featureGroup().addTo(routeMap);
-  for(const leg of plan.legs){let path=transitPath(leg.polyline||'');if(path.length<2&&leg.mode==='bus')path=leg.stops.map(s=>[s.lat,s.lon]);if(path.length>1)L.polyline(path,{color:leg.mode==='walk'?'#b57a15':'#003262',weight:leg.mode==='walk'?4:6,dashArray:leg.mode==='walk'?'8 8':null}).addTo(routeLayer);}
-  $('mapText').textContent='Transit planned journey · blue bus route, dashed walking legs. Follow written instructions and check current service.';
+  for(const leg of plan.legs){let path=transitPath(leg.polyline||'');if(path.length<2&&leg.mode!=='walk')path=leg.stops.map(s=>[s.lat,s.lon]);if(path.length>1)L.polyline(path,{color:leg.mode==='walk'?'#b57a15':'#003262',weight:leg.mode==='walk'?4:6,dashArray:leg.mode==='walk'?'8 8':null}).addTo(routeLayer);}
+  $('mapText').textContent='Blue: transit. Dashed: walking.';
  }
  setAppView('guide');window.wldUpdateGuide?.();
 };
@@ -392,14 +394,14 @@ function applyTransitNavigation(nav,plan){
  const clock=sec=>new Date(sec*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  for(const leg of plan.legs){
   if(leg.mode==='walk'){
-   const nextBus=plan.legs.slice(plan.legs.indexOf(leg)+1).find(l=>l.mode==='bus');
+   const nextBus=plan.legs.slice(plan.legs.indexOf(leg)+1).find(l=>l.mode!=='walk');
    const point=nextBus?.stops[0]||selectedPlaces.place||walkingEndpoint('place');
    steps.push({stop:point,kind:busIndex===0?'walk-start':nextBus?'walk-transfer':'walk-end',legIndex:Math.max(0,busIndex-1),label:nextBus?'Walk to '+nextBus.stops[0].name:'Walk to your destination',estimate:Math.ceil(leg.duration/60)+' min · '+Math.round(leg.distance)+' m · '+(leg.directions.join(' · ')||'Transit pedestrian path')});
    walks.push({minutes:leg.duration/60,meters:leg.distance,source:'Transit'});
   }else{
    const from=network.stops[nav.legs[busIndex].p.stops[0]],to=network.stops[nav.legs[busIndex].p.stops.at(-1)];
-   steps.push({stop:from,kind:'board',legIndex:busIndex,label:'Board Bus '+leg.route+' toward '+leg.headsign+' at '+from.name,estimate:(leg.realtime?'Live estimate: ':'Scheduled: ')+clock(leg.start_time)});
-   steps.push({stop:to,kind:'ride',legIndex:busIndex,label:'Ride Bus '+leg.route+' and get off at '+to.name,estimate:Math.ceil(leg.duration/60)+' min · '+(leg.realtime?'estimated':'scheduled')+' arrival '+clock(leg.end_time)});
+   steps.push({stop:from,kind:'board',legIndex:busIndex,label:'Board '+transportLabel(nav.legs[busIndex].p)+' toward '+leg.headsign+' at '+from.name,estimate:(leg.realtime?'Live estimate: ':'Scheduled: ')+clock(leg.start_time)});
+   steps.push({stop:to,kind:'ride',legIndex:busIndex,label:'Ride '+transportLabel(nav.legs[busIndex].p)+' to '+to.name,estimate:Math.ceil(leg.duration/60)+' min · '+(leg.realtime?'estimated':'scheduled')+' arrival '+clock(leg.end_time)});
    chain.push({departure:new Date(leg.start_time*1000).toISOString(),arrival:new Date(leg.end_time*1000).toISOString(),ride_minutes:leg.duration/60});busIndex++;
   }
  }
@@ -420,7 +422,7 @@ function renderNavigation(){
  $('navNext').textContent=step?'Next: '+step.label:'All listed steps completed';
  const nextButton=$('navAdvance');
  const leg=step?.legIndex===undefined?null:activeNavigation.legs[step.legIndex];
- nextButton.textContent=!step?'Trip complete':activeNavigation.progress===activeNavigation.steps.length-1?"I've arrived · Finish trip":step.kind==='board'?"I'm on Bus "+routeName(leg.p):step.kind==='ride'?"I'm off the bus":step.kind==='walk-transfer'?"I'm at the next stop":step.kind==='walk-end'?"I've arrived":"I'm at the stop";
+ nextButton.textContent=!step?'Trip complete':activeNavigation.progress===activeNavigation.steps.length-1?"I've arrived · Finish trip":step.kind==='board'?"I'm on "+transportLabel(leg.p):step.kind==='ride'?"I'm off":step.kind==='walk-transfer'?"I'm at the next stop":step.kind==='walk-end'?"I've arrived":"I'm at the stop";
  if($('getOffAlert')&&activeNavigation.steps[activeNavigation.progress]?.kind!=='ride')$('getOffAlert').hidden=true;
  updateCommuteGuidance();
  window.dispatchEvent(new Event('wld:progress'));
@@ -558,8 +560,8 @@ async function showWalkingComparison(out,context){
  const faster=withinLimit&&context.plan?.mode==='now'&&busMinutes!==null&&walkingMinutes<busMinutes;
  const card=document.createElement('section');card.className='walking-option notice';
  const title=document.createElement('h3');title.textContent=faster?'Walking looks faster':withinLimit?'Walk directly':'Long walk · optional';card.append(title);
- const timing=document.createElement('p');timing.textContent=walkingMinutes+' min walking · '+(walk.meters<1000?Math.round(walk.meters)+' m':(walk.meters/1000).toFixed(1)+' km')+(context.plan?.mode!=='now'?' · Compare against your selected travel time.':busMinutes===null?' · Bus time could not be verified.':' · Fastest checked bus: about '+busMinutes+' min including waiting, walking and transfers.');card.append(timing);
- if(faster){const note=document.createElement('p');note.textContent='Save about '+(busMinutes-walkingMinutes)+' min by walking. Bus options remain available below.';card.append(note);for(const c of out.querySelectorAll('.route-choice'))c.classList.add('slower-than-walking');}
+ const timing=document.createElement('p');timing.textContent=walkingMinutes+' min walking · '+(walk.meters<1000?Math.round(walk.meters)+' m':(walk.meters/1000).toFixed(1)+' km')+(context.plan?.mode!=='now'?' · Compare against your selected travel time.':busMinutes===null?' · Trip time unavailable.':' · Fastest trip: '+busMinutes+' min including waiting, walking and transfers.');card.append(timing);
+ if(faster){const note=document.createElement('p');note.textContent='Save about '+(busMinutes-walkingMinutes)+' min by walking. Other trips are below.';card.append(note);for(const c of out.querySelectorAll('.route-choice'))c.classList.add('slower-than-walking');}
  const actions=document.createElement('div');actions.className='actions';
  const map=document.createElement('button');map.type='button';map.className='btn alt';map.textContent='See walking route';
  map.onclick=()=>{
@@ -574,7 +576,7 @@ async function showWalkingComparison(out,context){
  actions.append(map,link);card.append(actions);
  const source=document.createElement('p');source.className='hint';source.textContent=out.querySelector('.transit-route-choice')?'Walking estimate: OpenRouteService. Bus comparison: Transit plan snapshot; live and scheduled times are labeled. Check conditions before traveling.':'Walking estimate: OpenRouteService. Bus comparison: published schedules, not live arrivals. Check pedestrian access and conditions; accessibility is not verified.';card.append(source);
  if(!withinLimit){const details=document.createElement('details');details.className='long-walk-option';const summary=document.createElement('summary');summary.textContent='Optional '+walkingMinutes+'-minute walk · longer than the recommended walking limit';details.append(summary,card);out.append(details);}else if(faster)out.prepend(card);else out.append(card);
- if(faster){const heading=out.querySelector('[data-route-heading]');if(heading)heading.textContent='Bus alternatives · walking is faster than the checked services';}
+ if(faster){const heading=out.querySelector('[data-route-heading]');if(heading)heading.textContent='Walking is faster';}
 }
 function estimateTripTiming(legs){
  const first=network.stops[legs[0].p.stops[legs[0].start]],last=network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]];
@@ -769,7 +771,7 @@ async function findDirectTrips(options={}){
  const outsideLocal=[origin,destination].some(p=>p&&!(p.lat>=37.3&&p.lat<=38.3&&p.lon>=-123&&p.lon<=-121.5));
  if(origin&&destination){walkingContext={origin:{...origin},destination:{...destination},started:planStart(),plan:{...currentPlan},route:getPedestrianLeg(origin,destination).catch(()=>null)};walkingComparisons.set(out,walkingContext);}
  if(!options.skipTransit&&!options.avoid&&await window.wldTransitPlanner?.(out,origin,destination,currentPlan))return;
- if(outsideLocal){out.replaceChildren();const note=document.createElement('p');note.textContent=window.wldTransitFallbackNote||'No bus journey is available for these locations with the current provider data and preferences.';out.append(note);window.wldTransitFallbackNote=null;const summary=document.createElement('p');summary.className='hint';summary.textContent=$('originSearch').value+' → '+$('place').value+' · Walk up to '+currentPlan.maxWalk+' min'+(currentPlan.stepFree?' · Step-free requested':'');out.append(summary);const changeTime=document.createElement('button');changeTime.type='button';changeTime.className='btn alt';changeTime.textContent='Change time';changeTime.onclick=()=>{$('tripWhen').focus();$('tripWhen').scrollIntoView({block:'center'});};out.append(changeTime);if(currentPlan.maxWalk<30){const walking=document.createElement('button');walking.type='button';walking.className='btn alt';walking.textContent='Try up to 30 min walking';walking.onclick=()=>{$('maxWalking').value='30';$('maxWalking').dispatchEvent(new Event('change',{bubbles:true}));findDirectTrips();};out.append(walking);}if(origin&&destination){const link=document.createElement('a');link.className='btn alt';link.textContent='Open Google Maps';link.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:origin.lat+','+origin.lon,destination:destination.lat+','+destination.lon,travelmode:'transit'});link.target='_blank';link.rel='noopener noreferrer';out.append(link);}return;}
+ if(outsideLocal){out.replaceChildren();const note=document.createElement('p');note.textContent=window.wldTransitFallbackNote||'No trip found with these settings.';out.append(note);window.wldTransitFallbackNote=null;const summary=document.createElement('p');summary.className='hint';summary.textContent=$('originSearch').value+' → '+$('place').value+' · Walk up to '+currentPlan.maxWalk+' min'+(currentPlan.stepFree?' · Step-free requested':'');out.append(summary);const changeTime=document.createElement('button');changeTime.type='button';changeTime.className='btn alt';changeTime.textContent='Change time';changeTime.onclick=()=>{$('tripWhen').focus();$('tripWhen').scrollIntoView({block:'center'});};out.append(changeTime);if(currentPlan.maxWalk<30){const walking=document.createElement('button');walking.type='button';walking.className='btn alt';walking.textContent='Try up to 30 min walking';walking.onclick=()=>{$('maxWalking').value='30';$('maxWalking').dispatchEvent(new Event('change',{bubbles:true}));findDirectTrips();};out.append(walking);}if(origin&&destination){const link=document.createElement('a');link.className='btn alt';link.textContent='Open Google Maps';link.href='https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:origin.lat+','+origin.lon,destination:destination.lat+','+destination.lon,travelmode:'transit'});link.target='_blank';link.rel='noopener noreferrer';out.append(link);}return;}
  let a=stopsForInput('originSearch'),b=stopsForInput('place');
  if(options.nearby){a=[...new Map([...a,...nearbyStops(walkingEndpoint('originSearch'))].map(s=>[s.id,s])).values()];b=[...new Map([...b,...nearbyStops(walkingEndpoint('place'))].map(s=>[s.id,s])).values()];}
 
@@ -1170,7 +1172,7 @@ $('startJourney').onclick=()=>{
  const leg=legs?.length?legs[legs.length-1]:null;
  const exit=legs?.length?network.stops[legs[legs.length-1].p.stops[legs[legs.length-1].end]]:stops[1];
  const routeId=leg?leg.p.route:$('route').value;
- const route=legs?.length?legs.map(x=>'Bus '+routeName(x.p)).join(' → '):$('route').selectedOptions[0].textContent;
+ const route=legs?.length?legs.map(x=>transportLabel(x.p)).join(' → '):$('route').selectedOptions[0].textContent;
  const untracked=Boolean(!exit?.code||(activeNavigation?.provider==='Transit'&&!leg?.p.rewardTrackingVerified));
  journey={demo,untracked,transfer:Boolean(legs?.length>1),finalLegIndex:legs?.length?legs.length-1:0,route,routeId,exitCode:exit?.code||'',vehicle:null,delay:null,sampled:null,recorded:null,aimed:null,expected:null,busy:false};
  $('finishJourney').disabled=false;updateDelayPreview();

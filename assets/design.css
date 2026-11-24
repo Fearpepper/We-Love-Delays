@@ -650,3 +650,5 @@ body.map-led-app #autoResults .route-result-card .journey-comparison strong,#rep
 .prototype-gallery figure{margin:16px 0;padding:12px;background:#fff;border-radius:16px}.prototype-gallery a{display:block;max-height:320px;overflow:auto;border-radius:10px}.prototype-gallery img{display:block;width:100%;height:auto}.prototype-gallery figcaption{font-size:15px;margin-top:10px;color:#294c42}
 
 .planner-partner-link{margin:14px 0;display:flex;flex-wrap:wrap;gap:8px}#rewardRules{margin:16px 0;padding:16px;background:#edf3e3;border-radius:16px}#rewardRules summary,.community-card summary,.partners-dialog summary{cursor:pointer;font-weight:700}#rewardRules p{font-size:16px;line-height:1.55}.onboarding-panel p:not(.eyebrow){font-size:17px}.partner-grid article{border-top:5px solid #c6a8e3}.partner-grid article:nth-child(2){border-color:#e7af61}
+
+.transit-route-details{margin:0 0 14px;padding:8px 12px;border:1px solid #d4dfce;border-radius:12px;background:#fffef8}.transit-route-details>summary{font-size:15px;font-weight:650;cursor:pointer}.transit-route-details .transit-route-summary{display:block;padding-top:8px}

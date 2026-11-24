@@ -61,7 +61,7 @@
    const nav=activeNavigation;if(!nav){confidence.hidden=true;return;}confidence.hidden=false;
    if(journey&&!journey.demo&&isFreshJourneyPrediction(journey)&&navigator.onLine){const e=evidence({aimed:journey.aimed,expected:journey.expected,recorded:new Date(journey.recorded).toISOString()});if(e.kind==='Live prediction'){confidenceText('live','Final bus stop · Live prediction · '+clock(e.at)+' · '+e.detail+'. Walking after the bus is additional.');return;}}
    const connection=nav.connection,arrival=connection?.arrival;
-   if(navigator.onLine&&Number.isFinite(arrival)&&arrival>=Date.now()){confidenceText('scheduled','Destination · Published schedule · '+clock(arrival)+' · includes estimated final walking. No fresh live destination prediction; service may change.');}
+   if(navigator.onLine&&Number.isFinite(arrival)&&arrival>=Date.now()){confidenceText('scheduled',nav.provider==='Transit'?'Arrival estimate · '+clock(arrival)+' · Recheck before travel.':'Destination · Published schedule · '+clock(arrival)+' · includes estimated final walking. No fresh live destination prediction; service may change.');}
    else{confidenceText('unavailable','Arrival unavailable · '+(navigator.onLine?'No current prediction or feasible published schedule. Check departures before boarding.':'Offline. Saved directions remain available; reconnect for arrivals.'));}
   }
   new MutationObserver(renderConfidence).observe($('navStatus'),{childList:true,subtree:true,characterData:true});
@@ -72,8 +72,8 @@
   new MutationObserver(()=>{renderConfidence();renderNearby();}).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
   renderConfidence();
 
-  const missed=button('I missed it · check next bus',recover);missed.id='missedBus';const recoveryStatus=node('p',undefined,'hint');recoveryStatus.id='missedBusStatus';recoveryStatus.setAttribute('role','status');$('guideTripControls').append(missed,recoveryStatus);
-  const recovery=node('section',undefined,'notice');recovery.id='missedBusRecovery';recovery.hidden=true;recovery.append(node('h3','Next bus & alternatives'));const recoveryResults=node('div');recoveryResults.id='missedBusResults';recovery.append(recoveryResults);$('navigationPanel').after(recovery);
+  const missed=button('Missed it?',recover);missed.id='missedBus';const recoveryStatus=node('p',undefined,'hint');recoveryStatus.id='missedBusStatus';recoveryStatus.setAttribute('role','status');$('guideTripControls').append(missed,recoveryStatus);
+  const recovery=node('section',undefined,'notice');recovery.id='missedBusRecovery';recovery.hidden=true;recovery.append(node('h3','Next departures'));const recoveryResults=node('div');recoveryResults.id='missedBusResults';recovery.append(recoveryResults);$('navigationPanel').after(recovery);
   function syncRecovery(){const step=activeNavigation?.steps[activeNavigation.progress];missed.hidden=!step||!['walk-start','board','walk-transfer'].includes(step.kind);}
   for(const name of ['wld:route-selected','wld:progress','wld:trip-started','wld:trip-finished'])window.addEventListener(name,()=>{syncRecovery();if(name==='wld:route-selected'||name==='wld:trip-finished'){recovery.hidden=true;recoveryResults.replaceChildren();recoveryStatus.textContent='';}});syncRecovery();
   async function recover(){
@@ -91,7 +91,7 @@
    const destination=captured.destination||exit.name;
    window.wldRestoreSearch({origin:origin.name||captured.origin||board.name,destination,stopIds:{originSearch:first?captured.stopIds?.originSearch:origin.id,place:captured.stopIds?.place||exit.id},places:{originSearch:first?captured.places?.originSearch:null,place:captured.places?.place||null}});
    const plan={...nav.plan,mode:'now',at:null};$('tripWhen').value='now';$('tripWhen').dispatchEvent(new Event('change'));
-   recovery.hidden=false;missed.disabled=true;recoveryStatus.textContent='Checking the next catchable scheduled bus and alternatives. Your active trip stays selected until you choose a replacement.';
+   recovery.hidden=false;missed.disabled=true;recoveryStatus.textContent='Finding another departure…';
    try{await findDirectTrips({target:recoveryResults,plan,nearby:true});if(activeNavigation!==nav)return;recoveryStatus.textContent='Results checked from '+(origin.name||board.name)+' to '+destination+'. Select an option to replace your trip. Predictions can change; confirm you can reach the stop.';}
    catch{recoveryStatus.textContent='Recovery search unavailable. Your current trip is kept; try the official planner.';}
    finally{missed.disabled=false;}
