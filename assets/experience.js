@@ -12,9 +12,9 @@
  }
  apply();
  const steps=[
-  {icon:'①',title:'Track your route',text:'Pick a route. Tap Start trip.'},
-  {icon:'②',title:'Earn delay points',text:'See sample points from bus delay estimates.'},
-  {icon:'③',title:'Explore rewards',text:'Try rewards in Demo. Points cannot be spent yet.'}
+  {icon:'①',title:'Track your route',text:'Choose a route. Tap Start trip.'},
+  {icon:'②',title:'Earn delay points',text:'Bus delays can earn prototype points.'},
+  {icon:'③',title:'Explore rewards',text:'Try Demo rewards. No real spending.'}
  ];
  let index=0;
  const modal=document.createElement('div');modal.className='onboarding-overlay';modal.hidden=true;

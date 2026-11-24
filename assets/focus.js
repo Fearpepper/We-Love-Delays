@@ -19,7 +19,7 @@
   const sections=[saved,recent].filter(Boolean);
   if(sections.length){
    const details=document.createElement('details');details.className='focus-fold focus-dashboard-more';
-   const summary=document.createElement('summary');summary.textContent='Saved places & recent trips';details.append(summary);
+   const summary=document.createElement('summary');summary.textContent='Saved & recent';details.append(summary);
    dashboard.append(details);sections.forEach(n=>details.append(n));
   }
  }
@@ -29,7 +29,7 @@
   const field=actions?.closest('.field');
   if(field&&actions){
    const hint=$('locationText');
-   const d=fold('More ways to choose your starting point',[actions,hint]);
+   const d=fold('More location options',[actions,hint]);
    if(d)d.classList.add('focus-location-tools');
   }
  }
@@ -42,7 +42,7 @@
   const exportActions=$('exportRewards')?.closest('.actions');
   const backup=$('backupStatus');
   if(exportActions&&backup){
-   const d=fold('Backup and restore points',[exportActions,backup]);
+   const d=fold('Back up points',[exportActions,backup]);
    if(d)d.classList.add('focus-wallet-tools');
   }
   const milestones=rewards.querySelector('.reward-milestones');
@@ -71,9 +71,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   node.before(details);details.append(node);return {details,summary};
  }
  const nextEstimate=document.createElement('p');nextEstimate.id='navNextEstimate';byId('navNext').after(nextEstimate);
- const steps=disclosure(byId('navSteps'),'All trip steps');
+ const steps=disclosure(byId('navSteps'),'All steps');
  const notices=disclosure(byId('guideServiceAlerts'),'Service alerts');
- const alternatives=disclosure(byId('replanPanel'),'Alternative routes');
+ const alternatives=disclosure(byId('replanPanel'),'Other routes');
  if(alternatives){const sync=()=>{alternatives.details.hidden=byId('replanPanel').hidden;};new MutationObserver(sync).observe(byId('replanPanel'),{attributes:true,attributeFilter:['hidden']});new MutationObserver(()=>{if(byId('replanResults').textContent.trim())alternatives.details.open=true;}).observe(byId('replanResults'),{childList:true,subtree:true,characterData:true});sync();}
  if(notices){const sync=()=>{const count=byId('guideServiceAlerts').querySelectorAll('.service-alert-item').length;const text=byId('guideServiceAlerts').textContent;notices.summary.textContent='Service alerts'+(count?' · '+count+' notice'+(count===1?'':'s'):'')+(/unavailable|outdated/i.test(text)?' · check updates':'');};new MutationObserver(sync).observe(byId('guideServiceAlerts'),{childList:true,subtree:true,characterData:true});sync();}
  function hierarchy(event){
@@ -86,7 +86,7 @@ window.addEventListener('DOMContentLoaded',()=>{
    heading.textContent=legs.map(l=>l.p.transportMode&&l.p.transportMode!=='bus'?transportLabel(l.p):routeName(l.p)).join(' → ');
    if(eyebrow)eyebrow.textContent='Your trip';
    if(caption)caption.textContent='To '+(network?.stops[last.p.stops[last.end]]?.name||'your destination');
-  }else{heading.textContent=event?.type==='wld:trip-finished'?'Trip complete.':'Your next ride.';if(caption)caption.textContent='Plan a route, then follow one step at a time.';if(eyebrow)eyebrow.textContent='We Love Delays';}
+  }else{heading.textContent=event?.type==='wld:trip-finished'?'Trip complete.':'Your next ride.';if(caption)caption.textContent='Plan a trip to see directions.';if(eyebrow)eyebrow.textContent='We Love Delays';}
  }
  for(const name of ['wld:route-selected','wld:trip-started','wld:trip-finished','wld:progress'])window.addEventListener(name,hierarchy);
  hierarchy();
@@ -99,16 +99,16 @@ window.addEventListener('DOMContentLoaded',()=>{
  const workspace=document.createElement('section');workspace.id='plannerWorkspace';workspace.setAttribute('aria-label','Plan a trip');
  const mapHost=document.createElement('div');mapHost.id='planMapHost';mapHost.className='planner-map-host';
  const stageTitle=document.createElement('div');stageTitle.className='map-stage-title';stageTitle.setAttribute('aria-hidden','true');
- const eyebrow=document.createElement('span');eyebrow.textContent='YOUR NEXT RIDE';
- const headline=document.createElement('strong');headline.textContent="Make moves.";
- const subtitle=document.createElement('span');subtitle.textContent='Your next ride starts here.';stageTitle.append(eyebrow,headline,subtitle);
+ const eyebrow=document.createElement('span');eyebrow.textContent='TRIP PLANNER';
+ const headline=document.createElement('strong');headline.textContent="Your next trip.";
+ const subtitle=document.createElement('span');subtitle.textContent='Routes that get you there.';stageTitle.append(eyebrow,headline,subtitle);
  card.before(workspace);workspace.append(mapHost,stageTitle,card);
- card.querySelector('h2').textContent="Let's go.";
- const intro=document.createElement('p');intro.className='planner-intro';intro.textContent='Choose a start and destination.';card.querySelector('h2').after(intro);
+ card.querySelector('h2').textContent="Where to?";
+ const intro=document.createElement('p');intro.className='planner-intro';intro.textContent='Enter your start and destination.';card.querySelector('h2').after(intro);
  for(const [id,label] of [['originSearch','From'],['place','To']]){
   const input=$(id),field=input.closest('.field'),fieldLabel=field.querySelector('label');
   if(fieldLabel)fieldLabel.textContent=label;
-  input.placeholder=id==='originSearch'?'Where are you starting?':'Business, address, or stop';
+  input.placeholder=id==='originSearch'?'Starting point':'Place, address, or stop';
   input.setAttribute('aria-label',id==='originSearch'?'Starting place, address, or bus stop':'Destination business, address, or bus stop');
   const tools=document.createElement('div');tools.className='location-shortcuts';
   if(id==='originSearch'){
@@ -131,17 +131,17 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const byId=id=>document.getElementById(id),panel=byId('navigationPanel');
  // The current instruction is the primary task; source/diagnostic detail stays expandable.
- const timing=document.createElement('details');timing.className='trip-inspector trip-timing-detail';const summary=document.createElement('summary');summary.textContent='Timing & GPS status';timing.append(summary);byId('navStatus').before(timing);timing.append(byId('navStatus'));new MutationObserver(()=>{if(/stopped|unavailable|outdated|blocked|denied/i.test(byId('navStatus').textContent))timing.open=true;}).observe(byId('navStatus'),{childList:true,characterData:true,subtree:true});
+ const timing=document.createElement('details');timing.className='trip-inspector trip-timing-detail';const summary=document.createElement('summary');summary.textContent='Timing & location';timing.append(summary);byId('navStatus').before(timing);timing.append(byId('navStatus'));new MutationObserver(()=>{if(/stopped|unavailable|outdated|blocked|denied/i.test(byId('navStatus').textContent))timing.open=true;}).observe(byId('navStatus'),{childList:true,characterData:true,subtree:true});
  const eta=document.createElement('p');eta.id='guideArrivalSummary';eta.className='guide-arrival-summary';eta.setAttribute('role','status');byId('guidePrediction')?.querySelector('.guide-prediction-header')?.after(eta);
  const gpsActions=document.createElement('div');gpsActions.className='actions';gpsActions.append(byId('navStart'),byId('navStop'));timing.append(gpsActions);if(byId('gpsDiagnostics'))timing.append(byId('gpsDiagnostics'));
  const nextCard=document.createElement('section');nextCard.className='guide-next-preview';nextCard.setAttribute('aria-label','Current trip instruction');document.querySelector('.guide-navigation-layout').before(nextCard);
  const moveNext=()=>{if(innerWidth<=790){nextCard.append(byId('navNext'),byId('navNextEstimate'));nextCard.hidden=false;}else{byId('navTitle').after(byId('navNext'),byId('navNextEstimate'));nextCard.hidden=true;}};
  moveNext();window.addEventListener('resize',moveNext);
  const prediction=byId('guidePrediction'),values=prediction?.querySelector('.guide-prediction-values');
- if(values){const detail=document.createElement('details');detail.className='trip-inspector';const s=document.createElement('summary');s.textContent='Delay estimate & prototype points';detail.append(s);values.before(detail);for(const node of [byId('liveRouteText'),values,byId('liveDataNote'),byId('liveLastUpdate')])if(node)detail.append(node);}
+ if(values){const detail=document.createElement('details');detail.className='trip-inspector';const s=document.createElement('summary');s.textContent='Delay & prototype points';detail.append(s);values.before(detail);for(const node of [byId('liveRouteText'),values,byId('liveDataNote'),byId('liveLastUpdate')])if(node)detail.append(node);}
  const recovery=document.createElement('details');recovery.className='trip-inspector recovery-actions';recovery.id='tripRecoveryActions';
  const title=document.createElement('summary');title.textContent='Find another way';recovery.append(title);
- const text=document.createElement('p');text.textContent='Missed a bus, a transfer, or service changed? Search from where you are now.';recovery.append(text);
+ const text=document.createElement('p');text.textContent='Find a new route from your location.';recovery.append(text);
  for(const reason of ['I missed my bus','I missed my transfer','Service changed']){const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent=reason;b.onclick=()=>window.wldPrepareRecovery?.(reason+'.');recovery.append(b);}
  panel.after(recovery);
 });
@@ -150,8 +150,8 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),card=$('mapText').closest('.card'),title=card.querySelector('h2'),oldTitle=title.textContent;
  const controls=document.createElement('section');controls.id='mapExplorer';controls.className='map-explorer';controls.hidden=true;
- const heading=document.createElement('h2');heading.textContent='Explore nearby stops';controls.append(heading);
- const intro=document.createElement('p');intro.textContent='Find stops near the map center. Pan the map, then search this area. Distances are straight-line, not walking routes.';
+ const heading=document.createElement('h2');heading.textContent='Nearby stops';controls.append(heading);
+ const intro=document.createElement('p');intro.textContent='Move the map, then search. Distances are straight-line.';
  const actions=document.createElement('div');actions.className='actions';
  const search=document.createElement('button');search.type='button';search.className='btn';search.id='searchMapArea';search.textContent='Search this area';
  const reset=document.createElement('button');reset.type='button';reset.className='btn alt';reset.textContent='Back to Berkeley';
@@ -168,7 +168,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const detail=document.createElement('p');detail.textContent='Stop '+(stop.code||stop.id)+' · '+Math.round(meters)+' m from searched center · Buses '+routes.slice(0,8).join(', ')+(routes.length>8?' + more':'');row.append(detail);
   const buttons=document.createElement('div');buttons.className='actions';
   for(const [target,label] of [['originSearch','Start here'],['place','Go here']]){const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent=label;b.setAttribute('aria-label',label+' · '+stop.name);b.dataset.stopId=stop.id;b.dataset.stopTarget=target;b.onclick=()=>window.wldPlanFromMapStop(stop.id,target);buttons.append(b);}
-  row.append(buttons);if(!popup){const center=document.createElement('button');center.type='button';center.className='map-stop-center';center.textContent='Show stop on map';center.onclick=()=>{mapFollowing=false;updateMapFollowControl();routeMap.setView([stop.lat,stop.lon],17,{animate:false});};row.append(center);}return row;
+  row.append(buttons);if(!popup){const center=document.createElement('button');center.type='button';center.className='map-stop-center';center.textContent='Show on map';center.onclick=()=>{mapFollowing=false;updateMapFollowControl();routeMap.setView([stop.lat,stop.lon],17,{animate:false});};row.append(center);}return row;
  }
  function render(){
   if(!visible)return;list.hidden=false;list.replaceChildren();if(stopLayer){stopLayer.remove();stopLayer=null;}
@@ -195,7 +195,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('autoFind');if(!button)return;
  const form=document.createElement('div');form.className='commute-options';
- form.innerHTML=`<label for="tripWhen">Travel time</label><select id="tripWhen"><option value="now">Leave now</option><option value="leave">Leave at</option><option value="arrive">Arrive by</option></select><label id="tripDateLabel" hidden>Travel date &amp; time<input id="tripDateTime" type="datetime-local"><small>Uses your device timezone. Plan up to 7 days ahead.</small></label><details class="focus-fold"><summary>Trip options</summary><label for="maxWalking">Walking limit</label><select id="maxWalking"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label><input id="stepFree" type="checkbox"> Step-free routes</label><p class="hint">Based on agency data. Check access before you go.</p><label><input id="getOffReminders" type="checkbox" checked> Get-off reminders</label><p class="hint">Keep the app open for reminders.</p></details>`;
+ form.innerHTML=`<label for="tripWhen">Travel time</label><select id="tripWhen"><option value="now">Leave now</option><option value="leave">Leave at</option><option value="arrive">Arrive by</option></select><label id="tripDateLabel" hidden>Travel date &amp; time<input id="tripDateTime" type="datetime-local"><small>Local time · up to 7 days ahead.</small></label><details class="focus-fold"><summary>Trip options</summary><label for="maxWalking">Walking limit</label><select id="maxWalking"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label><input id="stepFree" type="checkbox"> Step-free routes</label><p class="hint">Agency data. Confirm access before travel.</p><label><input id="getOffReminders" type="checkbox" checked> Get-off reminders</label><p class="hint">Keep the app open.</p></details>`;
  button.closest('.actions')?.before(form);
  const date=document.getElementById('tripDateTime'),when=document.getElementById('tripWhen');
  const d=new Date(Date.now()+30*60000);date.value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
