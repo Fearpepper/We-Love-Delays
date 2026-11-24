@@ -440,7 +440,7 @@ $('navAdvance').onclick=()=>{
  $('navStatus').textContent='Step marked complete manually. Confirm boarding, alighting and pedestrian access yourself; GPS cannot verify these actions.';
 };
 function updateNavigationPosition(lat,lon,accuracy,timestamp=Date.now()){
- if(![lat,lon,accuracy,timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||Date.now()-timestamp>30000||timestamp>Date.now()+5000){$('navStatus').textContent='Location unavailable. Follow the steps.';return;}
+ if(![lat,lon,accuracy,timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||Date.now()-timestamp>30000||timestamp>Date.now()+5000){$('navStatus').textContent='Location outdated or unavailable. Follow the steps.';return;}
  window.dispatchEvent(new CustomEvent('wld:gps-fix',{detail:{accuracy,timestamp}}));
  lastNavigationFix={lat,lon,accuracy,timestamp};locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap({center:mapFollowing,accuracy});
  if(!activeNavigation)return;
