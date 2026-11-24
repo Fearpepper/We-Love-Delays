@@ -40,7 +40,7 @@
   startedAt=startedAt||Date.now();
   const legs=activeNavigation.legs,stops={};
   for(const leg of legs)for(const id of leg.p.stops){
-   const s=network.stops[id];if(s)stops[id]={id:s.id,name:s.name,code:s.code,lat:s.lat,lon:s.lon};
+   const s=network.stops[id];if(s)stops[id]={id:s.id,name:s.name,code:s.code,lat:s.lat,lon:s.lon,transitOnly:Boolean(s.transitOnly)};
   }
   const routes=network.routes.filter(r=>legs.some(l=>l.p.route===r.id)).map(r=>({id:r.id,name:r.name}));
   const data={version:1,startedAt,legs,stops,routes,progress:activeNavigation.progress,vehicle:journey.vehicle};
@@ -68,6 +68,7 @@
    }
    if(!Number.isInteger(saved.progress)||saved.progress<0)throw Error('Invalid saved progress');
   }catch{clear();return;}
+  for(const [id,stop] of Object.entries(saved.stops))if(id.startsWith('transit-plan:'))stop.transitOnly=true;
   const offline=!network;
   restoring=true;
   try{
