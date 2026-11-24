@@ -652,3 +652,28 @@ body.map-led-app #autoResults .route-result-card .journey-comparison strong,#rep
 .planner-partner-link{margin:14px 0;display:flex;flex-wrap:wrap;gap:8px}#rewardRules{margin:16px 0;padding:16px;background:#edf3e3;border-radius:16px}#rewardRules summary,.community-card summary,.partners-dialog summary{cursor:pointer;font-weight:700}#rewardRules p{font-size:16px;line-height:1.55}.onboarding-panel p:not(.eyebrow){font-size:17px}.partner-grid article{border-top:5px solid #c6a8e3}.partner-grid article:nth-child(2){border-color:#e7af61}
 
 .transit-route-details{margin:0 0 14px;padding:8px 12px;border:1px solid #d4dfce;border-radius:12px;background:#fffef8}.transit-route-details>summary{font-size:15px;font-weight:650;cursor:pointer}.transit-route-details .transit-route-summary{display:block;padding-top:8px}
+
+/* Product polish: restrained type, consistent surfaces and clearer action hierarchy. */
+body.map-led-app{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+body.map-led-app .planner-card{box-shadow:0 8px 28px #153d2d16!important;border-color:#d5dfcf!important;border-radius:20px!important}
+body.map-led-app .planner-card>h2{font-size:40px!important;line-height:1.15!important;letter-spacing:-1.4px!important;font-weight:750!important}
+body.map-led-app .planner-intro{line-height:1.5;margin-bottom:20px}
+body.map-led-app .planner-card .field label{font-size:14px!important;font-weight:650}
+body.map-led-app .map-stage-title{background:#fffef8ed;border:1px solid #d5dfcf;border-radius:16px;box-shadow:0 4px 18px #153d2d0a}
+body.map-led-app .map-stage-title strong{font-size:clamp(32px,4vw,52px);line-height:1.08;letter-spacing:-1.6px;font-weight:750;margin:12px 0}
+body.map-led-app .map-stage-title>span{letter-spacing:.02em}
+body.map-led-app #autoFind,body.map-led-app #guideStartTrip,body.map-led-app #navAdvance.is-next-action,body.map-led-app #tripPlanAgain{box-shadow:0 2px 5px #153d2d14!important;font-weight:700!important}
+body.map-led-app .route-result-card{border-left-width:3px!important;box-shadow:none!important;border-radius:14px!important}
+body.map-led-app #autoResults .route-result-card strong{font-size:20px!important;line-height:1.3!important;letter-spacing:-.3px}
+body.map-led-app .route-result-card small{line-height:1.5}
+body.map-led-app .guide-screen .guide-hero h1{font-size:clamp(32px,4vw,48px)!important;line-height:1.15!important;letter-spacing:-1.2px!important}
+body.map-led-app .reward-explainer h3,body.map-led-app .impact-card h3{font-size:22px;letter-spacing:-.4px}
+body.map-led-app .partners-dialog h2{font-size:28px;line-height:1.2;letter-spacing:-.6px}
+body.map-led-app .hint,body.map-led-app .location-status{line-height:1.5}
+@media(max-width:790px){
+ body.map-led-app .planner-card>h2{font-size:34px!important;letter-spacing:-1px!important}
+ body.map-led-app .map-stage-title strong{font-size:26px;letter-spacing:-.7px;margin:5px 0 0}
+ body.map-led-app .guide-screen .guide-hero h1{font-size:34px!important}
+ body.map-led-app .planner-card{box-shadow:0 5px 18px #153d2d14!important}
+}
+@media(prefers-reduced-motion:reduce){body.map-led-app *{scroll-behavior:auto!important}}

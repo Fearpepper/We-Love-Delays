@@ -34,7 +34,7 @@
   const tracking=Boolean($('finishJourney')&&!$('finishJourney').disabled);
   setTracking(tracking);
   if(start){start.disabled=!tracking&&Boolean($('startJourney')?.disabled);}
-  if(feedback&&active&&!tracking){feedback.textContent=start?.disabled?'Trip tracking is unavailable for this route. You can still follow the directions.':'';}
+  if(feedback&&active&&!tracking){feedback.textContent=start?.disabled?'Tracking unavailable. Directions are ready.':'';}
   syncMap();
  }
  window.wldUpdateGuide=update;
@@ -58,7 +58,7 @@
  });
  finish?.addEventListener('click',()=>{
   const original=$('finishJourney');
-  if(!original||original.disabled){feedback.textContent='No active trip to finish.';return}
+  if(!original||original.disabled){feedback.textContent='No active trip.';return}
   original.click();
   feedback.textContent=$('journeyStatus')?.textContent||'Trip finished.';
  });
@@ -68,7 +68,7 @@
   update();
   if(complete){
    complete.hidden=false;
-   complete.querySelector('h2').textContent=event.detail?.cancelled?'Trip cancelled':'Trip finished!';
+   complete.querySelector('h2').textContent=event.detail?.cancelled?'Trip cancelled':'Trip complete';
    empty.hidden=true;
    const earned=event.detail?.earned||0;
    const detailText=event.detail?.cancelled?'Trip cancelled. No points were awarded.':event.detail?.demo?'Simulation complete. '+earned+' demo-only points; your saved prototype balance was unchanged.':earned>0?'You earned '+earned+' prototype points. Ready for your next ride?':event.detail?.verified?'Your trip is complete. The matching 511 prediction reported no delay, so no delay points were earned.':'Your trip is complete. No points were awarded without a matching 511 delay prediction.';
