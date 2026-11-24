@@ -346,7 +346,7 @@ function setNavigation(legs,transitPlan=null){
  const currentTrip=activeNavigation;
  setTimeout(()=>{if(activeNavigation===currentTrip)focusSelectedTripMap()},250);
  $('navigationPanel').classList.remove('hidden');
- $('navTitle').textContent=legs.length===1?'Direct bus directions':'Transfer directions';
+ $('navTitle').textContent=legs.length===1?(legs[0].p.transportMode&&legs[0].p.transportMode!=='bus'?'Trip steps':'Direct bus directions'):'Transfer directions';
  $('navStatus').textContent='Checking real walking paths against published AC Transit departures. GPS is not street-by-street navigation.';
  renderNavigation();
  if(!transitPlan&&legs.some(l=>l.p.transportMode&&l.p.transportMode!=='bus')){activeNavigation.provider='Transit';$('navStatus').textContent='Saved steps. Check times before travel.';renderNavigation();return;}

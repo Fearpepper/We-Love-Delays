@@ -83,7 +83,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(!heading)return;
   if(activeNavigation?.legs?.length){
    const legs=activeNavigation.legs,last=legs[legs.length-1];
-   heading.textContent=legs.map(l=>routeName(l.p)).join(' → ');
+   heading.textContent=legs.map(l=>l.p.transportMode&&l.p.transportMode!=='bus'?transportLabel(l.p):routeName(l.p)).join(' → ');
    if(eyebrow)eyebrow.textContent='Your trip';
    if(caption)caption.textContent='To '+(network?.stops[last.p.stops[last.end]]?.name||'your destination');
   }else{heading.textContent=event?.type==='wld:trip-finished'?'Trip complete.':'Your next ride.';if(caption)caption.textContent='Plan a route, then follow one step at a time.';if(eyebrow)eyebrow.textContent='We Love Delays';}

@@ -262,7 +262,7 @@ test('active direct trip recovers route and progress without restoring old predi
  expect(saved).not.toHaveProperty('delay');
  await page.route('**/api/arrivals?**',route=>route.fulfill({json:{arrivals:[]}}));
  await page.reload({waitUntil:'domcontentloaded'});
- await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#guideTripFeedback')).toContainText('Trip restored');
  await expect(page.locator('#navNext')).toContainText('Wait for and board');
  await expect(page.locator('#guideFinishTrip')).toBeVisible();
  await expect(page.locator('#guideMapHost #map')).toBeVisible();
@@ -283,7 +283,7 @@ test('saved transfer directions recover when the transit network is unavailable'
  await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#feedStatus')).toContainText('Saved trip only');
  await expect(page.locator('#connectionStatus')).toContainText('Live transit data is unavailable');
- await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#guideTripFeedback')).toContainText('Trip restored');
  await expect(page.locator('#navTitle')).toContainText('Transfer');
  await expect(page.locator('#guideFinishTrip')).toBeVisible();
  await expect(page.locator('a').filter({hasText:'Check trip in Google Maps'})).toHaveAttribute('href',/travelmode=transit/);
@@ -342,7 +342,7 @@ test('saved bus directions open before a slow transit network download completes
  await page.route('**/api/network',async route=>{await gate;await route.fulfill({json:network});});
  await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#guideFinishTrip')).toBeVisible();
- await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
+ await expect(page.locator('#guideTripFeedback')).toContainText('Trip restored');
  await expect(page.locator('#navSteps')).toContainText('Beta transfer');
  release();
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
@@ -969,7 +969,7 @@ test('a longer-walk bus option is offered without silently raising the walking l
 });
 
 for(const type of [{mode:'metro',label:'BART'},{mode:'train',label:'Train'},{mode:'tram',label:'Tram'},{mode:'ferry',label:'Ferry'}])test('multimodal trip uses '+type.label+' labels and completes without bus rewards',async({page})=>{
- await setup(page);const data=transitFixture();for(const item of data.results)for(const leg of item.legs)if(leg.mode==='bus'){leg.mode=type.mode;leg.mode_label=type.label;leg.route='Yellow';leg.route_id='BART:Yellow';}
+ await setup(page);const data=transitFixture();if(type.mode==='metro'){for(const item of data.results){item.legs=item.legs.slice(0,3);item.end_time=item.legs.at(-1).end_time;item.duration=item.end_time-item.start_time;item.walk_minutes=4;}}for(const item of data.results)for(const leg of item.legs)if(leg.mode==='bus'){leg.mode=type.mode;leg.mode_label=type.label;leg.route='Yellow';leg.route_id='BART:Yellow';}
  await enableTransitFixture(page,data);await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#place').fill('Gamma destination');await page.locator('#autoFind').click();await expect(page.locator('.transit-route-choice')).toContainText(type.label+' Yellow');await expect(page.locator('.transit-route-choice')).not.toContainText('Bus Yellow');await page.locator('.transit-route-choice').click();await expect(page.locator('#navSteps')).toContainText('Board '+type.label+' Yellow');expect(await page.evaluate(()=>activeNavigation.legs.every(l=>!l.p.rewardTrackingVerified))).toBe(true);await page.locator('#guideStartTrip').click();if(type.mode==='metro'){await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#navSteps')).toContainText('BART Yellow');}await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();await expect(page.locator('#points')).toHaveText('0');
 });
 test('mixed bus and BART transfers keep every mode in the guide',async({page})=>{
