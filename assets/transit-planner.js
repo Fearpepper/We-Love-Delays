@@ -13,7 +13,8 @@
   let latestPlan;try{latestPlan=readTripPlan();}catch{out.textContent='Travel preferences changed. Choose a valid travel time and search again.';return true;}
   if(snapshot!==JSON.stringify([document.getElementById('originSearch').value,document.getElementById('place').value,latestPlan])){out.textContent='Locations or preferences changed. Search again.';return true;}
   if(!data.available||!Array.isArray(data.results)||!data.results.length){
-   window.wldTransitFallbackNote=data.available?'Transit found no matching bus journey within your preferences. Checking available alternatives.':(data.reason||'Transit is unavailable.')+' Checking 511 alternatives.';
+   const messages={walking_limit:'Bus options require more walking than your selected limit.',accessibility:'No bus plan could be confirmed for your step-free requirement.',unusable_plan:'Transit returned trip data that this app could not validate into usable directions.',no_departures:'Transit returned no bus departure for this trip at the selected time.'};
+   window.wldTransitFallbackNote=data.available?(messages[data.empty_reason]||'No bus trip was returned for the selected time, walking limit and accessibility settings.'):(data.reason||'Transit is unavailable.');
    out.textContent=window.wldTransitFallbackNote;return false;
   }
   out.replaceChildren();const heading=el('p','Bus journeys · planned by Transit');heading.className='notice';heading.dataset.routeHeading='true';out.append(heading);
