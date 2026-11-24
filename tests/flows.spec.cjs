@@ -54,7 +54,7 @@ test('direct journey completes once and wallet persists prediction points',async
  await expect(page.locator('#tripCompleteSummary')).toContainText('50 prototype points');
  await page.locator('#tripViewRewards').click();
  await expect(page.locator('#points')).toHaveText('50');
- await page.reload();await page.locator('#appRewards').click();
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#appRewards').click();
  await expect(page.locator('#points')).toHaveText('50');
  await expect(page.locator('#rewardHistory')).toContainText('+50 pts');
  expect(errors).toEqual([]);
@@ -242,7 +242,7 @@ test('transit outage shows a useful error without simulated routes',async({page}
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/status',route=>route.fulfill({json:{configured:true}}));
  await page.route('**/api/network',route=>route.fulfill({status:503,json:{error:'Transit feed temporarily unavailable'}}));
- await page.goto('/');
+ await page.goto('/',{waitUntil:'domcontentloaded'});
  await expect(page.locator('#feedStatus')).toContainText('Live data unavailable');
  await expect(page.locator('#message')).toContainText('Transit feed temporarily unavailable');
  await expect(page.locator('#route')).toBeDisabled();
@@ -261,7 +261,7 @@ test('active direct trip recovers route and progress without restoring old predi
  expect(saved).not.toHaveProperty('locationPoint');
  expect(saved).not.toHaveProperty('delay');
  await page.route('**/api/arrivals?**',route=>route.fulfill({json:{arrivals:[]}}));
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
  await expect(page.locator('#navNext')).toContainText('Wait for and board');
  await expect(page.locator('#guideFinishTrip')).toBeVisible();
@@ -270,7 +270,7 @@ test('active direct trip recovers route and progress without restoring old predi
  await page.locator('#guideFinishTrip').click();
  await expect(page.locator('#tripComplete')).toBeVisible();
  expect(await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'))).toBeNull();
- await page.reload();await page.locator('#appGuide').click();
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#appGuide').click();
  await expect(page.locator('#guideEmpty')).toBeVisible();
  await page.locator('#appRewards').click();await expect(page.locator('#points')).toHaveText('0');
  expect(errors).toEqual([]);
@@ -280,7 +280,7 @@ test('saved transfer directions recover when the transit network is unavailable'
  await page.locator('#guideStartTrip').click();
  await page.locator('#navAdvance').click();
  await page.route('**/api/network',route=>route.fulfill({status:503,json:{error:'Network unavailable'}}));
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#feedStatus')).toContainText('Saved trip only');
  await expect(page.locator('#connectionStatus')).toContainText('Live transit data is unavailable');
  await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
@@ -294,7 +294,7 @@ test('saved transfer directions recover when the transit network is unavailable'
 test('old or corrupt saved trips do not block a fresh search',async({page})=>{
  const errors=await setup(page);
  await page.evaluate(()=>localStorage.setItem('wld-active-trip-v1','{broken json'));
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await expect(page.locator('#originSearch')).toBeVisible();
  expect(await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'))).toBeNull();
@@ -303,7 +303,7 @@ test('old or corrupt saved trips do not block a fresh search',async({page})=>{
  // Avoid pagehide replacing the intentionally expired fixture.
  const expired=await page.evaluate(()=>localStorage.getItem('wld-active-trip-v1'));
  await page.context().addInitScript(value=>localStorage.setItem('wld-active-trip-v1',value),expired);
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await page.locator('#appGuide').click();await expect(page.locator('#guideEmpty')).toBeVisible();
  expect(errors).toEqual([]);
@@ -340,7 +340,7 @@ test('saved bus directions open before a slow transit network download completes
  await expect(page.locator('#tripRecoveryStatus')).toContainText('saved on this device');
  let release;const gate=new Promise(resolve=>{release=resolve});
  await page.route('**/api/network',async route=>{await gate;await route.fulfill({json:network});});
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#guideFinishTrip')).toBeVisible();
  await expect(page.locator('#guideTripFeedback')).toContainText('Active bus trip restored');
  await expect(page.locator('#navSteps')).toContainText('Beta transfer');
@@ -389,7 +389,7 @@ test('service alerts respect route, stop, direction and active periods and rende
   {title:'Expired notice',selectors:[],periods:[{end:1}]},
   {title:'Agency-wide update',selectors:[],periods:[]}
  ]}}));
- await page.reload();await plan(page);
+ await page.reload({waitUntil:'domcontentloaded'});await plan(page);
  const panel=page.locator('#guideServiceAlerts');
  await expect(panel).toContainText('Boarding stop closed');
  await expect(panel).toContainText('Agency-wide update');
@@ -406,7 +406,7 @@ test('service alerts respect route, stop, direction and active periods and rende
 test('failed alert feed keeps directions usable and shows an official fallback',async({page})=>{
  const errors=await setup(page);
  await page.route('**/api/alerts',route=>route.fulfill({status:502,json:{error:'Provider unavailable'}}));
- await page.reload();await plan(page);
+ await page.reload({waitUntil:'domcontentloaded'});await plan(page);
  await expect(page.locator('#guideServiceAlerts')).toContainText('Alerts unavailable');
  await expect(page.locator('#guideServiceAlerts a')).toHaveAttribute('href','https://www.actransit.org/alert');
  await page.locator('#guideStartTrip').click();await page.locator('#guideFinishTrip').click();
@@ -428,7 +428,7 @@ test('failed transit download can retry without reloading the page',async({page}
  const errors=await setup(page);
  let unavailable=true;
  await page.route('**/api/network',route=>unavailable?route.fulfill({status:503,json:{error:'Temporarily unavailable'}}):route.fulfill({json:network}));
- await page.reload();
+ await page.reload({waitUntil:'domcontentloaded'});
  await expect(page.locator('#retryNetwork')).toBeVisible();
  unavailable=false;await page.locator('#retryNetwork').click();
  await expect(page.locator('#retryNetwork')).toBeHidden();
@@ -447,7 +447,7 @@ test('transfer rewards wait for final-bus boarding and use only its delay',async
  await expect(page.locator('#liveDataNote')).toContainText('final bus prediction only');
  await page.locator('#guideFinishTrip').click();
  await expect(page.locator('#points')).toHaveText('20');
- await page.reload();await page.locator('#appRewards').click();
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#appRewards').click();
  await expect(page.locator('#rewardHistory')).toContainText('final bus prediction');
  expect(errors).toEqual([]);
 });
@@ -468,7 +468,7 @@ test('stale or inaccurate GPS fixes cannot advance walking progress',async({page
 test('current disruption automatically searches alternatives without replacing the trip',async({page})=>{
  const errors=await setup(page);
  await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'closed',title:'51B closed now',description:'Use another bus',effect:'NO_SERVICE',selectors:[{route:'51B'}],periods:[{start:Math.floor(Date.now()/1000)-60,end:Math.floor(Date.now()/1000)+3600}]}]}}));
- await page.reload();await plan(page);
+ await page.reload({waitUntil:'domcontentloaded'});await plan(page);
  await expect(page.locator('#replanPanel')).toBeVisible();
  await expect(page.locator('#replanStatus')).toContainText('search complete');
  await expect(page.locator('#replanResults')).not.toContainText('Bus 51B');
@@ -479,7 +479,7 @@ test('current disruption automatically searches alternatives without replacing t
 test('undated disruption offers review instead of automatically assuming it applies now',async({page})=>{
  const errors=await setup(page);
  await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'future',title:'Future detour',effect:'DETOUR',selectors:[{route:'51B'}],periods:[]}]}}));
- await page.reload();await plan(page);
+ await page.reload({waitUntil:'domcontentloaded'});await plan(page);
  await expect(page.locator('#replanStatus')).toContainText('published dates');
  await expect(page.locator('#replanResults')).toBeEmpty();expect(errors).toEqual([]);
 });
@@ -498,7 +498,7 @@ test('a fresh on-time prediction completes without a false missing-data warning'
 test('replanning an active trip gives visible origin guidance and preserves progress',async({page})=>{
  const errors=await setup(page);
  await page.route('**/api/alerts',route=>route.fulfill({json:{fetched:Math.floor(Date.now()/1000),alerts:[{id:'notice',title:'Check dates',effect:'DETOUR',selectors:[{route:'51B'}],periods:[]}]}}));
- await page.reload();await plan(page);await page.locator('#guideStartTrip').click();
+ await page.reload({waitUntil:'domcontentloaded'});await plan(page);await page.locator('#guideStartTrip').click();
  await page.locator('details.trip-inspector').filter({has:page.locator('#replanPanel')}).locator(':scope > summary').click();
  await page.locator('#replanPanel button').click();
  await expect(page.locator('#message')).toContainText('current starting stop');
@@ -540,7 +540,7 @@ test('a disconnected exact stop retries nearby opposite-direction stops',async({
  const errors=await setup(page);
  const expanded=JSON.parse(JSON.stringify(network));expanded.stops.a2=stop('a2','Alpha opposite side',-122.2702);expanded.stops.b2=stop('b2','Beta opposite side',-122.2602);
  expanded.patterns.push({route:'6',direction:'1',headsign:'Alpha',stops:['b2','a2'],sample_trip:'reverse'});
- await page.route('**/api/network',route=>route.fulfill({json:expanded}));await page.reload();
+ await page.route('**/api/network',route=>route.fulfill({json:expanded}));await page.reload({waitUntil:'domcontentloaded'});
  await page.locator('#originSearch').fill('Beta transfer');await page.locator('#originSuggestions button').first().click();
  await page.locator('#place').fill('Alpha boarding');await page.locator('#destinationSuggestions button').first().click();
  await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('Checking nearby stops');
@@ -614,7 +614,7 @@ test('Home shortcut restores exact stops across reload and clears stale selectio
  await page.getByRole('button',{name:'Open Home',exact:true}).click();
  await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#place')).toHaveValue('Beta transfer');
  expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
- await page.reload();await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await page.getByRole('button',{name:'Open Home',exact:true}).click();
  expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
  await page.locator('#autoFind').click();await expect(page.locator('.route-choice')).toContainText('51B');expect(errors).toEqual([]);
@@ -742,7 +742,7 @@ test('get off reminder needs boarded trip and fresh accurate GPS',async({page})=
 
 test('reopening an active trip respects the saved reminder preference',async({page})=>{
  await setup(page);await page.locator('.commute-options summary').click();await page.locator('#getOffReminders').uncheck();await plan(page);await page.locator('#guideStartTrip').click();
- await page.reload();await expect(page.locator('#guideTripFeedback')).toContainText('restored');
+ await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#guideTripFeedback')).toContainText('restored');
  expect(await page.evaluate(()=>activeNavigation.plan.reminders)).toBe(false);
  await page.evaluate(()=>{activeNavigation.progress=activeNavigation.steps.findIndex(s=>s.kind==='ride');renderNavigation();updateNavigationPosition(37.87,-122.26,5);});await expect(page.locator('#getOffAlert')).not.toBeVisible();
 });
@@ -772,7 +772,7 @@ test('arrival confidence is visible before tracking and never labels a schedule 
 test('feedback saves locally, restores safely, and prepares a public issue without GPS',async({page})=>{
  const errors=await setup(page);await plan(page);await page.locator('#tripFeedback summary').click();await page.locator('#saveFeedback').click();await expect(page.locator('#feedbackStatus')).toContainText('Describe what happened');await page.locator('#feedbackCategory').selectOption('walking');await page.locator('#feedbackMessage').fill('<script>alert(1)</script> Sidewalk is closed.');await page.locator('#saveFeedback').click();await expect(page.locator('#feedbackStatus')).toContainText('Not sent');await expect(page.locator('#feedbackPreview')).toContainText('<script>alert(1)</script>');
  const url=new URL(await page.locator('#feedbackIssue').getAttribute('href'));expect(url.origin).toBe('https://github.com');const report=await page.evaluate(()=>JSON.parse(localStorage.getItem('wld-feedback-v1'))[0]);expect(Object.keys(report).sort()).toEqual(['category','created','message','routes','stops','version']);expect(url.searchParams.get('body')).not.toContain('37.87');expect(url.searchParams.get('body')).not.toContain('-122.');
- await page.reload();await page.locator('#appGuide').click();await page.locator('#tripFeedback summary').click();await expect(page.locator('#feedbackPreview')).toContainText('Sidewalk is closed');await expect(page.locator('#feedbackStatus')).toContainText('Not sent');expect(errors).toEqual([]);
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#appGuide').click();await page.locator('#tripFeedback summary').click();await expect(page.locator('#feedbackPreview')).toContainText('Sidewalk is closed');await expect(page.locator('#feedbackStatus')).toContainText('Not sent');expect(errors).toEqual([]);
 });
 test('planning feedback and the real-phone checklist work without a selected trip',async({page})=>{
  await setup(page);await page.getByRole('button',{name:'Report a planning problem',exact:true}).click();await expect(page.locator('#feedbackMessage')).toBeVisible();await page.locator('#phoneRideCheck summary').click();await expect(page.locator('#phoneRideCheck')).toContainText('browser tests cannot verify');expect(await page.locator('#phoneRideCheck input[type=checkbox]').count()).toBe(5);await page.locator('#phoneRideCheck input').first().check();await expect(page.locator('#phoneRideCheck input').first()).toBeChecked();
@@ -780,7 +780,7 @@ test('planning feedback and the real-phone checklist work without a selected tri
 
 test('missed bus preserves the resolved destination when stop names match opposite sides',async({page})=>{
  await setup(page);const expanded=JSON.parse(JSON.stringify(network));expanded.stops.b2=stop('b2','Beta transfer',-122.2605);expanded.patterns=[{...expanded.patterns[0],stops:['a','b2']}];
- await page.route('**/api/network',r=>r.fulfill({json:expanded}));await page.reload();await expect(page.locator('#message')).toContainText('AC Transit data loaded');
+ await page.route('**/api/network',r=>r.fulfill({json:expanded}));await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#place').fill('Beta transfer');await page.locator('#autoFind').click();await page.locator('.route-choice').first().click();
  expect(await page.evaluate(()=>activeNavigation.search.stopIds.place)).toBe('b');await page.locator('#missedBus').click();await expect(page.locator('#missedBusStatus')).toContainText('Results checked');await expect(page.locator('#missedBusResults .route-choice').first()).toContainText('Direct');expect(await page.evaluate(()=>selectedStopIds.place)).toBe('b');expect(await page.evaluate(()=>walkingEndpoint('place').lon)).toBe(-122.26);
 });
@@ -828,7 +828,7 @@ test('assignment demo keeps an active real trip intact and pauses when closed',a
  const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();const before=await page.evaluate(()=>({legs:activeNavigation.legs,progress:activeNavigation.progress,started:journey.started}));await openAssignmentDemo(page);await page.locator('#demoPlay').click();await page.keyboard.press('Escape');await expect(page.locator('#assignmentDemoDialog')).not.toBeVisible();expect(await page.evaluate(()=>({legs:activeNavigation.legs,progress:activeNavigation.progress,started:journey.started}))).toEqual(before);await openAssignmentDemo(page);await expect(page.locator('#demoPlay')).toHaveText('Play simulation');await page.locator('#demoClose').click();await page.locator('#appGuide').click();await expect(page.locator('#guideFinishTrip')).toBeVisible();expect(errors).toEqual([]);
 });
 test('assignment simulation runs when transit APIs and map scripts are unavailable',async({page})=>{
- await page.route('**/api/**',r=>r.fulfill({status:503,json:{error:'Offline fixture'}}));await page.route('**/unpkg.com/**',r=>r.abort());await page.goto('/');await openAssignmentDemo(page);await expect(page.locator('.demo-map')).toBeVisible();await page.locator('#demoJump').selectOption('5');await page.locator('#demoSkip').click();await page.locator('#demoCollect').click();await expect(page.locator('#demoCompletion')).toContainText('50 fictional points');
+ await page.route('**/api/**',r=>r.fulfill({status:503,json:{error:'Offline fixture'}}));await page.route('**/unpkg.com/**',r=>r.abort());await page.goto('/',{waitUntil:'domcontentloaded'});await openAssignmentDemo(page);await expect(page.locator('.demo-map')).toBeVisible();await page.locator('#demoJump').selectOption('5');await page.locator('#demoSkip').click();await page.locator('#demoCollect').click();await expect(page.locator('#demoCompletion')).toContainText('50 fictional points');
 });
 
  test('current location accepts a recent accurate cached standard fix without waiting for GPS',async({page})=>{
