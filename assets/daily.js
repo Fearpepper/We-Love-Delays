@@ -61,7 +61,7 @@
    const nav=activeNavigation;if(!nav){confidence.hidden=true;return;}confidence.hidden=false;
    if(journey&&!journey.demo&&isFreshJourneyPrediction(journey)&&navigator.onLine){const e=evidence({aimed:journey.aimed,expected:journey.expected,recorded:new Date(journey.recorded).toISOString()});if(e.kind==='Live prediction'){confidenceText('live','Final bus stop · Live prediction · '+clock(e.at)+' · '+e.detail+'. Walking after the bus is additional.');return;}}
    const connection=nav.connection,arrival=connection?.arrival;
-   if(navigator.onLine&&Number.isFinite(arrival)&&arrival>=Date.now()){confidenceText('scheduled','Destination · Published schedule · '+clock(arrival)+' · includes estimated final walking. No fresh live destination prediction; service may change.');}
+   if(navigator.onLine&&Number.isFinite(arrival)&&arrival>=Date.now()){confidenceText('scheduled',nav.provider==='Transit'?'Arrival estimate · '+clock(arrival)+' · Recheck before travel.':'Destination · Published schedule · '+clock(arrival)+' · includes estimated final walking. No fresh live destination prediction; service may change.');}
    else{confidenceText('unavailable','Arrival unavailable · '+(navigator.onLine?'No current prediction or feasible published schedule. Check departures before boarding.':'Offline. Saved directions remain available; reconnect for arrivals.'));}
   }
   new MutationObserver(renderConfidence).observe($('navStatus'),{childList:true,subtree:true,characterData:true});
