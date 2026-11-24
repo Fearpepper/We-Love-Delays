@@ -22,7 +22,7 @@ def request(path, params):
         if day!=_DAY:_DAY=day;_COUNT=0
         _CALLS[:]=[t for t in _CALLS if now-t<60]
         if now<_RETRY or len(_CALLS)>=4 or _COUNT>=45:
-            raise RuntimeError('Transit request allowance reached. 511 planning remains available.')
+            raise RuntimeError('Transit request allowance reached. Try again shortly or use external transit directions.')
         _CALLS.append(now);_COUNT+=1
     req=urllib.request.Request('https://external.transitapp.com/v4/public/'+path+'?'+urllib.parse.urlencode(params),
         headers={'apiKey':key,'Accept':'application/json','User-Agent':'WeLoveDelays/1.0'})
@@ -33,10 +33,10 @@ def request(path, params):
         return data
     except urllib.error.HTTPError as exc:
         with _LOCK:_RETRY=now+(300 if exc.code in (401,403) else 60)
-        raise RuntimeError('Transit request failed (HTTP '+str(exc.code)+'). Using 511 alternatives.') from None
+        raise RuntimeError('Transit request failed (HTTP '+str(exc.code)+'). Try again or use external transit directions.') from None
     except Exception:
         with _LOCK:_RETRY=now+60
-        raise RuntimeError('Transit is temporarily unavailable. 511 planning remains available.') from None
+        raise RuntimeError('Transit is temporarily unavailable. Try again shortly or use external transit directions.') from None
 
 
 def number(v):
@@ -74,7 +74,7 @@ def normalize(raw,network_id,max_walk,step_free):
                     detail=departure.get('plan_details') or {}
                     arrival=detail.get('arrival_schedule_item') or {}
                     if arrival.get('is_cancelled'):continue
-                    routes=[r for r in leg.get('routes',[]) if isinstance(r,dict) and r.get('global_route_id')==detail.get('global_route_id') and r.get('route_network_id')==network_id]
+                    routes=[r for r in leg.get('routes',[]) if isinstance(r,dict) and r.get('global_route_id')==detail.get('global_route_id') and (network_id is None or r.get('route_network_id')==network_id)]
                     if not routes:continue
                     route=routes[0]
                     itineraries=[it for it in route.get('itineraries',[]) if isinstance(it,dict) and (it.get('plan_details') or {}).get('internal_itinerary_id')==detail.get('internal_itinerary_id')]
@@ -87,7 +87,7 @@ def normalize(raw,network_id,max_walk,step_free):
                     start,end=departure.get('departure_time'),arrival.get('departure_time')
                     if not number(start) or not number(end) or end<start:continue
                     chosen=dict(base,mode='bus',start_time=start,end_time=end,duration=end-start,
-                        route=str(route.get('route_short_name') or route.get('route_long_name') or 'AC Transit')[:100],
+                        route=str(route.get('route_short_name') or route.get('route_long_name') or 'Transit')[:100],network_id=str(route.get('route_network_id',''))[:180],
                         route_id=str(route.get('real_time_route_id') or '')[:100],headsign=str(itinerary.get('headsign',''))[:200],
                         realtime=bool(departure.get('is_real_time') and arrival.get('is_real_time')),
                         stops=stops,polyline=str((itinerary.get('plan_details') or {}).get('plan_shape',''))[:100000])
@@ -107,8 +107,8 @@ def parameters(q):
     out={}
     for name in ('from_lat','from_lon','to_lat','to_lon'):
         value=float(q.get(name,['nan'])[0])
-        if not math.isfinite(value) or not (37.3<=value<=38.3 if name.endswith('lat') else -123<=value<=-121.5):
-            raise ValueError('Choose an origin and destination in the Bay Area.')
+        if not math.isfinite(value) or not (-90<=value<=90 if name.endswith('lat') else -180<=value<=180):
+            raise ValueError('Choose valid starting and destination coordinates.')
         out[name]=round(value,6)
     max_walk=int(q.get('max_walk',['15'])[0])
     if max_walk not in (5,10,15,20,30):raise ValueError('Invalid walking preference.')
@@ -126,19 +126,13 @@ def plan(q,cache):
     points,max_walk,step_free,mode,at=parameters(q)
     if not configured():return {'available':False,'reason':'Transit is not configured. Using 511.'}
     def run():
-        def networks():
-            data=request('available_networks',{'lat':37.8715,'lon':-122.2585,'include_network_geometry':'false'})
-            found=[n for n in data.get('networks',[]) if isinstance(n,dict) and str(n.get('network_name','')).casefold()=='ac transit' and not n.get('network_in_beta') and not n.get('network_in_preview')]
-            if not found:raise RuntimeError('AC Transit is not available in the Transit planner. Using 511.')
-            return found[0]['network_id']
-        network_id=cache('transit:networks',86400,networks)
-        params=dict(points,mode='transit',secondary_mode='walk',allowed_networks=network_id,allowed_modes='Bus',
+        params=dict(points,mode='transit',secondary_mode='walk',allowed_modes='Bus',
             num_result=3,max_num_legs=5,should_include_directions='true',should_update_realtime='true',consider_downtimes='true',
             accessibility_need='strict' if step_free else 'none',walk_speed=1.25,
             max_distance_between_location_and_stop=min(1500,max_walk*75))
         if at is not None:params['arrival_time' if mode=='arrive' else 'leave_time']=at
-        results=normalize(request('plan',params),network_id,max_walk,step_free)
+        results=normalize(request('plan',params),None,max_walk,step_free)
         return {'available':True,'source':'Transit','fetched':int(time.time()),'results':results}
-    key='transit:plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
+    key='transit:national-plan:'+json.dumps([points,max_walk,step_free,mode,at if at is not None else int(time.time()//120)],sort_keys=True)
     try:return cache(key,90,run)
     except RuntimeError as e:return {'available':False,'reason':str(e)}
