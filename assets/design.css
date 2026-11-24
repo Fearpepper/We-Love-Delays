@@ -648,3 +648,5 @@ body.map-led-app #autoResults .route-result-card .journey-comparison strong,#rep
 .community-card{display:grid;gap:10px}.community-card label{display:flex;gap:8px;align-items:center}.community-card input{width:20px;height:20px;flex:none}.community-card small{font-size:12px;line-height:1.5}
 
 .prototype-gallery figure{margin:16px 0;padding:12px;background:#fff;border-radius:16px}.prototype-gallery a{display:block;max-height:320px;overflow:auto;border-radius:10px}.prototype-gallery img{display:block;width:100%;height:auto}.prototype-gallery figcaption{font-size:15px;margin-top:10px;color:#294c42}
+
+.planner-partner-link{margin:14px 0;display:flex;flex-wrap:wrap;gap:8px}#rewardRules{margin:16px 0;padding:16px;background:#edf3e3;border-radius:16px}#rewardRules summary,.community-card summary,.partners-dialog summary{cursor:pointer;font-weight:700}#rewardRules p{font-size:16px;line-height:1.55}.onboarding-panel p:not(.eyebrow){font-size:17px}.partner-grid article{border-top:5px solid #c6a8e3}.partner-grid article:nth-child(2){border-color:#e7af61}

@@ -940,3 +940,8 @@ for(const city of [{name:'Houston',lat:29.7604,lon:-95.3698},{name:'New York',la
  await enableTransitFixture(page,data);await page.evaluate(city=>{selectSearchPlace('originSearch',{name:city.name+' origin',lat:city.lat,lon:city.lon});selectSearchPlace('place',{name:city.name+' destination',lat:city.lat+.01,lon:city.lon+.01});},city);
  await page.locator('#autoFind').click();await expect(page.locator('.transit-route-choice')).toHaveCount(1);await page.locator('.transit-route-choice').click();expect(await page.evaluate(()=>activeNavigation.legs.every(l=>!l.p.rewardTrackingVerified))).toBe(true);await page.locator('#guideStartTrip').click();await page.locator('#guideFinishTrip').click();await expect(page.locator('#tripComplete')).toBeVisible();await expect(page.locator('#points')).toHaveText('0');
 });
+
+test('classmate feedback keeps partner access visible and detailed wallet rules expandable',async({page})=>{
+ await setup(page);await page.locator('#plannerPartners').click();await expect(page.locator('#partnersDialog')).toBeVisible();await expect(page.locator('#partnersDialog')).toContainText('Kash Café');await page.locator('#closePartners').click();await expect(page.locator('#plannerPartners')).toBeFocused();
+ await page.locator('#appRewards').click();await expect(page.locator('#rewardRules')).not.toHaveAttribute('open','');await page.locator('#rewardRules summary').click();await expect(page.locator('#rewardRules')).toContainText('5-minute grace');await expect(page.locator('#rewardRules')).toContainText('not implemented account limits');await expect(page.locator('#rewardProgress')).toHaveAttribute('max','60');
+});
