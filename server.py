@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Local-only Berkeley bus prototype. Python standard library only."""
+import crowd
 import transit_provider
 import csv, datetime, io, json, math, os, pathlib, resource, sys, threading, time, urllib.parse, urllib.request, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -115,22 +116,26 @@ def normalize_alerts(payload):
     return {'alerts':out,'fetched':int(time.time()),'source':'511 / AC Transit'}
 
 PLACE_RETRY={}
-def places(query):
+def places(query,focus=None,area=""):
     """Local business/address search with independent, bounded provider fallbacks."""
     query=query.strip()
     if len(query)<3 or len(query)>100:raise ValueError('Enter 3–100 characters.')
+    if area:
+        area=area.strip()
+        if len(area)>80:raise ValueError('City name is too long.')
+        query=query+' '+area
+    lat,lon=focus or (37.8715,-122.2585)
+    focus_lat,focus_lon=lat,lon
+    if not all(math.isfinite(x) for x in (lat,lon)) or not -90<=lat<=90 or not -180<=lon<=180:raise ValueError('Invalid search area.')
     headers={'User-Agent':'WeLoveDelays/1.0 (https://we-love-delays.onrender.com)','Accept':'application/json'}
     key=os.getenv('ORS_API_KEY','').strip()
     providers=[]
     if key:
-        params={'text':query,'focus.point.lat':37.8715,'focus.point.lon':-122.2585,
-                'boundary.rect.min_lon':-123.0,'boundary.rect.min_lat':37.3,
-                'boundary.rect.max_lon':-121.5,'boundary.rect.max_lat':38.3,
-                'boundary.country':'USA','size':10}
+        params={'text':query,'focus.point.lat':lat,'focus.point.lon':lon,'size':12}
         providers.append(('OpenRouteService','https://api.heigit.org/pelias/v1/autocomplete?'+urllib.parse.urlencode(params),dict(headers,Authorization=key)))
-    params={'q':query,'lat':37.8715,'lon':-122.2585,'limit':12,'lang':'en','bbox':'-123.0,37.3,-121.5,38.3'}
+    params={'q':query,'lat':lat,'lon':lon,'limit':12,'lang':'en'}
     providers.append(('Photon / OpenStreetMap','https://photon.komoot.io/api/?'+urllib.parse.urlencode(params),headers))
-    succeeded=False
+    succeeded=False;out=[];seen=set()
     for source,url,request_headers in providers:
         with LOCK:
             if PLACE_RETRY.get(source,0)>time.time():continue
@@ -138,13 +143,14 @@ def places(query):
             req=urllib.request.Request(url,headers=request_headers)
             with urllib.request.urlopen(req,timeout=9) as response:raw=json.load(response)
             if not isinstance(raw,dict) or not isinstance(raw.get('features'),list):raise ValueError('Invalid geocoder response')
-            succeeded=True;out=[];seen=set()
+            succeeded=True
             for feature in raw['features']:
                 prop=feature.get('properties') or {};coords=(feature.get('geometry') or {}).get('coordinates') or []
                 if len(coords)<2:continue
                 try:lon,lat=float(coords[0]),float(coords[1])
                 except (TypeError,ValueError):continue
-                if not (math.isfinite(lat) and math.isfinite(lon) and 37.3<=lat<=38.3 and -123.0<=lon<=-121.5):continue
+                if not (math.isfinite(lat) and math.isfinite(lon) and -90<=lat<=90 and -180<=lon<=180):continue
+                if focus and not area and math.hypot((lat-focus_lat)*111,(lon-focus_lon)*111*math.cos(math.radians(focus_lat)))>150:continue
                 name=prop.get('name') or prop.get('street')
                 if not isinstance(name,str) or not name.strip():continue
                 street=' '.join(str(prop[k]) for k in ('housenumber','street') if prop.get(k))
@@ -154,12 +160,12 @@ def places(query):
                 if identity in seen:continue
                 seen.add(identity)
                 out.append({'name':name[:200],'detail':detail[:300],'lat':lat,'lon':lon,'source':source})
-            if out:return out[:8]
+            if out and not area:return out[:8]
         except Exception:
             # Brief circuit breaker prevents typing into a failed/rate-limited
             # provider from spending quota on every prefix. No token is returned.
             with LOCK:PLACE_RETRY[source]=time.time()+30
-    if succeeded:return []
+    if succeeded:return out[:12]
     raise RuntimeError('Place search is temporarily unavailable. Choose the location on the map, or retry shortly.')
 def memory_mb():
     # Linux ru_maxrss is KiB; reports peak resident memory without paid metrics.
@@ -357,10 +363,21 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.send_header('Content-Length','0')
             self.end_headers()
+    def do_POST(self):
+        if self.path!='/api/riders':return self.respond(404,{'error':'Not found'})
+        try:
+            origin=self.headers.get('Origin')
+            if origin and urllib.parse.urlsplit(origin).netloc!=self.headers.get('Host'):return self.respond(403,{'error':'Origin not allowed'})
+            size=int(self.headers.get('Content-Length','0'))
+            if size<1 or size>1024:raise ValueError('Invalid activity update')
+            data=json.loads(self.rfile.read(size))
+            if not isinstance(data,dict) or not isinstance(data.get('active'),bool):raise ValueError('Invalid activity update')
+            return self.respond(200,crowd.update(data.get('token'),data.get('route'),data['active']))
+        except (ValueError,TypeError):return self.respond(400,{'error':'Invalid activity update'})
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path);q=urllib.parse.parse_qs(path.query)
-        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js','/assets/daily.js','/assets/assignment-demo.js','/assets/transit-planner.js'):
-            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8','/assets/dashboard.js':'text/javascript; charset=utf-8','/assets/guide.js':'text/javascript; charset=utf-8','/assets/experience.js':'text/javascript; charset=utf-8','/assets/focus.js':'text/javascript; charset=utf-8','/assets/reliability.js':'text/javascript; charset=utf-8','/assets/alerts.js':'text/javascript; charset=utf-8','/assets/daily.js':'text/javascript; charset=utf-8','/assets/assignment-demo.js':'text/javascript; charset=utf-8','/assets/transit-planner.js':'text/javascript; charset=utf-8'}
+        if path.path in ('/assets/app.css','/assets/design.css','/assets/app.js','/assets/navigation.js','/assets/dashboard.js','/assets/guide.js','/assets/experience.js','/assets/focus.js','/assets/reliability.js','/assets/alerts.js','/assets/daily.js','/assets/assignment-demo.js','/assets/transit-planner.js','/assets/feedback-updates.js'):
+            assets={'/assets/app.css':'text/css; charset=utf-8','/assets/design.css':'text/css; charset=utf-8','/assets/app.js':'text/javascript; charset=utf-8','/assets/navigation.js':'text/javascript; charset=utf-8','/assets/dashboard.js':'text/javascript; charset=utf-8','/assets/guide.js':'text/javascript; charset=utf-8','/assets/experience.js':'text/javascript; charset=utf-8','/assets/focus.js':'text/javascript; charset=utf-8','/assets/reliability.js':'text/javascript; charset=utf-8','/assets/alerts.js':'text/javascript; charset=utf-8','/assets/daily.js':'text/javascript; charset=utf-8','/assets/assignment-demo.js':'text/javascript; charset=utf-8','/assets/transit-planner.js':'text/javascript; charset=utf-8','/assets/feedback-updates.js':'text/javascript; charset=utf-8'}
             data=(ROOT/path.path.lstrip('/')).read_bytes()
             self.send_response(200)
             self.send_header('Content-Type',assets[path.path])
@@ -385,12 +402,19 @@ class Handler(BaseHTTPRequestHandler):
         if path.path in ('/','/index.html'):
             data=(ROOT/'index.html').read_bytes();self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data);return
         try:
+            if path.path=='/api/riders':return self.respond(200,crowd.count(q.get('route',[''])[0][:40]))
             if path.path=='/api/alerts':return self.respond(200,cached('alerts:AC',600,lambda:normalize_alerts(upstream('servicealerts',{'agency':'AC','format':'json'}))))
             if path.path=='/api/status':return self.respond(200,{'configured':bool(KEY),'transit_configured':transit_provider.configured(),'agency':'AC Transit','location':'Berkeley, California','local':False})
             if path.path=='/health':return self.respond(200,{'ok':True})
             if path.path=='/api/transit-plan':return self.respond(200,transit_provider.plan(q,cached))
             if path.path=='/api/network':return self.respond(200,gtfs())
-            if path.path=='/api/places':return self.respond(200,{'places':cached('places:'+q.get('q',[''])[0].strip().casefold(),900,lambda:places(q.get('q',[''])[0]))})
+            if path.path=='/api/places':
+                focus=None
+                if 'lat' in q or 'lon' in q:
+                    focus=(float(q.get('lat',['nan'])[0]),float(q.get('lon',['nan'])[0]))
+                    if not all(math.isfinite(x) for x in focus) or not -90<=focus[0]<=90 or not -180<=focus[1]<=180:raise ValueError('Invalid search area.')
+                area=q.get('area',[''])[0].strip();term=q.get('q',[''])[0]
+                return self.respond(200,{'places':cached('places:'+json.dumps([term.strip().casefold(),focus,area]),900,lambda:places(term,focus,area))})
             if path.path=='/api/network/status':
                 data=gtfs()
                 return self.respond(200,{'ok':True,'routes':len(data['routes']),'patterns':len(data['patterns']),'stops':len(data['stops']),'updated':data['updated']})

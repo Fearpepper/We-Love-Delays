@@ -1,4 +1,5 @@
 const {test,expect}=require('@playwright/test');
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('wld-onboarded','1'));});
 test.describe.configure({retries:0});
 test.use({baseURL:'https://we-love-delays.onrender.com',serviceWorkers:'block'});
 test('live 511 route, guide, completion and wallet',async({page})=>{
