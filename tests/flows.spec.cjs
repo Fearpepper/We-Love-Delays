@@ -685,7 +685,7 @@ for(const stale of [false,true])test('current location keeps the real walking or
 test('Map explores served stops and selects exact start and destination without losing an active trip',async({page})=>{
  const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
  await page.locator('#appMap').click();await expect(page.locator('#mapExplorer')).toBeVisible();
- await expect(page.locator('#mapStopList')).toContainText('Alpha boarding');await expect(page.locator('#mapStopList')).toContainText('Buses 51B');
+ await expect(page.locator('#mapStopList')).toContainText('Alpha boarding');await expect(page.locator('#mapStopList')).toContainText('Bus 51B');
  await page.locator('#mapStopList [data-stop-id="c"][data-stop-target="place"]').click();
  await expect(page.locator('#place')).toHaveValue('Gamma destination');expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds.place)).toBe('c');
  expect(await page.evaluate(()=>Boolean(journey))).toBe(true);
@@ -699,7 +699,7 @@ test('Map search refreshes after panning and handles areas without stops',async(
  await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition:ok=>ok({coords:{latitude:37.8715,longitude:-122.2585,accuracy:20},timestamp:Date.now()})},configurable:true}));
  const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
  await page.evaluate(()=>routeMap.setView([38.2,-122.8],13,{animate:false}));await page.locator('#searchMapArea').click();
- await expect(page.locator('#mapExplorerStatus')).toContainText('No served AC Transit stops');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
+ await expect(page.locator('#mapExplorerStatus')).toContainText('No nearby places found');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
  await page.locator('#mapExplorer').getByRole('button',{name:'Use my location',exact:true}).click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+122.2585))).toBeLessThan(.001);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:test.info().outputPath('map-explorer.png'),fullPage:true});expect(errors).toEqual([]);
@@ -1017,4 +1017,31 @@ test('first-visit location prompt sets the origin and Map area after consent',as
 test('declining the welcome location prompt leaves manual planning available',async({page})=>{
  await setup(page,true,Promise.resolve(),true,false);
  await expect(page.locator('#locationWelcome')).toBeVisible();await page.locator('#welcomeSkipLocation').click();await expect(page.locator('#locationWelcome')).toHaveCount(0);await expect(page.locator('#originSearch')).toHaveValue('');await plan(page);await expect(page.locator('#guideContent')).toBeVisible();
+});
+
+
+for(const [city,lat,lon,agency] of [['Bakersfield',35.361,-118.914,'GET Bus'],['Fresno',36.738,-119.787,'FAX'],['Irvine',33.684,-117.826,'OC Bus']])test('Map explores local transit and places in '+city,async({page})=>{
+ const errors=await setup(page);let requests=0;
+ await page.route('**/api/explore?**',r=>{requests++;return r.fulfill({json:{area:city+', California',transit_available:true,places_available:true,stops:[{id:'local:1',name:city+' Central',lat,lon,routes:[{name:'21',mode:'Bus',agency}]}],places:[{id:'p:1',name:city+' Coffee',lat:lat+.001,lon,category:'cafe',detail:'Cafe',source:'OpenStreetMap'},{id:'p:2',name:city+' Mall',lat,lon:lon+.001,category:'shopping',detail:'Mall',source:'OpenStreetMap'}]}})});
+ await page.evaluate(({lat,lon})=>applyStartingCoordinates(lat,lon,'Device location',20),{lat,lon});await page.locator('#appMap').click();
+ await expect(page.locator('#mapAreaName')).toHaveText(city+', California');await expect(page.locator('#mapStopList')).toContainText('Bus 21');await expect(page.locator('#mapStopList')).toContainText(city+' Coffee');await expect(page.locator('#mapText')).toBeHidden();await page.screenshot({path:test.info().outputPath('city-explorer.png'),fullPage:false});
+ await page.locator('[data-category=shopping]').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);await expect(page.locator('#mapStopList')).not.toContainText(city+' Coffee');
+ await page.locator('#mapStopList').getByRole('button',{name:'Go here · '+city+' Mall',exact:true}).click();await expect(page.locator('#place')).toHaveValue(city+' Mall');expect(await page.evaluate(()=>selectedPlaces.place.lon)).toBe(lon+.001);await expect(page.locator('#originSearch')).toHaveValue('Current location');
+ await page.locator('#appMap').click();await expect(page.locator('#mapAreaName')).toContainText(city);expect(requests).toBe(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+});
+
+test('Map ignores results from an area the user has left and recovers from partial outages',async({page})=>{
+ await setup(page);let release;const hold=new Promise(r=>release=r);
+ await page.route('**/api/explore?**',async r=>{const lat=Number(new URL(r.request().url()).searchParams.get('lat'));if(lat<36){await hold;await r.fulfill({json:{area:'Old city',stops:[],places:[],transit_available:true,places_available:true}})}else await r.fulfill({json:{area:'New city',stops:[],places:[{name:'New museum',lat:36.738,lon:-119.787,category:'places',detail:'Museum'}],transit_available:false,places_available:true}})});
+ await page.evaluate(()=>applyStartingCoordinates(35.361,-118.914,'Device location',20));await page.locator('#appMap').click();await page.evaluate(()=>routeMap.setView([36.738,-119.787],14,{animate:false}));await page.locator('#searchMapArea').click();await expect(page.locator('#mapAreaName')).toHaveText('New city');release();await expect(page.locator('#mapStopList')).toContainText('New museum');await expect(page.locator('#mapExplorerStatus')).toContainText('Transit details unavailable');await expect(page.locator('#mapAreaName')).not.toHaveText('Old city');
+});
+
+
+test('return visits refresh the map area when device location permission is already granted',async({page})=>{
+ await page.addInitScript(()=>{
+  Object.defineProperty(navigator,'permissions',{configurable:true,value:{query:async()=>({state:'granted'})}});
+  Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition:ok=>ok({coords:{latitude:36.738,longitude:-119.787,accuracy:20},timestamp:Date.now()})}});
+ });
+ const errors=await setup(page);await expect(page.locator('#originSearch')).toHaveValue('Current location');await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-36.738))).toBeLessThan(.001);
+ await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#originSearch')).toHaveValue('Current location');await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+119.787))).toBeLessThan(.001);expect(errors).toEqual([]);
 });

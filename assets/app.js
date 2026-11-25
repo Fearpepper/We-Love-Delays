@@ -1322,3 +1322,12 @@ function maybeRemindStop(lat,lon,accuracy){
 }
 setInterval(updateCommuteGuidance,15000);
 for(const event of ['wld:trip-finished','wld:route-selected'])window.addEventListener(event,()=>{const el=$('getOffAlert');if(el){el.hidden=true;el.textContent='';}updateCommuteGuidance();});
+
+window.wldPlanFromMapPlace=(item,target)=>{
+ if(!item||!['originSearch','place'].includes(target)||![item.lat,item.lon].every(Number.isFinite))return;
+ if(searchMapClick&&routeMap){routeMap.off('click',searchMapClick);searchMapClick=null;}
+ selectSearchPlace(target,{name:item.name,lat:item.lat,lon:item.lon,source:item.source||'Map'});
+ window.wldSelectTab?.('routes');
+ $('message').textContent='Location selected. Review your trip and Find routes.';
+ const other=$(target==='originSearch'?'place':'originSearch');other.focus();other.scrollIntoView({block:'center',behavior:'smooth'});
+};

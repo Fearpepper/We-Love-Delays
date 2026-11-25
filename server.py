@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local-only Berkeley bus prototype. Python standard library only."""
 import crowd
+import city_explorer
 import transit_provider
 import csv, datetime, io, json, math, os, pathlib, resource, sys, threading, time, urllib.parse, urllib.request, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -420,6 +421,12 @@ class Handler(BaseHTTPRequestHandler):
             if path.path=='/health':return self.respond(200,{'ok':True})
             if path.path=='/api/transit-plan':return self.respond(200,transit_provider.plan(q,cached))
             if path.path=='/api/network':return self.respond(200,gtfs())
+            if path.path=='/api/explore':
+                lat,lon=city_explorer.coordinates(q)
+                key='explore:'+str(lat)+':'+str(lon)
+                data=cached(key,900,lambda:city_explorer.explore(lat,lon))
+                if not(data['transit_available'] and data['places_available']):data=cached(key,60,lambda:city_explorer.explore(lat,lon))
+                return self.respond(200,data)
             if path.path=='/api/places':
                 focus=None
                 if 'lat' in q or 'lon' in q:
