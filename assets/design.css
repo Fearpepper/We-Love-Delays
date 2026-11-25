@@ -883,3 +883,7 @@ body.glass-app.wld-tabs .app-controls{background:var(--glass-panel)!important}
  body.glass-app #planMapHost .leaflet-bottom.leaflet-right{top:auto;bottom:4px}
  body.glass-app #planMapHost .leaflet-control-zoom{position:fixed;right:14px;top:180px;margin:0}
 }
+body.glass-app.wld-tabs{background:#eaf2f8!important}
+body.glass-app .card:has(#points){background:var(--glass-panel)!important;border-color:var(--glass-edge)!important;box-shadow:var(--glass-shadow)!important}
+body.glass-app #points{color:var(--glass-blue)!important}
+body.glass-app .eyebrow{color:#075bcc!important}
