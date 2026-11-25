@@ -423,7 +423,10 @@ class Handler(BaseHTTPRequestHandler):
             if path.path=='/api/network':return self.respond(200,gtfs())
             if path.path=='/api/explore':
                 lat,lon=city_explorer.coordinates(q)
-                return self.respond(200,cached('explore:'+str(lat)+':'+str(lon),900,lambda:city_explorer.explore(lat,lon)))
+                key='explore:'+str(lat)+':'+str(lon)
+                data=cached(key,900,lambda:city_explorer.explore(lat,lon))
+                if not(data['transit_available'] and data['places_available']):data=cached(key,60,lambda:city_explorer.explore(lat,lon))
+                return self.respond(200,data)
             if path.path=='/api/places':
                 focus=None
                 if 'lat' in q or 'lon' in q:

@@ -16,8 +16,9 @@ class ExplorerTests(unittest.TestCase):
         self.assertEqual(len(stops),1);self.assertEqual(stops[0]['routes'][0]['agency'],'GET Bus');self.assertEqual(stops[0]['routes'][0]['mode'],'Bus')
         self.assertEqual(request.call_args.args[0],'nearby_routes');self.assertEqual(request.call_args.args[1]['max_distance'],1500)
     def test_places_validate_distance_dedupe_and_categories(self):
-        def node(i,name,tags,lat=35.361):return dict(type='node',id=i,lat=lat,lon=-118.914,tags=dict(tags,name=name))
-        raw={'elements':[node(1,'Coffee',{'amenity':'cafe'}),node(2,'Coffee',{'amenity':'cafe'}),node(3,'Mall',{'shop':'mall'}),node(4,'Park',{'leisure':'park'}),node(5,'Distant',{'shop':'mall'},40),node(6,'Station',{'railway':'station'})]}
+        def node(i,name,tags,lat=35.361):
+            key,value=next(iter(tags.items()));return {'geometry':{'coordinates':[-118.914,lat]},'properties':{'osm_type':'N','osm_id':i,'name':name,'osm_key':key,'osm_value':value}}
+        raw={'features':[node(1,'Coffee',{'amenity':'cafe'}),node(2,'Coffee',{'amenity':'cafe'}),node(3,'Mall',{'shop':'mall'}),node(4,'Park',{'leisure':'park'}),node(5,'Distant',{'shop':'mall'},40),node(6,'Station',{'railway':'station'})]}
         with patch.object(explorer,'get_json',return_value=raw):data=explorer.nearby_places(35.361,-118.914)
         self.assertEqual([p['category'] for p in data['places']],['cafe','shopping','places']);self.assertEqual(len(data['stops']),1)
     def test_partial_failure_keeps_places_and_osm_stops(self):
