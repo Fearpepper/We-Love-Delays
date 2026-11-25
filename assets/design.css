@@ -966,3 +966,4 @@ body.glass-app.wld-high-contrast .app-header .logo,body.glass-app.wld-high-contr
 body.glass-app .guide-disclaimer{background:var(--glass-panel);padding:10px 14px;border-radius:14px;width:fit-content;max-width:100%;color:var(--glass-muted)}
 body.glass-app .card:has(#mapExplorer){width:min(420px,100%)!important}
 @media(max-width:790px){body.glass-app .card:has(#mapExplorer){width:calc(100% - 24px)!important}}
+@media(max-width:790px){body.glass-app[data-view=map] .shell{padding-top:44svh!important}}

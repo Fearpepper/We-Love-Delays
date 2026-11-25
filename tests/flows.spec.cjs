@@ -553,7 +553,7 @@ test('geocoder outage can recover with a map pin instead of a dead-end error',as
  await page.locator('#place').fill('Local business');
  await expect(page.locator('#destinationSuggestions')).toContainText('Choose a point on the map');
  await page.locator('#destinationSuggestions button').filter({hasText:'map'}).click();
- await expect(page.locator('#map')).toBeVisible();await page.locator('#map').click({position:{x:140,y:140}});
+ await expect(page.locator('#map')).toBeVisible();await page.locator('#map').click({position:{x:page.viewportSize().width>790?page.viewportSize().width-100:140,y:250}});
  await expect(page.locator('#place')).toHaveValue('Map-selected destination');
  expect(await page.evaluate(()=>Number.isFinite(selectedPlaces.place.lat))).toBe(true);expect(errors).toEqual([]);
 });
