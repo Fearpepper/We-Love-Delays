@@ -900,3 +900,81 @@ body.glass-app .shell .grid>div>.card{background:var(--glass-panel)!important;bo
  body.glass-app[data-desktop-view=routes] .top .logo{font-size:15px!important}
  body.glass-app[data-desktop-view=routes] .top .heart{width:26px!important;height:26px!important}
 }
+
+/* Shared floating header: independent of the current screen's content width. */
+body.glass-app .app-header{position:absolute!important;inset:18px 24px auto!important;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:nowrap!important;min-height:52px;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;z-index:810;pointer-events:none}
+body.glass-app .app-header>*{pointer-events:auto}
+body.glass-app .app-header .logo{padding:8px 12px!important;font-size:19px!important;border:1px solid var(--glass-edge);border-radius:18px;background:var(--glass-panel);box-shadow:0 3px 16px #173d5e12;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+body.glass-app .app-header #feedStatus{position:static;margin-left:auto;max-width:190px}
+body.glass-app .app-header #wldInstall{position:absolute;right:0;top:66px}
+body.glass-app .shell,body.glass-app .guide-screen{position:relative;z-index:1}
+/* Reuse the existing map; there is no second map instance or extra tile feed. */
+#appMapBackdrop{position:fixed;inset:0;z-index:0;pointer-events:none}
+body.glass-app #appMapBackdrop #map{width:100%!important;height:100svh!important;min-height:100svh!important;border:0!important;border-radius:0!important}
+body.glass-app #appMapBackdrop[aria-hidden=true] .leaflet-control-zoom,body.glass-app #appMapBackdrop[aria-hidden=true] .map-follow-control{display:none!important}
+body.glass-app[data-desktop-view=map] #appMapBackdrop,body.glass-app[data-view=map] #appMapBackdrop{pointer-events:auto}
+body.glass-app[data-desktop-view=map] .shell,body.glass-app[data-view=map] .shell{pointer-events:none}
+body.glass-app .card:has(#mapExplorer){pointer-events:auto;width:420px;max-width:100%;margin-right:auto!important}
+body.glass-app .map-stop-list{grid-template-columns:1fr}
+body.glass-app .card:has(#mapExplorer) .map-explorer{margin:0 0 16px}
+body.glass-app #appMapBackdrop .leaflet-top{top:100px}
+body.glass-app #appMapBackdrop .leaflet-top.leaflet-left{left:auto;right:16px}
+/* An active Guide keeps its map host and directions, with the map behind the page. */
+body.glass-app #guideContent{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.glass-app .guide-map-column{position:static!important;padding:0!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.glass-app #guideMapHost{position:fixed;inset:0;min-height:0!important;z-index:-1}
+body.glass-app #guideMapHost #map{width:100%!important;height:100svh!important;min-height:100svh!important;border-radius:0!important;pointer-events:auto}
+body.glass-app #guideMapHost .leaflet-top{top:100px}
+body.glass-app #guideMapHost .leaflet-left{left:18px}
+body.glass-app .guide-screen .guide-hero{width:fit-content;max-width:100%;background:var(--glass-panel)!important;border:1px solid var(--glass-edge)!important;border-radius:20px;padding:14px 20px!important;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+body.glass-app .guide-screen:has(#guideContent:not([hidden])){pointer-events:none}
+body.glass-app .guide-screen .guide-hero,body.glass-app .guide-directions-column,body.glass-app .guide-next-preview,body.glass-app .trip-complete{pointer-events:auto}
+body.glass-app .guide-directions-column{backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+@media(min-width:791px){
+ body.glass-app[data-desktop-view=map] .shell{max-width:none!important}
+ body.glass-app .card:has(#mapExplorer){padding:24px!important}
+ body.glass-app #guideContent{padding:0!important}
+}
+/* Put tabs on a separate row before the controls can collide. */
+@media(min-width:791px) and (max-width:1100px){
+ body.glass-app .app-controls{top:78px!important;width:420px!important}
+ body.glass-app .shell{padding-top:156px!important}
+ body.glass-app .guide-screen{padding-top:156px!important}
+ body.glass-app #appMapBackdrop .leaflet-top,body.glass-app #guideMapHost .leaflet-top{top:158px}
+ body.glass-app .app-header .logo{font-size:19px!important}
+ body.glass-app .app-header #feedStatus{max-width:190px;font-size:12px!important}
+ body.glass-app .app-header #wldInstall{top:130px}
+}
+@media(max-width:790px){
+ body.glass-app .app-header{inset:10px 16px auto!important;min-height:40px;gap:10px}
+ body.glass-app .app-header .logo{font-size:17px!important;padding:5px 8px!important;border-radius:14px}
+ body.glass-app .app-header .heart{width:26px!important;height:26px!important;margin-right:5px}
+ body.glass-app .app-header #feedStatus{position:absolute;top:112px;right:0;max-width:200px;font-size:11px!important}
+ body.glass-app .shell,body.glass-app.wld-tabs .shell{padding-top:174px!important}
+ body.glass-app .guide-screen{padding-top:174px!important}
+ body.glass-app #appMapBackdrop .leaflet-top,body.glass-app #guideMapHost .leaflet-top{top:176px}
+ body.glass-app #guideMapHost .leaflet-left{left:12px}
+ body.glass-app .card:has(#mapExplorer){width:calc(100% - 24px);max-width:none}
+ body.glass-app .guide-screen .guide-hero{padding:12px 16px!important;margin-bottom:14px}
+ body.glass-app #guideContent{padding:0!important}
+ body.glass-app .guide-map-column{display:block!important;height:32svh;min-height:180px}
+ body.glass-app .guide-map-column:empty{display:none!important}
+ body.glass-app .app-header #wldInstall{top:166px}
+}
+@media(prefers-reduced-transparency:reduce){body.glass-app .app-header .logo,body.glass-app .guide-screen .guide-hero,body.glass-app .guide-directions-column{background:#f7fbff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}}
+body.glass-app.wld-high-contrast .app-header .logo,body.glass-app.wld-high-contrast .guide-screen .guide-hero,body.glass-app.wld-high-contrast .guide-directions-column{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.glass-app .guide-disclaimer{background:var(--glass-panel);padding:10px 14px;border-radius:14px;width:fit-content;max-width:100%;color:var(--glass-muted)}
+body.glass-app .card:has(#mapExplorer){width:min(420px,100%)!important}
+@media(max-width:790px){body.glass-app .card:has(#mapExplorer){width:calc(100% - 24px)!important}}
+@media(max-width:790px){body.glass-app[data-view=map] .shell{padding-top:44svh!important}}
+/* Recenter stays above floating sheets while retaining its existing tracking handler. */
+body.glass-app #mapFollow.floating-map-action{position:fixed;left:18px;bottom:18px;top:auto;right:auto;margin:0!important;z-index:860;pointer-events:auto}
+body.glass-app[data-desktop-view=map] #mapFollow.floating-map-action{left:auto;right:18px}
+@media(max-width:790px){
+ body.glass-app #mapFollow.floating-map-action{top:122px;bottom:auto;left:12px;right:auto}
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-left{top:166px;bottom:auto}
+ body.glass-app #guideMapHost .leaflet-top.leaflet-left{left:auto;right:12px;top:180px}
+ body.glass-app .guide-screen .guide-hero{max-width:calc(100% - 56px)}
+}
+@media(max-width:390px){body.glass-app .app-header #feedStatus{max-width:145px}}
+body.glass-app .guide-screen .daily-feedback,body.glass-app .guide-screen .phone-check{position:relative;z-index:2;pointer-events:auto;background:var(--glass-panel)!important;padding:14px 18px;border-radius:16px}

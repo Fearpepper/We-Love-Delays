@@ -9,6 +9,7 @@
   if(view==='guide'&&typeof window.wldUpdateGuide==='function')window.wldUpdateGuide();
   if(window.innerWidth>790){
    document.body.dataset.desktopView=view;
+   delete document.body.dataset.view;
    document.body.classList.toggle('desktop-guide',view==='guide');
    for(const [name,id] of Object.entries(tabs)){const tab=document.getElementById(id);tab.classList.toggle('active',name===view);tab.setAttribute('aria-pressed',String(name===view))}
    if(view==='map'&&typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120);
@@ -17,7 +18,9 @@
    return;
   }
   document.body.classList.add('wld-tabs');
+  document.body.classList.remove('desktop-guide');
   document.body.dataset.view=view;
+  delete document.body.dataset.desktopView;
   document.body.classList.remove('app-map-mode');
   for(const [name,id] of Object.entries(tabs)){
    const b=document.getElementById(id);if(!b)continue;
@@ -63,6 +66,9 @@
 window.addEventListener('DOMContentLoaded',()=>{
  const nav=document.querySelector('.app-controls');if(!nav)return;
  document.body.classList.add('glass-app');
+ const header=document.querySelector('.top');if(header){header.classList.add('app-header');nav.after(header);}
+ const backdrop=document.createElement('div');backdrop.id='appMapBackdrop';backdrop.setAttribute('aria-hidden','true');document.body.prepend(backdrop);
+ window.wldSyncGuideMap?.();
  const ids=['appTrips','appMap','appRewards','appGuide'],views=['routes','map','rewards','guide'];
  const buttons=ids.map(id=>document.getElementById(id));
  const paths=[

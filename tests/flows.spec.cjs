@@ -553,7 +553,7 @@ test('geocoder outage can recover with a map pin instead of a dead-end error',as
  await page.locator('#place').fill('Local business');
  await expect(page.locator('#destinationSuggestions')).toContainText('Choose a point on the map');
  await page.locator('#destinationSuggestions button').filter({hasText:'map'}).click();
- await expect(page.locator('#map')).toBeVisible();await page.locator('#map').click({position:{x:140,y:140}});
+ await expect(page.locator('#map')).toBeVisible();await page.locator('#map').click({position:{x:page.viewportSize().width>790?page.viewportSize().width-100:140,y:250}});
  await expect(page.locator('#place')).toHaveValue('Map-selected destination');
  expect(await page.evaluate(()=>Number.isFinite(selectedPlaces.place.lat))).toBe(true);expect(errors).toEqual([]);
 });
@@ -984,4 +984,19 @@ test('glass navigation supports horizontal dragging and leaves the selected view
 });
 test('glass layout preserves a large map and reachable controls without horizontal overflow',async({page})=>{
  const errors=await setup(page);const viewport=page.viewportSize(),map=await page.locator('#planMapHost #map').boundingBox(),nav=await page.locator('.app-controls').boundingBox();expect(map.height).toBeGreaterThan(viewport.height*.65);if(viewport.width>790){expect(map.y).toBe(0);expect(map.x).toBe(0);expect(Math.round(map.width)).toBe(await page.evaluate(()=>document.documentElement.clientWidth));}const material=await page.locator('.app-controls').evaluate(n=>getComputedStyle(n).backgroundColor);const channels=material.match(/[\d.]+/g).map(Number);expect(channels[0]).toBeGreaterThan(200);expect(channels[1]).toBeGreaterThan(200);expect(channels[2]).toBeGreaterThan(200);expect(nav.y).toBeLessThan(120);expect(nav.x).toBeGreaterThanOrEqual(0);expect(nav.x+nav.width).toBeLessThanOrEqual(viewport.width);await expect(page.locator('#autoFind')).toBeEnabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:test.info().outputPath('glass-planner.png'),fullPage:false});await page.locator('#appRewards').click();expect(await page.locator('.card').filter({has:page.locator('#points')}).evaluate(n=>getComputedStyle(n).backgroundImage)).toBe('none');await page.screenshot({path:test.info().outputPath('glass-rewards.png'),fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+});
+
+test('every screen keeps a visible map backdrop and separated header controls at narrow widths',async({page})=>{
+ const errors=await setup(page),original=page.viewportSize();
+ for(const width of [1440,900,390,320]){
+  await page.setViewportSize({width,height:900});
+  for(const id of ['appTrips','appMap','appRewards','appGuide']){
+   await page.locator('#'+id).click();await expect(page.locator('#map')).toBeVisible();await expect(page.locator('.app-header .logo')).toBeVisible();await expect(page.locator('#assignmentDemo')).toBeVisible();
+   const boxes=await Promise.all(['.app-header .logo','.app-controls','#feedStatus','#assignmentDemo'].map(s=>page.locator(s).boundingBox()));
+   for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];expect(Math.min(a.x+a.width,b.x+b.width)-Math.max(a.x,b.x)>1&&Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y)>1,`${width}px: header items ${i} and ${j} overlap on ${id}`).toBe(false);}
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+ }
+ await page.setViewportSize(original);await page.locator('#appTrips').click();await plan(page);await expect(page.locator('.app-header')).toBeVisible();const map=await page.locator('#guideMapHost #map').boundingBox();expect(map.y).toBe(0);expect(map.height).toBeGreaterThan(original.height*.9);await page.screenshot({path:test.info().outputPath('shared-guide-header.png'),fullPage:false});
+ await page.locator('#appRewards').click();await page.screenshot({path:test.info().outputPath('shared-rewards-header.png'),fullPage:false});expect(errors).toEqual([]);
 });
