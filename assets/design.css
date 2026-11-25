@@ -887,3 +887,4 @@ body.glass-app.wld-tabs{background:#eaf2f8!important}
 body.glass-app .card:has(#points){background:var(--glass-panel)!important;border-color:var(--glass-edge)!important;box-shadow:var(--glass-shadow)!important}
 body.glass-app #points{color:var(--glass-blue)!important}
 body.glass-app .eyebrow{color:#075bcc!important}
+body.glass-app .shell .grid>div>.card{background:var(--glass-panel)!important;border-color:var(--glass-edge)!important;box-shadow:var(--glass-shadow)!important}
