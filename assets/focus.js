@@ -151,10 +151,10 @@ window.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),card=$('mapText').closest('.card'),title=card.querySelector('h2'),oldTitle=title.textContent;
  const controls=document.createElement('section');controls.id='mapExplorer';controls.className='map-explorer';controls.hidden=true;
  const heading=document.createElement('h2');heading.textContent='Nearby stops';controls.append(heading);
- const intro=document.createElement('p');intro.textContent='Move the map, then search. Distances are straight-line.';
+ const intro=document.createElement('p');intro.textContent='Move the map to explore stops.';
  const actions=document.createElement('div');actions.className='actions';
  const search=document.createElement('button');search.type='button';search.className='btn';search.id='searchMapArea';search.textContent='Search this area';
- const reset=document.createElement('button');reset.type='button';reset.className='btn alt';reset.textContent='Back to Berkeley';
+ const reset=document.createElement('button');reset.type='button';reset.className='btn alt';reset.textContent='Use my location';
  actions.append(search,reset);controls.append(intro,actions);title.after(controls);
  const status=document.createElement('p');status.id='mapExplorerStatus';status.className='hint';status.setAttribute('role','status');
  const list=document.createElement('div');list.id='mapStopList';list.className='map-stop-list';list.hidden=true;$('mapText').after(status,list);
@@ -177,11 +177,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   index();const center=routeMap.getCenter();
   const stops=[...served.keys()].map(id=>network.stops[id]).filter(s=>s&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)).map(s=>({s,meters:distance(center.lat,center.lng,s.lat,s.lon)*1000})).filter(x=>x.meters<=2000).sort((a,b)=>a.meters-b.meters).slice(0,8);
   exploreCamera={center:routeMap.getCenter(),zoom:routeMap.getZoom()};stopLayer=L.layerGroup().addTo(routeMap);
-  status.textContent=stops.length?'Showing '+stops.length+' served AC Transit stops within 2 km of the searched center. Select a stop to plan a trip.':'No served AC Transit stops found within 2 km. Move the map or return to Berkeley.';
+  status.textContent=stops.length?stops.length+' AC Transit stops within 2 km. Choose a stop.':'No served AC Transit stops within 2 km. Use Plan to find transit in this area.';
   for(const {s,meters} of stops){list.append(stopCard(s,meters));L.circleMarker([s.lat,s.lon],{radius:7,color:'#153d2d',weight:2,fillColor:'#d4f67c',fillOpacity:1}).bindPopup(stopCard(s,meters,true),{maxWidth:290}).addTo(stopLayer);}
  }
  search.onclick=()=>{mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();render();};
- reset.onclick=()=>{mapFollowing=false;updateMapFollowControl();if(ensureMap()){routeMap.setView([37.8715,-122.2585],14,{animate:false});render();}};
+ reset.onclick=()=>{document.getElementById('locate').click();};
+ window.addEventListener('wld:location-set',e=>{exploreCamera={center:{lat:e.detail.lat,lng:e.detail.lon},zoom:14};if(visible&&ensureMap()){routeMap.setView(exploreCamera.center,14,{animate:false});render();}});
  function sync(){
   const next=mapView();controls.hidden=!next;status.hidden=!next;list.hidden=!next;title.textContent=next?'Explore bus stops':oldTitle;
   if(next&&!visible){visible=true;list.hidden=true;list.replaceChildren();requestAnimationFrame(()=>{if(!visible)return;const tracked=mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000;const origin=network?walkingEndpoint('originSearch'):null;const center=tracked?{lat:lastNavigationFix.lat,lng:lastNavigationFix.lon}:exploreCamera?.center||{lat:origin?.lat??37.8715,lng:origin?.lon??-122.2585},zoom=tracked?routeMap?.getZoom():exploreCamera?.zoom||14;if(routeMap&&center){routeMap.invalidateSize({pan:false});routeMap.setView(center,zoom,{animate:false});}render();});}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}

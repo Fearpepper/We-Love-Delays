@@ -3,6 +3,7 @@ test.use({baseURL:process.env.BASE_URL||'http://127.0.0.1:10000',serviceWorkers:
 const stop=(id,name,lon)=>({id,name,code:id,lat:37.87,lon});
 const network={routes:[{id:'51B',name:'51B'},{id:'6',name:'6'}],stops:{a:stop('a','Alpha boarding',-122.27),b:stop('b','Beta transfer',-122.26),c:stop('c','Gamma destination',-122.25)},patterns:[{route:'51B',direction:'0',headsign:'Beta',stops:['a','b'],sample_trip:'one'},{route:'6',direction:'0',headsign:'Gamma',stops:['b','c'],sample_trip:'two'}]};
 async function setup(page,delayed=true,networkReady=Promise.resolve(),skipOnboarding=true){
+ await page.addInitScript(()=>localStorage.setItem('wld-location-welcome','1'));
  if(skipOnboarding)await page.addInitScript(()=>localStorage.setItem('wld-onboarded','1'));
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
@@ -695,10 +696,11 @@ test('Map explores served stops and selects exact start and destination without 
 });
 
 test('Map search refreshes after panning and handles areas without stops',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition:ok=>ok({coords:{latitude:37.8715,longitude:-122.2585,accuracy:20},timestamp:Date.now()})},configurable:true}));
  const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
  await page.evaluate(()=>routeMap.setView([38.2,-122.8],13,{animate:false}));await page.locator('#searchMapArea').click();
  await expect(page.locator('#mapExplorerStatus')).toContainText('No served AC Transit stops');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
- await page.getByRole('button',{name:'Back to Berkeley',exact:true}).click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+122.2585))).toBeLessThan(.001);
+ await page.locator('#mapExplorer').getByRole('button',{name:'Use my location',exact:true}).click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+122.2585))).toBeLessThan(.001);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:test.info().outputPath('map-explorer.png'),fullPage:true});expect(errors).toEqual([]);
 });
@@ -998,6 +1000,25 @@ test('every screen keeps a visible map backdrop and separated header controls at
    if(width>790&&['appRewards','appGuide'].includes(id)){const panel=await page.locator(id==='appRewards'?'.card:has(#points)':'#guideEmpty').boundingBox();expect(panel.width).toBeLessThanOrEqual(440);expect(panel.x).toBeLessThanOrEqual(40);}
   }
  }
- await page.setViewportSize(original);await page.locator('#appTrips').click();await plan(page);await expect(page.locator('.app-header')).toBeVisible();const map=await page.locator('#guideMapHost #map').boundingBox();expect(map.y).toBe(0);expect(map.height).toBeGreaterThan(original.height*.9);if(original.width>790){const directions=await page.locator('.guide-directions-column').boundingBox();expect(directions.width).toBeLessThanOrEqual(440);expect(directions.x).toBeLessThanOrEqual(40);}await page.screenshot({path:test.info().outputPath('shared-guide-header.png'),fullPage:false});
+ await page.setViewportSize(original);await page.locator('#appTrips').click();await plan(page);await expect(page.locator('.app-header')).toBeVisible();const map=await page.locator('#guideMapHost #map').boundingBox();expect(map.y).toBe(0);expect(map.height).toBeGreaterThan(original.height*.9);if(original.width>790){const directions=await page.locator('.guide-directions-column').boundingBox();expect(directions.width).toBeLessThanOrEqual(440);expect(directions.x).toBeLessThanOrEqual(40);const note=await page.locator('.guide-disclaimer').boundingBox();expect(Math.abs(note.x-directions.x)).toBeLessThanOrEqual(2);expect(note.width).toBeLessThanOrEqual(420);}await page.screenshot({path:test.info().outputPath('shared-guide-header.png'),fullPage:false});
  await page.locator('#appRewards').click();await page.screenshot({path:test.info().outputPath('shared-rewards-header.png'),fullPage:false});expect(errors).toEqual([]);
+});
+
+
+test('first-visit location prompt sets the origin and Map area after consent',async({page})=>{
+ await page.addInitScript(()=>{window.initialLocationCalls=0;Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition:ok=>{window.initialLocationCalls++;ok({coords:{latitude:35.3605,longitude:-118.914,accuracy:20},timestamp:Date.now()})}},configurable:true})});
+ const errors=await setup(page);
+ await page.evaluate(()=>localStorage.removeItem('wld-location-welcome'));
+ // setup's init script seeds old flows; clear it after that script on the next load.
+ await page.addInitScript(()=>localStorage.removeItem('wld-location-welcome'));
+ await page.reload({waitUntil:'domcontentloaded'});
+ await expect(page.locator('#locationWelcome')).toBeVisible();expect(await page.evaluate(()=>window.initialLocationCalls)).toBe(0);
+ await page.locator('#welcomeUseLocation').click();await expect(page.locator('#originSearch')).toHaveValue('Current location');
+ await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-35.3605))).toBeLessThan(.001);
+ expect(await page.evaluate(()=>selectedPlaces.originSearch.lon)).toBe(-118.914);expect(await page.evaluate(()=>window.initialLocationCalls)).toBe(1);await expect(page.locator('#locationWelcome')).toHaveCount(0);expect(errors).toEqual([]);
+});
+
+test('declining the welcome location prompt leaves manual planning available',async({page})=>{
+ await setup(page);await page.addInitScript(()=>localStorage.removeItem('wld-location-welcome'));await page.reload({waitUntil:'domcontentloaded'});
+ await expect(page.locator('#locationWelcome')).toBeVisible();await page.locator('#welcomeSkipLocation').click();await expect(page.locator('#locationWelcome')).toHaveCount(0);await expect(page.locator('#originSearch')).toHaveValue('');await plan(page);await expect(page.locator('#guideContent')).toBeVisible();
 });

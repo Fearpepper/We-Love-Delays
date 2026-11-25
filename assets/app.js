@@ -974,6 +974,7 @@ function applyStartingCoordinates(lat,lon,source,accuracy,timestamp=Date.now()){
  selectedStopIds.originSearch=null;selectedPlaces.originSearch={name:source==='Map-selected location'?'Map-selected starting point':'Current location',source:'device-origin',lat,lon};
  $('originSearch').value=selectedPlaces.originSearch.name;$('originSuggestions').replaceChildren();window.wldRefreshPlaceSuggestions?.();
  showLocationOnMap();
+ window.dispatchEvent(new CustomEvent('wld:location-set',{detail:{lat,lon}}));
  pendingLocationOrigin=!network?.stops;
  $('locationText').textContent='Using your location'+(Number.isFinite(accuracy)?' · ±'+Math.round(accuracy)+' m':'')+'.';
  if($('place').value.trim())findDirectTrips();

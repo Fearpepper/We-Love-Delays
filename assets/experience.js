@@ -37,3 +37,19 @@
  $('showOnboarding')?.addEventListener('click',open);
  window.addEventListener('DOMContentLoaded',()=>{let seen=false;try{seen=localStorage.getItem('wld-onboarded')==='1';}catch{}if(!seen)open();});
 })();
+/* Ask once, after the introduction. The browser permission request follows a tap. */
+window.addEventListener('DOMContentLoaded',()=>{
+ let seen=false;try{seen=localStorage.getItem('wld-location-welcome')==='1'}catch{}
+ if(seen||!navigator.geolocation)return;
+ const card=document.createElement('section');card.id='locationWelcome';card.className='location-welcome';card.hidden=true;card.setAttribute('aria-label','Use your area');
+ card.innerHTML='<h2>Find your next ride nearby</h2><p>Use your location for the map and your starting point.</p><div class="actions"><button type="button" class="btn" id="welcomeUseLocation">Use my location</button><button type="button" class="btn alt" id="welcomeSkipLocation">Not now</button></div>';
+ document.body.append(card);
+ const dismiss=()=>{card.remove();try{localStorage.setItem('wld-location-welcome','1')}catch{}};
+ card.querySelector('#welcomeUseLocation').onclick=()=>{dismiss();document.getElementById('locate')?.click()};
+ card.querySelector('#welcomeSkipLocation').onclick=dismiss;
+ const onboarding=document.querySelector('.onboarding-overlay');
+ const show=()=>{if(!onboarding||onboarding.hidden)card.hidden=false};
+ if(onboarding){const observer=new MutationObserver(()=>{if(onboarding.hidden){show();observer.disconnect()}});observer.observe(onboarding,{attributes:true,attributeFilter:['hidden']})}
+ show();
+ window.addEventListener('wld:location-set',dismiss,{once:true});
+});
