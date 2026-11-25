@@ -10,11 +10,11 @@ class ExplorerTests(unittest.TestCase):
             with self.assertRaises(ValueError):explorer.coordinates({'lat':[lat],'lon':[lon]})
     def test_transit_groups_closest_stops_and_preserves_local_agencies(self):
         stop={'global_stop_id':'GET:1','stop_name':'Foothill','stop_lat':35.361,'stop_lon':-118.914}
-        route={'global_route_id':'GET:route','route_short_name':'21','route_network_name':'GET Bus','route_type':3,'merged_itineraries':[{'closest_stop':stop},{'closest_stop':stop}]}
+        route={'global_route_id':'GET:route','route_short_name':'21','route_network_name':'GET Bus','route_type':3,'is_active':False,'merged_itineraries':[{'closest_stop':stop},{'closest_stop':stop}]}
         with patch.object(transit,'configured',return_value=True),patch.object(transit,'request',return_value={'nearby_routes':[route]}) as request:
             stops=explorer.nearby_transit(35.361,-118.914)
         self.assertEqual(len(stops),1);self.assertEqual(stops[0]['routes'][0]['agency'],'GET Bus');self.assertEqual(stops[0]['routes'][0]['mode'],'Bus')
-        self.assertEqual(request.call_args.args[0],'nearby_routes');self.assertEqual(request.call_args.args[1]['max_distance'],1500)
+        self.assertEqual(request.call_args.args[0],'nearby_routes');self.assertEqual(request.call_args.args[1]['max_distance'],1500);self.assertEqual(request.call_args.args[1]['include_inactive'],'true');self.assertFalse(stops[0]['routes'][0]['active'])
     def test_places_validate_distance_dedupe_and_categories(self):
         def node(i,name,tags,lat=35.361):
             key,value=next(iter(tags.items()));return {'geometry':{'coordinates':[-118.914,lat]},'properties':{'osm_type':'N','osm_id':i,'name':name,'osm_key':key,'osm_value':value}}
