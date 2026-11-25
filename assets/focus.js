@@ -150,46 +150,80 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('DOMContentLoaded',()=>{
  const $=id=>document.getElementById(id),card=$('mapText').closest('.card'),title=card.querySelector('h2'),oldTitle=title.textContent;
  const controls=document.createElement('section');controls.id='mapExplorer';controls.className='map-explorer';controls.hidden=true;
- const heading=document.createElement('h2');heading.textContent='Nearby stops';controls.append(heading);
- const intro=document.createElement('p');intro.textContent='Move the map to explore stops.';
+ const heading=document.createElement('h2');heading.textContent='Explore nearby';
+ const area=document.createElement('p');area.id='mapAreaName';area.textContent='Your map area';
  const actions=document.createElement('div');actions.className='actions';
  const search=document.createElement('button');search.type='button';search.className='btn';search.id='searchMapArea';search.textContent='Search this area';
- const reset=document.createElement('button');reset.type='button';reset.className='btn alt';reset.textContent='Use my location';
- actions.append(search,reset);controls.append(intro,actions);title.after(controls);
+ const locate=document.createElement('button');locate.type='button';locate.className='btn alt';locate.textContent='Use my location';
+ const filters=document.createElement('div');filters.className='explore-filters';filters.setAttribute('aria-label','Nearby categories');
+ let category='all';
+ for(const [key,label] of [['all','All'],['transit','Transit'],['cafe','Food & coffee'],['shopping','Shopping'],['places','Things to do']]){
+  const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.category=key;b.setAttribute('aria-pressed',String(key===category));
+  b.onclick=()=>{category=key;for(const x of filters.children)x.setAttribute('aria-pressed',String(x===b));render()};filters.append(b);
+ }
+ actions.append(search,locate);controls.append(heading,area,actions,filters);title.after(controls);
  const status=document.createElement('p');status.id='mapExplorerStatus';status.className='hint';status.setAttribute('role','status');
  const list=document.createElement('div');list.id='mapStopList';list.className='map-stop-list';list.hidden=true;$('mapText').after(status,list);
- let stopLayer=null,cachedNetwork=null,served=new Map(),visible=false,initialized=false,exploreCamera=null;
- const mapView=()=>innerWidth>790?document.body.dataset.desktopView==='map':document.body.dataset.view==='map';
- function index(){if(cachedNetwork===network)return;cachedNetwork=network;served=new Map();for(const p of network?.patterns||[])for(const id of p.stops||[]){if(!served.has(id))served.set(id,new Set());served.get(id).add(p.route);}}
- function stopCard(stop,meters,popup=false){
-  const row=document.createElement('section');row.className='map-stop';
-  const h=document.createElement('h3');h.textContent=stop.name;row.append(h);
-  const routes=[...served.get(stop.id)||[]].map(id=>network.routes.find(r=>r.id===id)?.name||id).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  const detail=document.createElement('p');detail.textContent='Stop '+(stop.code||stop.id)+' · '+Math.round(meters)+' m from searched center · Buses '+routes.slice(0,8).join(', ')+(routes.length>8?' + more':'');row.append(detail);
+ const credit=document.createElement('p');credit.className='hint';credit.textContent='Transit · © OpenStreetMap contributors. Distances are straight-line.';credit.hidden=true;list.after(credit);
+ let layer=null,visible=false,initialized=false,exploreCamera=null,data=null,dataCenter=null,loadId=0,loading=false,moved=false;
+ const cache=new Map(),mapView=()=>innerWidth>790?document.body.dataset.desktopView==='map':document.body.dataset.view==='map';
+ function localStops(center){
+  if(!network)return [];
+  const served=new Map();for(const p of network.patterns||[])for(const id of p.stops||[]){if(!served.has(id))served.set(id,new Set());served.get(id).add(p.route)}
+  return [...served].map(([id,ids])=>{const s=network.stops[id];return s&&{...s,local:true,routes:[...ids].map(id=>({name:network.routes.find(r=>r.id===id)?.name||id,agency:'AC Transit',mode:'Bus'}))}}).filter(s=>s&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&distance(center.lat,center.lng,s.lat,s.lon)<=2).sort((a,b)=>distance(center.lat,center.lng,a.lat,a.lon)-distance(center.lat,center.lng,b.lat,b.lon)).slice(0,8);
+ }
+ function choose(item,target){if(item.local)window.wldPlanFromMapStop(item.id,target);else window.wldPlanFromMapPlace(item,target)}
+ function entry(item,kind,center,popup=false){
+  const row=document.createElement('section');row.className=kind==='transit'?'map-stop':'map-place';
+  const h=document.createElement('h3');h.textContent=item.name;row.append(h);
+  const p=document.createElement('p'),m=Math.round(distance(center.lat,center.lng,item.lat,item.lon)*1000);
+  p.textContent=(kind==='transit'?'Stop':item.detail||'Place')+' · '+(m>=1000?(m/1000).toFixed(1)+' km':m+' m');row.append(p);
+  if(item.routes?.length){const routes=document.createElement('div');routes.className='explore-routes';for(const r of item.routes.slice(0,8)){const chip=document.createElement('span');chip.textContent=r.mode+' '+r.name;chip.title=r.agency;routes.append(chip)}row.append(routes)}
   const buttons=document.createElement('div');buttons.className='actions';
-  for(const [target,label] of [['originSearch','Start here'],['place','Go here']]){const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent=label;b.setAttribute('aria-label',label+' · '+stop.name);b.dataset.stopId=stop.id;b.dataset.stopTarget=target;b.onclick=()=>window.wldPlanFromMapStop(stop.id,target);buttons.append(b);}
-  row.append(buttons);if(!popup){const center=document.createElement('button');center.type='button';center.className='map-stop-center';center.textContent='Show on map';center.onclick=()=>{mapFollowing=false;updateMapFollowControl();routeMap.setView([stop.lat,stop.lon],17,{animate:false});};row.append(center);}return row;
+  for(const [target,label] of [['originSearch','Start here'],['place','Go here']]){const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent=label;b.setAttribute('aria-label',label+' · '+item.name);if(item.local){b.dataset.stopId=item.id;b.dataset.stopTarget=target}b.onclick=()=>choose(item,target);buttons.append(b)}row.append(buttons);
+  if(!popup){const b=document.createElement('button');b.type='button';b.className='map-stop-center';b.textContent='Show on map';b.onclick=()=>{mapFollowing=false;updateMapFollowControl();routeMap.setView([item.lat,item.lon],17,{animate:false});L.popup().setLatLng([item.lat,item.lon]).setContent(entry(item,kind,center,true)).openOn(routeMap)};row.append(b)}return row;
  }
  function render(){
-  if(!visible)return;list.hidden=false;list.replaceChildren();if(stopLayer){stopLayer.remove();stopLayer=null;}
-  if(!network){status.textContent=window.wldNetworkReady?'Stop data is unavailable. Open Plan and retry loading transit data.':'Loading AC Transit stops… Nearby stops will appear when the feed is ready.';return;}
-  if(!ensureMap()){status.textContent='Interactive map unavailable. Use Plan to search stop names.';return;}
-  index();const center=routeMap.getCenter();
-  const stops=[...served.keys()].map(id=>network.stops[id]).filter(s=>s&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)).map(s=>({s,meters:distance(center.lat,center.lng,s.lat,s.lon)*1000})).filter(x=>x.meters<=2000).sort((a,b)=>a.meters-b.meters).slice(0,8);
-  exploreCamera={center:routeMap.getCenter(),zoom:routeMap.getZoom()};stopLayer=L.layerGroup().addTo(routeMap);
-  status.textContent=stops.length?stops.length+' AC Transit stops within 2 km. Choose a stop.':'No served AC Transit stops within 2 km. Use Plan to find transit in this area.';
-  for(const {s,meters} of stops){list.append(stopCard(s,meters));L.circleMarker([s.lat,s.lon],{radius:7,color:'#153d2d',weight:2,fillColor:'#d4f67c',fillOpacity:1}).bindPopup(stopCard(s,meters,true),{maxWidth:290}).addTo(stopLayer);}
+  if(!visible)return;list.hidden=false;list.replaceChildren();if(layer){layer.remove();layer=null}if(!ensureMap()){status.textContent='Map unavailable. Search in Plan.';return}
+  const center=dataCenter||routeMap.getCenter(),local=localStops(center);
+  // Real provider results replace local GTFS only when that provider succeeded.
+  let stops=data?.transit_available?data.stops||[]:local.length?local:data?.stops||[];
+  const places=(data?.places||[]).filter(p=>category==='all'||p.category===category);
+  const shown=[];if(category==='all'||category==='transit')for(const s of stops.slice(0,category==='all'?8:16))shown.push([s,'transit']);
+  if(category!=='transit')for(const p of places.slice(0,category==='all'?6:18))shown.push([p,'place']);
+  layer=L.layerGroup().addTo(routeMap);
+  for(const [item,kind] of shown){if(!Number.isFinite(item.lat)||!Number.isFinite(item.lon))continue;list.append(entry(item,kind,center));L.circleMarker([item.lat,item.lon],{radius:kind==='transit'?7:8,color:'#fff',weight:2,fillColor:kind==='transit'?'#0765d7':'#c44a77',fillOpacity:1}).bindPopup(entry(item,kind,center,true),{maxWidth:290}).addTo(layer)}
+  area.textContent=data?.area||'Your map area';
+  const failures=[];if(data&&!data.transit_available&&!stops.length)failures.push('Transit details unavailable');if(data&&!data.places_available&&category!=='transit')failures.push('Places unavailable');
+  status.textContent=moved?'Map moved. Tap Search this area.':loading?'Finding nearby transit and places…':shown.length?shown.length+' nearby results'+(failures.length?' · '+failures.join(' · '):''):failures.length?failures.join(' · ')+'. Retry Search this area.':category==='transit'?'No nearby transit stops found. Try Plan for routes.':'No nearby places found. Move the map and search again.';
  }
- search.onclick=()=>{mapFollowing=false;if(routeMap)routeMap.stop();updateMapFollowControl();render();};
- reset.onclick=()=>{document.getElementById('locate').click();};
- window.addEventListener('wld:location-set',e=>{exploreCamera={center:{lat:e.detail.lat,lng:e.detail.lon},zoom:14};if(visible&&ensureMap()){routeMap.setView(exploreCamera.center,14,{animate:false});render();}});
+ async function load(){
+  if(!visible||!ensureMap())return;
+  const center=routeMap.getCenter(),key=center.lat.toFixed(3)+','+center.lng.toFixed(3),id=++loadId;
+  exploreCamera={center,zoom:routeMap.getZoom()};dataCenter=center;data=null;moved=false;loading=true;render();
+  try{
+   const hit=cache.get(key);const result=hit&&Date.now()-hit.time<900000?hit.value:await api('/api/explore?'+new URLSearchParams({lat:center.lat.toFixed(3),lon:center.lng.toFixed(3)}));
+   if(result&&typeof result.area==='string'&&Array.isArray(result.stops)&&Array.isArray(result.places)){cache.set(key,{time:Date.now(),value:result});if(cache.size>20)cache.delete(cache.keys().next().value)}
+   if(id!==loadId||!visible||distance(routeMap.getCenter().lat,routeMap.getCenter().lng,center.lat,center.lng)>.15)return;
+   if(result&&typeof result.area==='string')data=result;
+  }catch{if(id===loadId)data={area:'Your map area',stops:[],places:[],transit_available:false,places_available:false}}
+  if(id===loadId){loading=false;render()}
+ }
+ search.onclick=()=>{mapFollowing=false;routeMap?.stop();updateMapFollowControl();load()};
+ let locating=false;
+ locate.onclick=()=>{locating=true;$('locate').click();status.textContent=$('locationText').textContent};
+ new MutationObserver(()=>{if(visible&&locating){status.textContent=$('locationText').textContent;if(!$('locate').disabled)locating=false}}).observe($('locationText'),{childList:true,subtree:true,characterData:true});
+ window.addEventListener('wld:location-set',e=>{locating=false;exploreCamera={center:{lat:e.detail.lat,lng:e.detail.lon},zoom:14};if(visible&&ensureMap()){routeMap.setView(exploreCamera.center,14,{animate:false});load()}});
  function sync(){
-  const next=mapView();controls.hidden=!next;status.hidden=!next;list.hidden=!next;title.textContent=next?'Explore bus stops':oldTitle;
-  if(next&&!visible){visible=true;list.hidden=true;list.replaceChildren();requestAnimationFrame(()=>{if(!visible)return;const tracked=mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000;const origin=network?walkingEndpoint('originSearch'):null;const center=tracked?{lat:lastNavigationFix.lat,lng:lastNavigationFix.lon}:exploreCamera?.center||{lat:origin?.lat??37.8715,lng:origin?.lon??-122.2585},zoom=tracked?routeMap?.getZoom():exploreCamera?.zoom||14;if(routeMap&&center){routeMap.invalidateSize({pan:false});routeMap.setView(center,zoom,{animate:false});}render();});}else if(!next&&visible){visible=false;if(stopLayer){stopLayer.remove();stopLayer=null;}routeMap?.closePopup();}
-  if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible&&mapView()){exploreCamera={center:routeMap.getCenter(),zoom:routeMap.getZoom()};status.textContent='Map moved. Tap Search this area to refresh nearby stops.';}});}
+  const next=mapView();controls.hidden=!next;status.hidden=!next;list.hidden=!next;credit.hidden=!next;$('mapText').hidden=next;title.textContent=next?'Explore nearby':oldTitle;
+  if(next&&!visible){visible=true;requestAnimationFrame(()=>{if(!visible)return;const tracked=mapFollowing&&lastNavigationFix&&Date.now()-lastNavigationFix.timestamp<=30000,origin=network?walkingEndpoint('originSearch'):null;
+   const center=tracked?{lat:lastNavigationFix.lat,lng:lastNavigationFix.lon}:exploreCamera?.center||{lat:origin?.lat??routeMap?.getCenter().lat??37.8715,lng:origin?.lon??routeMap?.getCenter().lng??-122.2585};
+   if(ensureMap()){routeMap.invalidateSize({pan:false});routeMap.setView(center,exploreCamera?.zoom||14,{animate:false});load()}
+  })}else if(!next&&visible){visible=false;loadId++;loading=false;layer?.remove();layer=null;routeMap?.closePopup()}
+  if(!initialized&&routeMap){initialized=true;routeMap.on('moveend',()=>{if(visible&&mapView()){const center=routeMap.getCenter();exploreCamera={center,zoom:routeMap.getZoom()};if(dataCenter&&distance(center.lat,center.lng,dataCenter.lat,dataCenter.lng)>.15){loadId++;loading=false;moved=true;status.textContent='Map moved. Tap Search this area.'}}})}
  }
  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['data-view','data-desktop-view']});
- window.addEventListener('wld:network-ready',()=>{if(visible)render();});window.addEventListener('resize',sync);sync();
+ window.addEventListener('wld:network-ready',()=>{if(visible)render()});window.addEventListener('resize',sync);sync();
 });
 
 /* Commute preferences are set before searching and copied into the selected trip. */

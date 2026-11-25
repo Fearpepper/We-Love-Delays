@@ -21,6 +21,8 @@ def request(path, params):
         day=int(now//86400)
         if day!=_DAY:_DAY=day;_COUNT=0
         _CALLS[:]=[t for t in _CALLS if now-t<60]
+        if path=='nearby_routes' and (_COUNT>=20 or len(_CALLS)>=2):
+            raise RuntimeError('Nearby transit allowance reached. Trip planning remains available.')
         if now<_RETRY or len(_CALLS)>=4 or _COUNT>=45:
             raise RuntimeError('Transit request allowance reached. Try again shortly or use external transit directions.')
         _CALLS.append(now);_COUNT+=1
@@ -32,10 +34,12 @@ def request(path, params):
         if not isinstance(data,dict):raise ValueError('Invalid response')
         return data
     except urllib.error.HTTPError as exc:
-        with _LOCK:_RETRY=now+(300 if exc.code in (401,403) else 60)
+        with _LOCK:
+            if path!='nearby_routes':_RETRY=now+(300 if exc.code in (401,403) else 60)
         raise RuntimeError('Transit request failed (HTTP '+str(exc.code)+'). Try again or use external transit directions.') from None
     except Exception:
-        with _LOCK:_RETRY=now+60
+        with _LOCK:
+            if path!='nearby_routes':_RETRY=now+60
         raise RuntimeError('Transit is temporarily unavailable. Try again shortly or use external transit directions.') from None
 
 
