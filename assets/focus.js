@@ -202,8 +202,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   const center=routeMap.getCenter(),key=center.lat.toFixed(3)+','+center.lng.toFixed(3),id=++loadId;
   exploreCamera={center,zoom:routeMap.getZoom()};dataCenter=center;data=null;moved=false;loading=true;render();
   try{
-   const hit=cache.get(key);const result=hit&&Date.now()-hit.time<(hit.value.transit_available&&hit.value.places_available?900000:60000)?hit.value:await api('/api/explore?'+new URLSearchParams({lat:center.lat.toFixed(3),lon:center.lng.toFixed(3)}));
-   if(result&&typeof result.area==='string'&&Array.isArray(result.stops)&&Array.isArray(result.places)){cache.set(key,{time:Date.now(),value:result});if(cache.size>20)cache.delete(cache.keys().next().value)}
+   const fresh=hit=>hit&&Date.now()-hit.time<(hit.value.transit_available&&hit.value.places_available?900000:60000);
+   let hit=cache.get(key);
+   if(!fresh(hit))hit=[...cache.values()].find(h=>fresh(h)&&distance(center.lat,center.lng,h.center.lat,h.center.lng)<.15);
+   const result=hit?hit.value:await api('/api/explore?'+new URLSearchParams({lat:center.lat.toFixed(3),lon:center.lng.toFixed(3)}));
+   if(!hit&&result&&typeof result.area==='string'&&Array.isArray(result.stops)&&Array.isArray(result.places)){cache.set(key,{time:Date.now(),value:result,center});if(cache.size>20)cache.delete(cache.keys().next().value)}
    if(id!==loadId||!visible||distance(routeMap.getCenter().lat,routeMap.getCenter().lng,center.lat,center.lng)>.15)return;
    if(result&&typeof result.area==='string')data=result;
   }catch{if(id===loadId)data={area:'Your map area',stops:[],places:[],transit_available:false,places_available:false}}
