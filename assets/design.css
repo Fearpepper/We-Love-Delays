@@ -888,3 +888,15 @@ body.glass-app .card:has(#points){background:var(--glass-panel)!important;border
 body.glass-app #points{color:var(--glass-blue)!important}
 body.glass-app .eyebrow{color:#075bcc!important}
 body.glass-app .shell .grid>div>.card{background:var(--glass-panel)!important;border-color:var(--glass-edge)!important;box-shadow:var(--glass-shadow)!important}
+
+/* Let the home map continue behind the floating controls instead of a header band. */
+@media(min-width:791px){
+ body.glass-app[data-desktop-view=routes] #plannerWorkspace{background:transparent;box-shadow:none;overflow:visible;isolation:isolate}
+ body.glass-app[data-desktop-view=routes] #planMapHost{position:fixed;inset:0;z-index:-1}
+ body.glass-app[data-desktop-view=routes] #planMapHost #map{border-radius:0!important;height:100svh!important;min-height:100svh!important}
+ body.glass-app[data-desktop-view=routes] .top .logo{padding:8px 12px;background:var(--glass-panel);border:1px solid var(--glass-edge);border-radius:18px;box-shadow:0 3px 16px #173d5e12;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+}
+@media(min-width:791px) and (max-width:900px){
+ body.glass-app[data-desktop-view=routes] .top .logo{font-size:15px!important}
+ body.glass-app[data-desktop-view=routes] .top .heart{width:26px!important;height:26px!important}
+}
