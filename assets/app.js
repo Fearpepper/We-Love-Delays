@@ -971,6 +971,8 @@ function boardChanged(){reset($('exit'),'Choose your destination stop');$('previ
 function applyStartingCoordinates(lat,lon,source,accuracy,timestamp=Date.now()){
  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return;
  locationPoint={lat,lon,accuracy,timestamp};
+ window.wldSearchArea='';
+ const areaInput=$('searchArea');if(areaInput){areaInput.value='';const summary=areaInput.closest('details')?.querySelector('summary');if(summary)summary.textContent='Search area · nearby';}
  selectedStopIds.originSearch=null;selectedPlaces.originSearch={name:source==='Map-selected location'?'Map-selected starting point':'Current location',source:'device-origin',lat,lon};
  $('originSearch').value=selectedPlaces.originSearch.name;$('originSuggestions').replaceChildren();window.wldRefreshPlaceSuggestions?.();
  showLocationOnMap();

@@ -2,8 +2,8 @@ const {test,expect}=require('@playwright/test');
 test.use({baseURL:process.env.BASE_URL||'http://127.0.0.1:10000',serviceWorkers:'block'});
 const stop=(id,name,lon)=>({id,name,code:id,lat:37.87,lon});
 const network={routes:[{id:'51B',name:'51B'},{id:'6',name:'6'}],stops:{a:stop('a','Alpha boarding',-122.27),b:stop('b','Beta transfer',-122.26),c:stop('c','Gamma destination',-122.25)},patterns:[{route:'51B',direction:'0',headsign:'Beta',stops:['a','b'],sample_trip:'one'},{route:'6',direction:'0',headsign:'Gamma',stops:['b','c'],sample_trip:'two'}]};
-async function setup(page,delayed=true,networkReady=Promise.resolve(),skipOnboarding=true){
- await page.addInitScript(()=>localStorage.setItem('wld-location-welcome','1'));
+async function setup(page,delayed=true,networkReady=Promise.resolve(),skipOnboarding=true,skipLocationWelcome=true){
+ if(skipLocationWelcome)await page.addInitScript(()=>localStorage.setItem('wld-location-welcome','1'));
  if(skipOnboarding)await page.addInitScript(()=>localStorage.setItem('wld-onboarded','1'));
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
@@ -1007,11 +1007,7 @@ test('every screen keeps a visible map backdrop and separated header controls at
 
 test('first-visit location prompt sets the origin and Map area after consent',async({page})=>{
  await page.addInitScript(()=>{window.initialLocationCalls=0;Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition:ok=>{window.initialLocationCalls++;ok({coords:{latitude:35.3605,longitude:-118.914,accuracy:20},timestamp:Date.now()})}},configurable:true})});
- const errors=await setup(page);
- await page.evaluate(()=>localStorage.removeItem('wld-location-welcome'));
- // setup's init script seeds old flows; clear it after that script on the next load.
- await page.addInitScript(()=>localStorage.removeItem('wld-location-welcome'));
- await page.reload({waitUntil:'domcontentloaded'});
+ const errors=await setup(page,true,Promise.resolve(),true,false);
  await expect(page.locator('#locationWelcome')).toBeVisible();expect(await page.evaluate(()=>window.initialLocationCalls)).toBe(0);
  await page.locator('#welcomeUseLocation').click();await expect(page.locator('#originSearch')).toHaveValue('Current location');
  await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-35.3605))).toBeLessThan(.001);
@@ -1019,6 +1015,6 @@ test('first-visit location prompt sets the origin and Map area after consent',as
 });
 
 test('declining the welcome location prompt leaves manual planning available',async({page})=>{
- await setup(page);await page.addInitScript(()=>localStorage.removeItem('wld-location-welcome'));await page.reload({waitUntil:'domcontentloaded'});
+ await setup(page,true,Promise.resolve(),true,false);
  await expect(page.locator('#locationWelcome')).toBeVisible();await page.locator('#welcomeSkipLocation').click();await expect(page.locator('#locationWelcome')).toHaveCount(0);await expect(page.locator('#originSearch')).toHaveValue('');await plan(page);await expect(page.locator('#guideContent')).toBeVisible();
 });
