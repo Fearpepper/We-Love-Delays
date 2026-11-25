@@ -23,7 +23,11 @@
   if(show&&map.parentElement!==mapHost){mapHost.appendChild(map);resize()}
   const planHost=$('planMapHost');
   if(!show&&view==='routes'&&planHost&&map.parentElement!==planHost){planHost.appendChild(map);resize();}
-  else if(!show&&view!=='routes'&&map.parentElement!==originalMapParent){originalMapParent.insertBefore(map,originalMapNext);resize();}
+  else if(!show&&view!=='routes'){
+   const backdrop=$('appMapBackdrop'),target=backdrop||originalMapParent;
+   if(map.parentElement!==target){target.appendChild(map);resize();}
+   if(backdrop)backdrop.setAttribute('aria-hidden',String(view!=='map'));
+  }
   try{if(typeof routeMap!=='undefined'&&routeMap)routeMap.zoomControl.setPosition(!show&&view==='routes'?'bottomright':'topleft');}catch{}
 
  }
