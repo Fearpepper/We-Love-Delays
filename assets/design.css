@@ -1016,3 +1016,9 @@ body.glass-app #guideScreen .trip-complete-actions .btn{width:100%;min-width:0}
  body.glass-app #guideContent .guide-directions-column{padding:16px!important}
  body.glass-app #guideScreen .guide-next-preview{padding:18px}
 }
+
+/* Keep the desktop service note in the Guide's panel column. */
+@media(min-width:791px){body.glass-app #guideScreen .guide-disclaimer{margin:16px 0!important;max-width:420px!important}}
+body.glass-app .location-welcome{position:fixed;right:24px;bottom:24px;z-index:1800;width:min(360px,calc(100% - 24px));padding:20px;border:1px solid white;border-radius:24px;background:var(--glass-panel,#f4f9fc);backdrop-filter:blur(24px);box-shadow:0 12px 36px #18384b26}
+.location-welcome h2{margin:0 0 8px;font-size:22px}.location-welcome p{margin:0 0 16px}.location-welcome .actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:790px){body.glass-app .location-welcome{right:12px;bottom:calc(16px + env(safe-area-inset-bottom))}}
