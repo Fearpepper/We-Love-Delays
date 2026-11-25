@@ -40,7 +40,12 @@
 /* Ask once, after the introduction. The browser permission request follows a tap. */
 window.addEventListener('DOMContentLoaded',()=>{
  let seen=false;try{seen=localStorage.getItem('wld-location-welcome')==='1'}catch{}
- if(seen||!navigator.geolocation)return;
+ if(!navigator.geolocation)return;
+ if(seen){
+  // Refresh the area on return visits only when permission is already granted.
+  try{navigator.permissions?.query({name:'geolocation'}).then(permission=>{if(permission.state==='granted'&&!document.getElementById('originSearch')?.value.trim()&&(typeof journey==='undefined'||!journey))document.getElementById('locate')?.click()}).catch(()=>{})}catch{}
+  return;
+ }
  const card=document.createElement('section');card.id='locationWelcome';card.className='location-welcome';card.hidden=true;card.setAttribute('aria-label','Use your area');
  card.innerHTML='<h2>Find your next ride nearby</h2><p>Use your location for the map and your starting point.</p><div class="actions"><button type="button" class="btn" id="welcomeUseLocation">Use my location</button><button type="button" class="btn alt" id="welcomeSkipLocation">Not now</button></div>';
  document.body.append(card);

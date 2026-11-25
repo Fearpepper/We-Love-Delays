@@ -164,7 +164,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  actions.append(search,locate);controls.append(heading,area,actions,filters);title.after(controls);
  const status=document.createElement('p');status.id='mapExplorerStatus';status.className='hint';status.setAttribute('role','status');
  const list=document.createElement('div');list.id='mapStopList';list.className='map-stop-list';list.hidden=true;$('mapText').after(status,list);
- const credit=document.createElement('p');credit.className='hint';credit.textContent='Transit · © OpenStreetMap contributors. Distances are straight-line.';credit.hidden=true;list.after(credit);
+ const credit=document.createElement('p');credit.id='mapExploreCredit';credit.className='hint';credit.textContent='Transit · © OpenStreetMap contributors. Distances are straight-line.';credit.hidden=true;list.after(credit);
  let layer=null,visible=false,initialized=false,exploreCamera=null,data=null,dataCenter=null,loadId=0,loading=false,moved=false;
  const cache=new Map(),mapView=()=>innerWidth>790?document.body.dataset.desktopView==='map':document.body.dataset.view==='map';
  function localStops(center){
@@ -172,7 +172,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const served=new Map();for(const p of network.patterns||[])for(const id of p.stops||[]){if(!served.has(id))served.set(id,new Set());served.get(id).add(p.route)}
   return [...served].map(([id,ids])=>{const s=network.stops[id];return s&&{...s,local:true,routes:[...ids].map(id=>({name:network.routes.find(r=>r.id===id)?.name||id,agency:'AC Transit',mode:'Bus'}))}}).filter(s=>s&&Number.isFinite(s.lat)&&Number.isFinite(s.lon)&&distance(center.lat,center.lng,s.lat,s.lon)<=2).sort((a,b)=>distance(center.lat,center.lng,a.lat,a.lon)-distance(center.lat,center.lng,b.lat,b.lon)).slice(0,8);
  }
- function choose(item,target){if(item.local)window.wldPlanFromMapStop(item.id,target);else window.wldPlanFromMapPlace(item,target)}
+ function choose(item,target){const camera=exploreCamera;if(item.local)window.wldPlanFromMapStop(item.id,target);else window.wldPlanFromMapPlace(item,target);exploreCamera=camera}
  function entry(item,kind,center,popup=false){
   const row=document.createElement('section');row.className=kind==='transit'?'map-stop':'map-place';
   const h=document.createElement('h3');h.textContent=item.name;row.append(h);

@@ -699,7 +699,7 @@ test('Map search refreshes after panning and handles areas without stops',async(
  await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition:ok=>ok({coords:{latitude:37.8715,longitude:-122.2585,accuracy:20},timestamp:Date.now()})},configurable:true}));
  const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');await page.locator('#appMap').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);
  await page.evaluate(()=>routeMap.setView([38.2,-122.8],13,{animate:false}));await page.locator('#searchMapArea').click();
- await expect(page.locator('#mapExplorerStatus')).toContainText('No nearby transit stops');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
+ await expect(page.locator('#mapExplorerStatus')).toContainText('No nearby places found');await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);
  await page.locator('#mapExplorer').getByRole('button',{name:'Use my location',exact:true}).click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(3);await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+122.2585))).toBeLessThan(.001);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:test.info().outputPath('map-explorer.png'),fullPage:true});expect(errors).toEqual([]);
@@ -1034,4 +1034,14 @@ test('Map ignores results from an area the user has left and recovers from parti
  await setup(page);let release;const hold=new Promise(r=>release=r);
  await page.route('**/api/explore?**',async r=>{const lat=Number(new URL(r.request().url()).searchParams.get('lat'));if(lat<36){await hold;await r.fulfill({json:{area:'Old city',stops:[],places:[],transit_available:true,places_available:true}})}else await r.fulfill({json:{area:'New city',stops:[],places:[{name:'New museum',lat:36.738,lon:-119.787,category:'places',detail:'Museum'}],transit_available:false,places_available:true}})});
  await page.evaluate(()=>applyStartingCoordinates(35.361,-118.914,'Device location',20));await page.locator('#appMap').click();await page.evaluate(()=>routeMap.setView([36.738,-119.787],14,{animate:false}));await page.locator('#searchMapArea').click();await expect(page.locator('#mapAreaName')).toHaveText('New city');release();await expect(page.locator('#mapStopList')).toContainText('New museum');await expect(page.locator('#mapExplorerStatus')).toContainText('Transit details unavailable');await expect(page.locator('#mapAreaName')).not.toHaveText('Old city');
+});
+
+
+test('return visits refresh the map area when device location permission is already granted',async({page})=>{
+ await page.addInitScript(()=>{
+  Object.defineProperty(navigator,'permissions',{configurable:true,value:{query:async()=>({state:'granted'})}});
+  Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition:ok=>ok({coords:{latitude:36.738,longitude:-119.787,accuracy:20},timestamp:Date.now()})}});
+ });
+ const errors=await setup(page);await expect(page.locator('#originSearch')).toHaveValue('Current location');await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-36.738))).toBeLessThan(.001);
+ await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#originSearch')).toHaveValue('Current location');await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+119.787))).toBeLessThan(.001);expect(errors).toEqual([]);
 });
