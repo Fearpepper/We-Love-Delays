@@ -967,3 +967,13 @@ body.glass-app .guide-disclaimer{background:var(--glass-panel);padding:10px 14px
 body.glass-app .card:has(#mapExplorer){width:min(420px,100%)!important}
 @media(max-width:790px){body.glass-app .card:has(#mapExplorer){width:calc(100% - 24px)!important}}
 @media(max-width:790px){body.glass-app[data-view=map] .shell{padding-top:44svh!important}}
+/* Recenter stays above floating sheets while retaining its existing tracking handler. */
+body.glass-app #mapFollow.floating-map-action{position:fixed;left:18px;bottom:18px;top:auto;right:auto;margin:0!important;z-index:860;pointer-events:auto}
+body.glass-app[data-desktop-view=map] #mapFollow.floating-map-action{left:auto;right:18px}
+@media(max-width:790px){
+ body.glass-app #mapFollow.floating-map-action{top:122px;bottom:auto;left:12px;right:auto}
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-left{top:166px;bottom:auto}
+ body.glass-app #guideMapHost .leaflet-top.leaflet-left{left:auto;right:12px;top:180px}
+ body.glass-app .guide-screen .guide-hero{max-width:calc(100% - 56px)}
+}
+@media(max-width:390px){body.glass-app .app-header #feedStatus{max-width:145px}}

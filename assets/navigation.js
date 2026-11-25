@@ -17,6 +17,7 @@
    return;
   }
   document.body.classList.add('wld-tabs');
+  document.body.classList.remove('desktop-guide');
   document.body.dataset.view=view;
   document.body.classList.remove('app-map-mode');
   for(const [name,id] of Object.entries(tabs)){
