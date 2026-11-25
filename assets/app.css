@@ -189,7 +189,7 @@ body,body.app-map-mode{position:static!important;height:auto!important;min-heigh
 .shell>.grid>div:first-child:before{display:none!important}
 .shell>.grid>div>.card,.shell>.grid>div:nth-child(2)>.card:first-child{position:relative!important;inset:auto!important;display:block!important;visibility:visible!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;margin:0 0 16px!important;padding:18px!important;background:#fff!important;border:1px solid #e1eae4!important;border-radius:17px!important;box-shadow:0 5px 20px #1439220c!important}
 .shell>.grid>div:nth-child(2)>.card:first-child>.map{position:relative!important;inset:auto!important;display:block!important;width:100%!important;height:400px!important;min-height:260px!important;max-height:none!important;border-radius:12px!important}
-.shell>.grid>div:nth-child(2)>.card:first-child>#mapText{position:relative!important;inset:auto!important;display:block!important;margin:10px 0 0!important;max-width:none!important;box-shadow:none!important}
+.shell>.grid>div:nth-child(2)>.card:first-child>#mapText{position:relative!important;inset:auto!important;margin:10px 0 0!important;max-width:none!important;box-shadow:none!important}
 .shell>.grid>div:nth-child(2)>.card:not(:first-child),.shell>.grid>div:nth-child(2)>.hint{display:block!important}
 .app-map-sheet{display:none!important}
 @media(max-width:790px){
