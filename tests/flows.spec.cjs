@@ -685,7 +685,7 @@ for(const stale of [false,true])test('current location keeps the real walking or
 test('Map explores served stops and selects exact start and destination without losing an active trip',async({page})=>{
  const errors=await setup(page);await plan(page);await page.locator('#guideStartTrip').click();
  await page.locator('#appMap').click();await expect(page.locator('#mapExplorer')).toBeVisible();
- await expect(page.locator('#mapStopList')).toContainText('Alpha boarding');await expect(page.locator('#mapStopList')).toContainText('Buses 51B');
+ await expect(page.locator('#mapStopList')).toContainText('Alpha boarding');await expect(page.locator('#mapStopList')).toContainText('Bus 51B');
  await page.locator('#mapStopList [data-stop-id="c"][data-stop-target="place"]').click();
  await expect(page.locator('#place')).toHaveValue('Gamma destination');expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds.place)).toBe('c');
  expect(await page.evaluate(()=>Boolean(journey))).toBe(true);
@@ -1024,7 +1024,7 @@ for(const [city,lat,lon,agency] of [['Bakersfield',35.361,-118.914,'GET Bus'],['
  const errors=await setup(page);let requests=0;
  await page.route('**/api/explore?**',r=>{requests++;return r.fulfill({json:{area:city+', California',transit_available:true,places_available:true,stops:[{id:'local:1',name:city+' Central',lat,lon,routes:[{name:'21',mode:'Bus',agency}]}],places:[{id:'p:1',name:city+' Coffee',lat:lat+.001,lon,category:'cafe',detail:'Cafe',source:'OpenStreetMap'},{id:'p:2',name:city+' Mall',lat,lon:lon+.001,category:'shopping',detail:'Mall',source:'OpenStreetMap'}]}})});
  await page.evaluate(({lat,lon})=>applyStartingCoordinates(lat,lon,'Device location',20),{lat,lon});await page.locator('#appMap').click();
- await expect(page.locator('#mapAreaName')).toHaveText(city+', California');await expect(page.locator('#mapStopList')).toContainText('Bus 21');await expect(page.locator('#mapStopList')).toContainText(city+' Coffee');await expect(page.locator('#mapText')).toBeHidden();
+ await expect(page.locator('#mapAreaName')).toHaveText(city+', California');await expect(page.locator('#mapStopList')).toContainText('Bus 21');await expect(page.locator('#mapStopList')).toContainText(city+' Coffee');await expect(page.locator('#mapText')).toBeHidden();await page.screenshot({path:test.info().outputPath('city-explorer.png'),fullPage:false});
  await page.locator('[data-category=shopping]').click();await expect(page.locator('#mapStopList .map-stop')).toHaveCount(0);await expect(page.locator('#mapStopList')).not.toContainText(city+' Coffee');
  await page.locator('#mapStopList').getByRole('button',{name:'Go here · '+city+' Mall',exact:true}).click();await expect(page.locator('#place')).toHaveValue(city+' Mall');expect(await page.evaluate(()=>selectedPlaces.place.lon)).toBe(lon+.001);await expect(page.locator('#originSearch')).toHaveValue('Current location');
  await page.locator('#appMap').click();await expect(page.locator('#mapAreaName')).toContainText(city);expect(requests).toBe(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
