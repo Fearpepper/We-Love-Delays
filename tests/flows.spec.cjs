@@ -995,8 +995,9 @@ test('every screen keeps a visible map backdrop and separated header controls at
    const boxes=await Promise.all(['.app-header .logo','.app-controls','#feedStatus','#assignmentDemo'].map(s=>page.locator(s).boundingBox()));
    for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];expect(Math.min(a.x+a.width,b.x+b.width)-Math.max(a.x,b.x)>1&&Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y)>1,`${width}px: header items ${i} and ${j} overlap on ${id}`).toBe(false);}
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   if(width>790&&['appRewards','appGuide'].includes(id)){const panel=await page.locator(id==='appRewards'?'.card:has(#points)':'#guideEmpty').boundingBox();expect(panel.width).toBeLessThanOrEqual(440);expect(panel.x).toBeLessThanOrEqual(40);}
   }
  }
- await page.setViewportSize(original);await page.locator('#appTrips').click();await plan(page);await expect(page.locator('.app-header')).toBeVisible();const map=await page.locator('#guideMapHost #map').boundingBox();expect(map.y).toBe(0);expect(map.height).toBeGreaterThan(original.height*.9);await page.screenshot({path:test.info().outputPath('shared-guide-header.png'),fullPage:false});
+ await page.setViewportSize(original);await page.locator('#appTrips').click();await plan(page);await expect(page.locator('.app-header')).toBeVisible();const map=await page.locator('#guideMapHost #map').boundingBox();expect(map.y).toBe(0);expect(map.height).toBeGreaterThan(original.height*.9);if(original.width>790){const directions=await page.locator('.guide-directions-column').boundingBox();expect(directions.width).toBeLessThanOrEqual(440);expect(directions.x).toBeLessThanOrEqual(40);}await page.screenshot({path:test.info().outputPath('shared-guide-header.png'),fullPage:false});
  await page.locator('#appRewards').click();await page.screenshot({path:test.info().outputPath('shared-rewards-header.png'),fullPage:false});expect(errors).toEqual([]);
 });
