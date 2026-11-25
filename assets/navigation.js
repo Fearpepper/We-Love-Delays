@@ -58,3 +58,45 @@
  const top=document.querySelector('.top');
  if(top)top.append(button);
 })();
+
+/* Glass segmented navigation. Existing view handlers own all trip state. */
+window.addEventListener('DOMContentLoaded',()=>{
+ const nav=document.querySelector('.app-controls');if(!nav)return;
+ document.body.classList.add('glass-app');
+ const ids=['appTrips','appMap','appRewards','appGuide'],views=['routes','map','rewards','guide'];
+ const buttons=ids.map(id=>document.getElementById(id));
+ const paths=[
+  '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  '<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16"/>',
+  '<rect x="3" y="5" width="18" height="15" rx="4"/><path d="M3 9h18m-5 5h2M7 5V3h10"/>',
+  '<path d="m12 3 8 18-8-4-8 4 8-18Zm0 0v14"/>'
+ ];
+ buttons.forEach((button,i)=>{const icon=button?.querySelector('.tab-icon');if(icon)icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths[i]+'</svg>';});
+ let selected=0,drag=null,suppressUntil=0;
+ const sync=()=>{selected=Math.max(0,buttons.findIndex(b=>b?.getAttribute('aria-pressed')==='true'));if(!drag)nav.style.setProperty('--segment',selected);};
+ new MutationObserver(sync).observe(nav,{subtree:true,attributes:true,attributeFilter:['aria-pressed']});sync();
+ const indexAt=x=>{const box=nav.getBoundingClientRect();return Math.max(0,Math.min(3,Math.floor((x-box.left-6)/((box.width-12)/4))));};
+ nav.addEventListener('keydown',event=>{
+  if(!buttons.includes(event.target)||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  event.preventDefault();const index=event.key==='Home'?0:event.key==='End'?3:(selected+(event.key==='ArrowRight'?1:3))%4;
+  window.wldSelectTab(views[index]);buttons[index].focus();
+ });
+ nav.addEventListener('pointerdown',event=>{if(event.button!==0)return;drag={id:event.pointerId,x:event.clientX,y:event.clientY,moved:false};});
+ nav.addEventListener('pointermove',event=>{
+  if(!drag||drag.id!==event.pointerId)return;
+  const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+  if(!drag.moved&&Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>8){drag=null;sync();return;}
+  if(!drag.moved&&Math.abs(dx)>10){drag.moved=true;nav.setPointerCapture(event.pointerId);nav.classList.add('is-sliding');}
+  if(drag.moved){event.preventDefault();nav.style.setProperty('--segment',indexAt(event.clientX));}
+ });
+ const finish=(event,cancelled=false)=>{
+  if(!drag||event.pointerId!==drag.id)return;
+  const moved=drag.moved;drag=null;nav.classList.remove('is-sliding');
+  if(moved){suppressUntil=Date.now()+350;if(!cancelled)window.wldSelectTab(views[indexAt(event.clientX)]);if(nav.hasPointerCapture(event.pointerId))nav.releasePointerCapture(event.pointerId);}
+  sync();
+ };
+ nav.addEventListener('pointerup',event=>finish(event));
+ nav.addEventListener('pointercancel',event=>finish(event,true));
+ nav.addEventListener('lostpointercapture',()=>{drag=null;nav.classList.remove('is-sliding');sync();});
+ nav.addEventListener('click',event=>{if(Date.now()<suppressUntil){event.preventDefault();event.stopImmediatePropagation();}},true);
+});

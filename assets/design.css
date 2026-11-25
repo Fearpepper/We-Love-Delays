@@ -677,3 +677,214 @@ body.map-led-app .hint,body.map-led-app .location-status{line-height:1.5}
  body.map-led-app .planner-card{box-shadow:0 5px 18px #153d2d14!important}
 }
 @media(prefers-reduced-motion:reduce){body.map-led-app *{scroll-behavior:auto!important}}
+
+/* Glass redesign. The map is the canvas; controls sit on distinct, readable layers. */
+body.glass-app{
+ --glass-ink:#142b3c;--glass-muted:#486071;--glass-blue:#075bcc;--glass-edge:#ffffffc9;
+ --glass-panel:rgba(248,252,255,.82);--glass-control:rgba(255,255,255,.79);
+ --glass-shadow:0 14px 44px #1536501a,0 2px 8px #1536500a;
+ --ink:var(--glass-ink);--muted:var(--glass-muted);--forest:var(--glass-ink);--red:var(--glass-blue);
+ color:var(--glass-ink)!important;background:#eaf2f8!important;font-size:16px;line-height:1.5;
+}
+body.glass-app .shell{max-width:1600px!important;padding:100px 24px 40px!important}
+body.glass-app .shell>.top{position:absolute!important;inset:22px 28px auto!important;min-height:48px!important;margin:0!important;padding:0!important;gap:12px!important;background:transparent!important;border:0!important;box-shadow:none!important;flex-wrap:nowrap!important;z-index:810}
+body.glass-app .top .logo{font-size:21px!important;font-weight:750!important;letter-spacing:-.8px!important;color:var(--glass-ink)!important;white-space:nowrap}
+body.glass-app .top .heart{width:32px!important;height:32px!important;border-radius:11px!important;background:#075bcc!important;color:white!important;box-shadow:inset 0 1px 0 #ffffff66!important}
+body.glass-app .top #feedStatus{margin-left:auto;font-size:12px!important;font-weight:600;background:#ffffffb8!important;border:1px solid #ffffffdc!important;color:#36546a!important;padding:9px 13px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+body.glass-app .top #wldInstall{position:absolute;right:0;top:60px;width:auto!important;z-index:3}
+body.glass-app .assignment-demo-trigger{background:#ffffffb8;border-color:#fff;color:#3f5a70;border-radius:99px;padding:8px 14px;min-height:38px}
+
+/* A single movable selection lens, shared by click, keyboard and drag. */
+body.glass-app .app-controls{
+ --segment:0;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:0!important;
+ position:fixed!important;top:20px!important;bottom:auto!important;left:50%!important;right:auto!important;
+ transform:translateX(-50%)!important;width:420px!important;max-width:calc(100% - 32px)!important;
+ padding:6px!important;margin:0!important;min-height:56px;border-radius:99px!important;
+ background:rgba(237,246,252,.77)!important;border:1px solid #ffffffed!important;
+ box-shadow:inset 0 1px 0 #fff,0 5px 24px #173d5e1c!important;
+ backdrop-filter:blur(24px) saturate(1.55);-webkit-backdrop-filter:blur(24px) saturate(1.55);
+ isolation:isolate;touch-action:pan-y;z-index:850!important;
+}
+body.glass-app .app-controls:before{content:'';position:absolute;left:6px;top:6px;bottom:6px;width:calc((100% - 12px)/4);border-radius:99px;background:rgba(255,255,255,.92);border:1px solid #fff;box-shadow:0 2px 7px #153d5c20,inset 0 1px 1px #fff;transform:translateX(calc(var(--segment)*100%));transition:transform .28s cubic-bezier(.22,.8,.25,1);z-index:-1;pointer-events:none}
+body.glass-app .app-controls button,body.glass-app.wld-tabs .app-controls button{position:relative;display:flex!important;flex-direction:row!important;align-items:center;justify-content:center;gap:7px!important;min-width:0!important;max-width:none!important;min-height:44px!important;padding:8px 6px!important;border:0!important;border-radius:99px!important;color:#466174!important;background:transparent!important;box-shadow:none!important;white-space:nowrap;user-select:none;-webkit-user-select:none}
+body.glass-app .app-controls button.active,body.glass-app.wld-tabs .app-controls button.active{color:#064fae!important;background:transparent!important;box-shadow:none!important;border:0!important}
+body.glass-app .app-controls .tab-label{font-size:14px!important;line-height:1.2;font-weight:650!important;letter-spacing:-.15px;text-decoration:none!important}
+body.glass-app .app-controls .tab-icon{display:flex!important;width:18px;height:18px;font-size:18px!important}
+body.glass-app .app-controls svg{display:block;width:100%;height:100%}
+body.glass-app .app-controls.is-sliding{cursor:grabbing}
+body.glass-app .app-controls.is-sliding:before{transition-duration:.12s}
+
+/* Home: preserve the map and remove the promotional billboard. */
+body.glass-app #plannerWorkspace{padding:20px;border-radius:30px;min-height:max(740px,calc(100svh - 126px));background:#dae7ed;box-shadow:0 12px 36px #1a46651a;overflow:hidden}
+body.glass-app #planMapHost #map{border-radius:30px!important;background:#dae7ed}
+body.glass-app .map-stage-title{display:none}
+body.glass-app .planner-card{width:390px!important;max-width:100%!important;padding:25px!important;border-radius:26px!important;background:var(--glass-panel)!important;border:1px solid var(--glass-edge)!important;box-shadow:var(--glass-shadow),inset 0 1px 0 #fff!important;backdrop-filter:blur(24px) saturate(1.25);-webkit-backdrop-filter:blur(24px) saturate(1.25)}
+body.glass-app .planner-card>h2{font-size:34px!important;letter-spacing:-1.2px!important;line-height:1.15!important;margin:0 0 7px!important;color:var(--glass-ink)!important}
+body.glass-app .planner-intro{font-size:14px;color:var(--glass-muted);margin:0 0 20px}
+body.glass-app .planner-card .field{margin-bottom:16px!important}
+body.glass-app .planner-card .field label{font-size:14px!important;color:#314e63!important}
+body.glass-app #originSearch,body.glass-app #place,body.glass-app .field input,body.glass-app .field select,body.glass-app .commute-options select,body.glass-app .commute-options input[type=datetime-local]{font-size:16px!important;min-height:52px!important;border:1px solid #c0d1df!important;border-radius:15px!important;background:var(--glass-control)!important;color:var(--glass-ink)!important;box-shadow:inset 0 1px 2px #14344d05}
+body.glass-app input::placeholder{color:#5c7284;opacity:1}
+body.glass-app .location-shortcuts{gap:18px;margin-top:7px}
+body.glass-app .location-shortcut{color:#0756b9;font-size:14px;border:0;min-height:38px;font-weight:600}
+body.glass-app .location-shortcut:hover{background:#e3effc;border-radius:8px}
+body.glass-app .location-status{font-size:14px;color:#38576e}
+body.glass-app .everyday-place{background:#ffffffa3;border:1px solid #c9d8e5;color:#2b4c66;box-shadow:inset 0 1px 0 #fff;font-size:14px;min-height:44px;padding:10px 14px;font-weight:600}
+body.glass-app .everyday-trips{margin:16px 0 12px}
+body.glass-app .everyday-trips summary,body.glass-app .search-area-settings{font-size:14px;color:#3f5d73}
+body.glass-app .search-area-settings{margin:4px 0 16px}
+body.glass-app .search-area-settings summary{min-height:40px}
+body.glass-app .btn{min-height:46px!important;border-radius:14px!important;font-size:15px!important;font-weight:650!important;background:#075bcc!important;border-color:#075bcc!important;color:#fff!important;box-shadow:0 3px 9px #075bcc1a!important;transition:background .16s,box-shadow .16s}
+body.glass-app .btn:hover:not(:disabled){background:#064da9!important;transform:none!important}
+body.glass-app .btn.alt{background:#ffffffbf!important;border-color:#c1d3e2!important;color:#124f8e!important;box-shadow:inset 0 1px 0 #fff!important}
+body.glass-app .btn.alt:hover:not(:disabled){background:#e7f1ff!important}
+body.glass-app #autoFind,body.glass-app #guideStartTrip,body.glass-app #navAdvance.is-next-action,body.glass-app #tripPlanAgain{background:#075bcc!important;border-color:#075bcc!important;color:white!important;box-shadow:0 5px 14px #075bcc26!important}
+body.glass-app #autoFind{min-height:54px!important;font-size:17px!important;margin-top:4px}
+body.glass-app #autoFind:after{display:none}
+body.glass-app .focus-fold,body.glass-app #manualRouteDetails:not([open]),body.glass-app .trip-inspector,body.glass-app .arrival-drawer{background:#ffffff65!important;border-color:#c8d8e5!important;border-radius:15px}
+body.glass-app .focus-fold>summary,body.glass-app .trip-inspector>summary,body.glass-app .advanced-planner>summary,body.glass-app .arrival-drawer>summary,body.glass-app #manualRouteDetails>summary{font-size:14px!important;line-height:1.4;color:#34566f!important;min-height:44px}
+body.glass-app .notice,body.glass-app .selected-route,body.glass-app .walking-option,body.glass-app .arrival-confidence{background:#f5faffd9!important;border-color:#c7dae9!important;color:#284c68;font-size:14px;border-radius:15px}
+body.glass-app .suggestions{background:#f9fcff!important;border-color:#b7cddd;box-shadow:0 8px 24px #1638501a}
+body.glass-app .suggestions button{background:#f9fcff!important;color:var(--glass-ink);font-size:15px;min-height:48px}
+body.glass-app .suggestions button:hover{background:#e9f3ff!important}
+body.glass-app .planner-card #autoResults{max-height:none;overflow:visible;padding:0}
+body.glass-app #autoResults .route-result-card,body.glass-app #replanResults .route-result-card{background:#ffffffd9!important;border:1px solid #c7d9e8!important;border-left:3px solid #075bcc!important;border-radius:16px!important;padding:16px!important;gap:7px!important;box-shadow:0 2px 8px #183e5b08!important;color:var(--glass-ink)!important}
+body.glass-app #autoResults .route-result-card[aria-pressed=true]{background:#e9f2ff!important;outline:2px solid #075bcc;outline-offset:1px}
+body.glass-app .route-result-badge{background:#e2edff!important;color:#1257a1!important;font-size:12px!important}
+body.glass-app .route-result-card small,body.glass-app .transit-route-summary{color:#486174!important;font-size:14px!important}
+body.glass-app .journey-comparison{border-color:#c6d6e2}
+body.glass-app .journey-comparison small{font-size:12px!important}
+body.glass-app .journey-comparison strong{font-size:14px!important}
+body.glass-app .transit-route-details{background:#ffffff9c;border-color:#c7d9e5}
+body.glass-app .transit-route-details>summary{font-size:14px}
+body.glass-app .planner-partner-link{gap:8px}
+body.glass-app #plannerPartners,body.glass-app #reportPlanningProblem{font-size:13px!important;min-height:42px!important;padding:9px 12px!important}
+
+/* Other screens share the same material and hierarchy. */
+body.glass-app .shell>.grid{background:transparent!important;padding:0!important}
+body.glass-app .card,body.glass-app.wld-tabs .card,body.glass-app .guide-content,body.glass-app .guide-empty,body.glass-app .trip-complete{background:var(--glass-panel)!important;border:1px solid var(--glass-edge)!important;border-radius:24px!important;box-shadow:var(--glass-shadow)!important;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);color:var(--glass-ink)}
+body.glass-app .guide-screen{max-width:1400px!important;margin:0 auto!important;padding:102px 24px 40px!important;color:var(--glass-ink)}
+body.glass-app .guide-screen .guide-hero{margin:0 0 18px;padding:0 4px!important}
+body.glass-app .guide-screen .guide-hero h1{color:var(--glass-ink)!important;font-size:36px!important;letter-spacing:-1px!important;line-height:1.15}
+body.glass-app .guide-hero p,body.glass-app .guide-empty p{color:var(--glass-muted);font-size:16px}
+body.glass-app .guide-content{padding:20px}
+body.glass-app .guide-map-column,body.glass-app .guide-directions-column{background:#ffffff9e!important;border-color:#d6e1ea!important;border-radius:20px!important;box-shadow:none!important}
+body.glass-app #guideMapHost #map{border-radius:18px!important}
+body.glass-app .guide-trip-controls,body.glass-app .guide-prediction,body.glass-app .navigation-panel,body.glass-app .guide-next-preview{background:#ffffffad!important;border-color:#cddce7!important;border-radius:18px!important;color:var(--glass-ink)}
+body.glass-app .guide-next-preview #navNext,body.glass-app #navigationPanel #navNext{color:var(--glass-ink)!important;font-weight:700}
+body.glass-app .guide-next-preview #navNextEstimate,body.glass-app #navigationPanel #navNextEstimate{color:var(--glass-muted)!important;font-size:15px!important}
+body.glass-app .guide-content .nav-step{background:#f0f6fbd9!important;border-color:#b2cce2!important;color:var(--glass-ink)}
+body.glass-app .guide-content .nav-step.active{background:#dfedff!important;border-color:#075bcc!important}
+body.glass-app .guide-content .nav-step.done{background:#e8f4ec!important;border-color:#32905c!important}
+body.glass-app .nav-step-symbol{background:#075bcc}
+body.glass-app .map-follow-control{background:#f8fcffdc;color:#1257a1;border-color:#fff;box-shadow:0 3px 12px #173d5d26;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);font-size:14px}
+body.glass-app .map-follow-control[aria-pressed=true]{background:#075bcc;color:#fff}
+body.glass-app .map-stop,body.glass-app .community-card{background:#ffffffb8;border-color:#c9dce9;color:var(--glass-ink);border-radius:18px}
+body.glass-app #mapExplorer>h2{color:var(--glass-ink)}
+body.glass-app .reward-explainer,body.glass-app #rewardRules{background:#e8f1ffe0;border-color:#c3d9f2;border-radius:20px;color:#183e64}
+body.glass-app .impact-card{background:#e5f4f1d9;border-color:#c0dfd5;color:#204d44}
+body.glass-app .reward,body.glass-app #points{color:#075bcc;font-variant-numeric:tabular-nums}
+body.glass-app .reward-explainer progress{accent-color:#075bcc}
+body.glass-app .partners-dialog,body.glass-app .assignment-demo-dialog,body.glass-app .onboarding-panel{background:#f6fbffed!important;border:1px solid #fff!important;color:var(--glass-ink)!important;box-shadow:0 24px 80px #15354f40;backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-radius:28px}
+body.glass-app dialog::backdrop{background:#173a514a;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+body.glass-app .assignment-demo-dialog .demo-heading{background:#f6fbfff5;box-shadow:0 5px 0 #f6fbfff5}
+body.glass-app .partner-grid article,body.glass-app .visual-tour article{background:#e6effa;border-radius:18px}
+body.glass-app .partner-grid article:nth-child(2){background:#f1eafa}
+body.glass-app .model-grid{background:#e4effb}
+body.glass-app .onboarding-overlay{background:#173b535e;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+body.glass-app .onboarding-icon{color:#075bcc!important}
+body.glass-app .trip-complete-symbol{background:#e0eeff!important;color:#075bcc!important}
+body.glass-app .hint,body.glass-app .muted{color:var(--glass-muted)}
+body.glass-app .daily-feedback,body.glass-app .phone-check{max-width:1400px;padding:0 24px;color:var(--glass-ink)}
+body.glass-app :is(button,input,select,summary,a):focus-visible{outline:3px solid #075bcc!important;outline-offset:3px!important}
+body.glass-app .guide-arrival-summary{color:#163d61}
+@media(min-width:791px){
+ body.glass-app[data-desktop-view=routes] .shell{max-width:none!important}
+ body.glass-app[data-desktop-view=rewards] .shell{max-width:850px!important}
+ body.glass-app .planner-card{max-height:calc(100svh - 166px);min-height:580px;overflow-y:auto!important;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#a9bfce transparent}
+ body.glass-app .planner-card:focus-within{scroll-padding:16px}
+ body.glass-app #planMapHost .leaflet-top.leaflet-left{left:auto;right:12px}
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-left{left:430px;bottom:16px}
+}
+@media(min-width:791px) and (max-width:1100px){
+ body.glass-app .app-controls{width:350px!important}
+ body.glass-app .top .logo{font-size:18px!important}
+ body.glass-app .top #feedStatus{max-width:105px;font-size:11px!important}
+ body.glass-app .assignment-demo-trigger{font-size:11px;padding:8px 10px}
+ body.glass-app .planner-card{width:360px!important}
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-left{left:400px}
+}
+@media(max-width:790px){
+ body.glass-app .shell,body.glass-app.wld-tabs .shell{padding:120px 0 32px!important}
+ body.glass-app .shell>.top,body.glass-app.wld-tabs .shell>.top{position:absolute!important;inset:12px 18px auto!important;min-height:38px!important;padding:0!important;background:transparent!important;border:0!important;z-index:810}
+ body.glass-app .top .logo{font-size:19px!important}
+ body.glass-app .top .heart{width:28px!important;height:28px!important;border-radius:9px!important}
+ body.glass-app .top #feedStatus{max-width:130px;font-size:11px!important;padding:5px 9px;overflow:hidden}
+ body.glass-app .assignment-demo-trigger{font-size:12px;padding:6px 10px;min-height:34px}
+ body.glass-app .app-controls,body.glass-app.wld-tabs .app-controls{top:calc(58px + env(safe-area-inset-top,0px))!important;bottom:auto!important;width:calc(100% - 32px)!important;max-width:430px!important;padding:5px!important;min-height:54px;border:1px solid #fff!important;box-shadow:0 4px 20px #173d5e24!important;left:50%!important;transform:translateX(-50%)!important}
+ body.glass-app .app-controls:before{top:5px;bottom:5px;left:5px;width:calc((100% - 10px)/4)}
+ body.glass-app .app-controls button,body.glass-app.wld-tabs .app-controls button{padding:8px 4px!important;gap:6px!important;min-height:44px!important}
+ body.glass-app .app-controls .tab-label{font-size:13px!important}
+ body.glass-app .app-controls .tab-icon{width:17px;height:17px}
+ body.glass-app #plannerWorkspace{min-height:0;padding:calc(42svh - 60px) 0 24px;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+ body.glass-app #planMapHost{position:fixed;inset:0;height:100svh;padding:0;z-index:-1}
+ body.glass-app #planMapHost #map{height:100%!important;min-height:100%!important;border-radius:0!important}
+ body.glass-app #planMapHost .leaflet-top{top:125px}
+ body.glass-app #planMapHost .leaflet-bottom{bottom:auto;top:140px}
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-right{top:auto;bottom:4px}
+ body.glass-app #planMapHost .leaflet-control-attribution{font-size:10px}
+ body.glass-app .planner-card{width:calc(100% - 24px)!important;margin:0 12px!important;max-width:none!important;max-height:none!important;padding:24px 20px!important;border-radius:28px!important;overflow:visible!important;background:rgba(247,252,255,.88)!important}
+ body.glass-app .planner-card>h2{font-size:32px!important}
+ body.glass-app .planner-intro{margin-bottom:18px}
+ body.glass-app .planner-card .field{margin-bottom:16px!important}
+ body.glass-app .arrival-drawer{margin:0 12px 20px;background:#f3f9ffed!important}
+ body.glass-app.wld-tabs .shell>.grid{padding:0!important}
+ body.glass-app.wld-tabs .card{margin:0 12px 16px!important;padding:24px 20px!important}
+ body.glass-app .guide-screen{padding:130px 12px 32px!important}
+ body.glass-app .guide-screen .guide-hero{padding:0 8px!important}
+ body.glass-app .guide-screen .guide-hero h1{font-size:30px!important}
+ body.glass-app .guide-content{padding:12px;border-radius:24px!important}
+ body.glass-app #guideMapHost #map{height:36svh!important;min-height:250px!important}
+ body.glass-app .guide-next-preview{margin:0 0 14px}
+ body.glass-app .trip-complete{padding:28px 20px}
+ body.glass-app .journey-comparison{gap:4px}
+ body.glass-app .journey-comparison small{font-size:11px!important}
+ body.glass-app .daily-feedback,body.glass-app .phone-check{padding:0 16px}
+ body.glass-app .top #wldInstall{top:110px;right:0}
+}
+@media(max-width:390px){
+ body.glass-app .top #feedStatus{max-width:88px;font-size:10px!important;padding:5px 7px}
+ body.glass-app .top .logo{font-size:17px!important}
+ body.glass-app .top .heart{margin-right:4px}
+ body.glass-app .app-controls .tab-icon{display:none!important}
+ body.glass-app .app-controls .tab-label{font-size:14px!important}
+ body.glass-app .planner-card{padding:22px 18px!important}
+}
+/* Blur is progressive enhancement; clarity preferences always win. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ body.glass-app{--glass-panel:#f7fbff;--glass-control:#fff}
+ body.glass-app .app-controls,body.glass-app .planner-card{background:#f4f9fd!important}
+}
+@media(prefers-reduced-transparency:reduce){
+ body.glass-app{--glass-panel:#f7fbff;--glass-control:#fff}
+ body.glass-app .app-controls,body.glass-app .planner-card,body.glass-app .card,body.glass-app .guide-content,body.glass-app .guide-directions-column,body.glass-app .guide-next-preview{background:#f7fbff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+}
+body.glass-app.wld-high-contrast{--glass-panel:#fff;--glass-control:#fff;--glass-muted:#233e53}
+body.glass-app.wld-high-contrast .planner-card,body.glass-app.wld-high-contrast .app-controls,body.glass-app.wld-high-contrast .card,body.glass-app.wld-high-contrast .guide-content{background:#fff!important;border-color:#365972!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.glass-app.wld-large-text .app-controls .tab-label{font-size:16px!important}
+@media(prefers-reduced-motion:reduce){body.glass-app .app-controls:before,body.glass-app .btn{transition:none!important}}
+@media(max-width:790px){
+ body.glass-app .top #feedStatus{position:absolute;right:0;top:110px;max-width:180px;font-size:11px!important;box-shadow:0 2px 10px #173d5e0d}
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-right:not(:has(.leaflet-control-attribution)){top:175px}
+}
+/* Match the mobile navigation material to desktop, above legacy theme selectors. */
+body.glass-app.wld-tabs .app-controls{background:var(--glass-panel)!important}
+@media(max-width:790px){
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-right{top:auto;bottom:4px}
+ body.glass-app #planMapHost .leaflet-control-zoom{position:fixed;right:14px;top:180px;margin:0}
+}
+body.glass-app.wld-tabs{background:#eaf2f8!important}
+body.glass-app .card:has(#points){background:var(--glass-panel)!important;border-color:var(--glass-edge)!important;box-shadow:var(--glass-shadow)!important}
+body.glass-app #points{color:var(--glass-blue)!important}
+body.glass-app .eyebrow{color:#075bcc!important}
+body.glass-app .shell .grid>div>.card{background:var(--glass-panel)!important;border-color:var(--glass-edge)!important;box-shadow:var(--glass-shadow)!important}
