@@ -877,3 +877,9 @@ body.glass-app.wld-large-text .app-controls .tab-label{font-size:16px!important}
  body.glass-app .top #feedStatus{position:absolute;right:0;top:110px;max-width:180px;font-size:11px!important;box-shadow:0 2px 10px #173d5e0d}
  body.glass-app #planMapHost .leaflet-bottom.leaflet-right:not(:has(.leaflet-control-attribution)){top:175px}
 }
+/* Match the mobile navigation material to desktop, above legacy theme selectors. */
+body.glass-app.wld-tabs .app-controls{background:var(--glass-panel)!important}
+@media(max-width:790px){
+ body.glass-app #planMapHost .leaflet-bottom.leaflet-right{top:auto;bottom:4px}
+ body.glass-app #planMapHost .leaflet-control-zoom{position:fixed;right:14px;top:180px;margin:0}
+}
