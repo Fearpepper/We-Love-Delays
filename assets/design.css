@@ -977,3 +977,4 @@ body.glass-app[data-desktop-view=map] #mapFollow.floating-map-action{left:auto;r
  body.glass-app .guide-screen .guide-hero{max-width:calc(100% - 56px)}
 }
 @media(max-width:390px){body.glass-app .app-header #feedStatus{max-width:145px}}
+body.glass-app .guide-screen .daily-feedback,body.glass-app .guide-screen .phone-check{position:relative;z-index:2;pointer-events:auto;background:var(--glass-panel)!important;padding:14px 18px;border-radius:16px}

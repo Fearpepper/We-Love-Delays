@@ -9,6 +9,7 @@
   if(view==='guide'&&typeof window.wldUpdateGuide==='function')window.wldUpdateGuide();
   if(window.innerWidth>790){
    document.body.dataset.desktopView=view;
+   delete document.body.dataset.view;
    document.body.classList.toggle('desktop-guide',view==='guide');
    for(const [name,id] of Object.entries(tabs)){const tab=document.getElementById(id);tab.classList.toggle('active',name===view);tab.setAttribute('aria-pressed',String(name===view))}
    if(view==='map'&&typeof routeMap!=='undefined'&&routeMap)setTimeout(()=>routeMap.invalidateSize(),120);
@@ -19,6 +20,7 @@
   document.body.classList.add('wld-tabs');
   document.body.classList.remove('desktop-guide');
   document.body.dataset.view=view;
+  delete document.body.dataset.desktopView;
   document.body.classList.remove('app-map-mode');
   for(const [name,id] of Object.entries(tabs)){
    const b=document.getElementById(id);if(!b)continue;
