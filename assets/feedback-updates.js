@@ -39,3 +39,14 @@
   const crowdExample=make('p','Demo example · 12 riders tracking this sample line. This is a simulated count.');crowdExample.className='community-card';const demo=$('assignmentDemoDialog');if(demo)demo.querySelector('#demoRidePanel')?.append(crowdExample);
  });
 })();
+
+/* Keep planning focused; secondary tools retain their existing handlers. */
+window.addEventListener('DOMContentLoaded',()=>{
+ const card=document.getElementById('autoFind')?.closest('.card');if(!card)return;
+ const more=document.createElement('details');more.id='plannerMore';more.className='focus-fold planner-more';
+ const summary=document.createElement('summary');summary.textContent='More options';more.append(summary);
+ const report=[...card.querySelectorAll('button')].find(b=>b.textContent==='Report a planning problem');
+ const nodes=[card.querySelector('.everyday-trips'),card.querySelector('.search-area-settings'),document.getElementById('nearbyDepartures'),document.getElementById('manualRouteDetails'),card.querySelector('.planner-partner-link'),report];
+ for(const node of nodes)if(node)more.append(node);
+ card.append(more);
+});
