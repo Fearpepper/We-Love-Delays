@@ -1063,3 +1063,15 @@ test('fresh laptop retry replaces the review point and removes its confirmation'
 test('Plan keeps secondary buttons under More options and still opens them',async({page})=>{
  await setup(page);await expect(page.locator('#autoFind')).toBeVisible();await expect(page.locator('.location-shortcut').filter({hasText:'Use my location'})).toBeVisible();await expect(page.locator('#plannerPartners')).toBeHidden();await expect(page.getByRole('button',{name:'Save current trip as Home',exact:true})).toBeHidden();await expect(page.locator('#nearbyDepartures')).toBeHidden();await openPlannerMore(page);await expect(page.locator('#plannerPartners')).toBeVisible();await expect(page.getByRole('button',{name:'Save current trip as Home',exact:true})).toBeVisible();await expect(page.locator('#nearbyDepartures')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+
+test('confirmed laptop location stays labeled correctly after delayed stop loading',async({page})=>{
+ let release;const ready=new Promise(resolve=>release=resolve);
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition:ok=>ok({coords:{latitude:35.361,longitude:-118.914,accuracy:100},timestamp:Date.now()-20*60000})}}));
+ try{await setup(page,true,ready);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await page.locator('#locationUseLast').click();release();await expect(page.locator('#message')).toContainText('AC Transit data loaded');await expect(page.locator('#originSearch')).toHaveValue('Last reported location');await expect(page.locator('#locationText')).toContainText('20 min ago')}finally{release()}
+});
+
+test('Map can confirm an older laptop point without returning to Plan',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition:ok=>ok({coords:{latitude:35.361,longitude:-118.914,accuracy:100},timestamp:Date.now()-20*60000})}}));
+ await setup(page);await page.locator('#appMap').click();await page.locator('#mapExplorer').getByRole('button',{name:'Use my location',exact:true}).click();await expect(page.locator('#mapUseLastPoint')).toBeVisible();await page.locator('#mapUseLastPoint').click();await expect(page.locator('#originSearch')).toHaveValue('Last reported location');await expect(page.locator('#mapUseLastPoint')).toBeHidden();await expect(page.locator('#mapExplorer')).toBeVisible();
+});

@@ -1029,3 +1029,5 @@ body.glass-app .location-welcome{position:fixed;right:24px;bottom:24px;z-index:1
 #mapText[hidden],#mapExplorerStatus[hidden],#mapExploreCredit[hidden]{display:none!important}
 
 #locationUseLast[hidden]{display:none!important}.planner-more{margin-top:18px!important;border-top:1px solid #cedee9;padding-top:10px}.planner-more>summary{font-size:15px;font-weight:600}.planner-more>.everyday-trips{margin-top:12px}.planner-more .planner-partner-link{margin-top:12px}
+
+#mapUseLastPoint[hidden]{display:none!important}

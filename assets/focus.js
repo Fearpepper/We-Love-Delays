@@ -161,7 +161,10 @@ window.addEventListener('DOMContentLoaded',()=>{
   const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.category=key;b.setAttribute('aria-pressed',String(key===category));
   b.onclick=()=>{category=key;for(const x of filters.children)x.setAttribute('aria-pressed',String(x===b));render()};filters.append(b);
  }
- actions.append(search,locate);controls.append(heading,area,actions,filters);title.after(controls);
+ const confirm=document.createElement('button');confirm.type='button';confirm.className='btn';confirm.id='mapUseLastPoint';confirm.textContent='Use this point';confirm.hidden=true;confirm.onclick=()=>document.getElementById('locationUseLast')?.click();
+ window.addEventListener('wld:location-review',()=>{confirm.hidden=!document.getElementById('locationUseLast')||document.getElementById('locationUseLast').hidden});
+ window.addEventListener('wld:location-set',()=>{confirm.hidden=true});
+ actions.append(search,locate,confirm);controls.append(heading,area,actions,filters);title.after(controls);
  const status=document.createElement('p');status.id='mapExplorerStatus';status.className='hint';status.setAttribute('role','status');
  const list=document.createElement('div');list.id='mapStopList';list.className='map-stop-list';list.hidden=true;$('mapText').after(status,list);
  const credit=document.createElement('p');credit.id='mapExploreCredit';credit.className='hint';credit.textContent='Transit · © OpenStreetMap contributors. Distances are straight-line.';credit.hidden=true;list.after(credit);
