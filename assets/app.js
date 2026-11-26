@@ -991,7 +991,7 @@ $('chooseMap').onclick=()=>{
  $('map').scrollIntoView({behavior:'smooth',block:'center'});
 };
 let locationRequestId=0,pendingLocationOrigin=false,startingLocationTimer=null,startingLocationPreview=null;
-function clearStartingLocationPreview(){startingLocationPreview?.remove();startingLocationPreview=null;}
+function clearStartingLocationPreview(){startingLocationPreview?.remove();startingLocationPreview=null;for(const id of ['locationUseLast','mapUseLastPoint'])if($(id))$(id).hidden=true;}
 function showLocationHelp(message,approximate=null){
  $('locationText').textContent=message;
  let help=$('locationHelp');
