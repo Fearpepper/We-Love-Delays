@@ -23,6 +23,7 @@ async function setup(page,delayed=true,networkReady=Promise.resolve(),skipOnboar
  await expect(page.locator('#feedStatus')).toContainText('connected');
  return errors;
 }
+async function openPlannerMore(page){if(!await page.locator('#plannerMore').evaluate(el=>el.open))await page.locator('#plannerMore > summary').click();}
 async function plan(page,destination='Beta transfer'){
  await page.locator('#originSearch').fill('Alpha boarding');
  await page.locator('#originSuggestions button').first().click();
@@ -199,7 +200,7 @@ test('last direction step completes a direct trip and cannot award twice',async(
 test('manual route selection opens Guide and starts the selected bus',async({page})=>{
  const errors=await setup(page);
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
- await page.locator('#manualRouteDetails > summary').click();
+ await openPlannerMore(page);await page.locator('#manualRouteDetails > summary').click();
  await page.locator('#route').selectOption('51B');
  await page.locator('#pattern').selectOption({index:1});
  await page.locator('#board').selectOption({index:1});
@@ -313,7 +314,7 @@ test('boarding countdowns update and stale vehicle reports stop showing as live'
  await page.clock.install({time:new Date()});
  const errors=await setup(page);
  await expect(page.locator('#message')).toContainText('AC Transit data loaded');
- await page.locator('#manualRouteDetails > summary').click();
+ await openPlannerMore(page);await page.locator('#manualRouteDetails > summary').click();
  await page.locator('#route').selectOption('51B');await page.locator('#pattern').selectOption({index:1});
  await page.locator('#board').selectOption({index:1});
  await expect(page.locator('#arrivals')).toContainText('Predicted');
@@ -609,14 +610,14 @@ for(const transfer of [false,true])for(const minutes of [5,60])test('walking com
 
 test('Home shortcut restores exact stops across reload and clears stale selections',async({page})=>{
  const errors=await setup(page);await plan(page);await page.locator('#appTrips').click();
- await page.getByRole('button',{name:'Save current trip as Home',exact:true}).click();
+ await openPlannerMore(page);await page.getByRole('button',{name:'Save current trip as Home',exact:true}).click();
  await expect(page.locator('.everyday-trips [role=status]')).toContainText('Home saved');
  await page.locator('#originSearch').fill('Gamma destination');await page.locator('#place').fill('Alpha boarding');
- await page.getByRole('button',{name:'Open Home',exact:true}).click();
+ await openPlannerMore(page);await page.getByRole('button',{name:'Open Home',exact:true}).click();
  await expect(page.locator('#originSearch')).toHaveValue('Alpha boarding');await expect(page.locator('#place')).toHaveValue('Beta transfer');
  expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
  await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#message')).toContainText('AC Transit data loaded');
- await page.getByRole('button',{name:'Open Home',exact:true}).click();
+ await openPlannerMore(page);await page.getByRole('button',{name:'Open Home',exact:true}).click();
  expect(await page.evaluate(()=>window.wldCaptureSearch().stopIds)).toEqual({originSearch:'a',place:'b'});
  await page.locator('#autoFind').click();await expect(page.locator('.route-choice')).toContainText('51B');expect(errors).toEqual([]);
 });
@@ -677,7 +678,7 @@ for(const stale of [false,true])test('current location keeps the real walking or
  await page.addInitScript(stale=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){setTimeout(()=>ok({coords:{latitude:37.8706,longitude:-122.271,accuracy:10},timestamp:Date.now()-(stale?180000:0)}),0)},clearWatch(){}}}),stale);
  const errors=await setup(page);await expect(page.locator('#message')).toContainText('AC Transit data loaded');
  await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();
- if(stale){await expect(page.locator('#locationText')).toContainText('outdated');await expect(page.locator('#originSearch')).toHaveValue('');}
+ if(stale){await expect(page.locator('#locationText')).toContainText('min ago');await expect(page.locator('#locationUseLast')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');}
  else {await expect(page.locator('#originSearch')).toHaveValue('Current location');expect(await page.evaluate(()=>walkingEndpoint('originSearch').lat)).toBe(37.8706);expect(await page.evaluate(()=>walkingEndpoint('originSearch').lon)).toBe(-122.271);}
  expect(errors).toEqual([]);
 });
@@ -751,14 +752,14 @@ test('reopening an active trip respects the saved reminder preference',async({pa
 
 test('nearby departures are on demand, bounded and reused between refreshes',async({page})=>{
  const errors=await setup(page);let calls=0;await page.route('**/api/arrivals?*',r=>{calls++;return r.fulfill({json:{arrivals:[{route:'51B',destination:'Beta',aimed:new Date(Date.now()+600000).toISOString(),expected:new Date(Date.now()+660000).toISOString(),recorded:new Date().toISOString()}]}});});
- expect(calls).toBe(0);await page.locator('#nearbyDepartures summary').click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyStatus')).toContainText('Choose your starting point');expect(calls).toBe(0);
+ expect(calls).toBe(0);await openPlannerMore(page);await page.locator('#nearbyDepartures summary').click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyStatus')).toContainText('Choose your starting point');expect(calls).toBe(0);
  await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyResults')).toContainText('Live prediction');expect(calls).toBeGreaterThan(0);expect(calls).toBeLessThanOrEqual(3);const count=calls;
  await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyRefresh')).toBeEnabled();expect(calls).toBe(count);await expect(page.locator('#nearbyResults')).toContainText('Vehicle reported');
  await page.screenshot({path:test.info().outputPath('nearby-departures.png'),fullPage:true});expect(errors).toEqual([]);
 });
 test('nearby departure source ages to schedule only and becomes unavailable offline',async({page,context})=>{
  await page.clock.install();await setup(page);await page.route('**/api/arrivals?*',r=>r.fulfill({json:{arrivals:[{route:'51B',destination:'Beta',aimed:new Date(Date.now()+20*60000).toISOString(),expected:new Date(Date.now()+21*60000).toISOString(),recorded:new Date(Date.now()-4*60000).toISOString()}]}}));
- await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await page.locator('#nearbyDepartures summary').click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyResults')).toContainText('Live prediction');await page.clock.fastForward(2*60000);await expect(page.locator('#nearbyResults')).toContainText('Published schedule');await expect(page.locator('#nearbyResults')).not.toContainText('Live prediction');await context.setOffline(true);await expect(page.locator('#nearbyResults')).toContainText('Offline');
+ await page.locator('#originSearch').fill('Alpha boarding');await page.locator('#originSuggestions button').first().click();await openPlannerMore(page);await page.locator('#nearbyDepartures summary').click();await page.locator('#nearbyRefresh').click();await expect(page.locator('#nearbyResults')).toContainText('Live prediction');await page.clock.fastForward(2*60000);await expect(page.locator('#nearbyResults')).toContainText('Published schedule');await expect(page.locator('#nearbyResults')).not.toContainText('Live prediction');await context.setOffline(true);await expect(page.locator('#nearbyResults')).toContainText('Offline');
 });
 test('missed bus checks current departures and keeps selected trip and destination',async({page})=>{
  const errors=await setup(page);const now=Date.now();await page.route('**/api/scheduled-journey?*',r=>r.fulfill({json:{trips:[{departure:new Date(now+15*60000).toISOString(),arrival:new Date(now+30*60000).toISOString(),ride_minutes:15}]}}));
@@ -777,7 +778,7 @@ test('feedback saves locally, restores safely, and prepares a public issue witho
  await page.reload({waitUntil:'domcontentloaded'});await page.locator('#appGuide').click();await page.locator('#tripFeedback summary').click();await expect(page.locator('#feedbackPreview')).toContainText('Sidewalk is closed');await expect(page.locator('#feedbackStatus')).toContainText('Not sent');expect(errors).toEqual([]);
 });
 test('planning feedback and the real-phone checklist work without a selected trip',async({page})=>{
- await setup(page);await page.getByRole('button',{name:'Report a planning problem',exact:true}).click();await expect(page.locator('#feedbackMessage')).toBeVisible();await page.locator('#phoneRideCheck summary').click();await expect(page.locator('#phoneRideCheck')).toContainText('browser tests cannot verify');expect(await page.locator('#phoneRideCheck input[type=checkbox]').count()).toBe(5);await page.locator('#phoneRideCheck input').first().check();await expect(page.locator('#phoneRideCheck input').first()).toBeChecked();
+ await setup(page);await openPlannerMore(page);await page.getByRole('button',{name:'Report a planning problem',exact:true}).click();await expect(page.locator('#feedbackMessage')).toBeVisible();await page.locator('#phoneRideCheck summary').click();await expect(page.locator('#phoneRideCheck')).toContainText('browser tests cannot verify');expect(await page.locator('#phoneRideCheck input[type=checkbox]').count()).toBe(5);await page.locator('#phoneRideCheck input').first().check();await expect(page.locator('#phoneRideCheck input').first()).toBeChecked();
 });
 
 test('missed bus preserves the resolved destination when stop names match opposite sides',async({page})=>{
@@ -890,7 +891,7 @@ test('first launch tutorial has three concise screens and stays dismissed after 
  await setup(page,true,Promise.resolve(),false);await expect(page.locator('.onboarding-overlay')).toBeVisible();await expect(page.locator('.onboarding-panel h2')).toHaveText('Track your route');await page.locator('.onboarding-panel .btn').filter({hasText:'Next'}).click();await expect(page.locator('.onboarding-panel h2')).toHaveText('Earn delay points');await page.locator('.onboarding-panel .btn').filter({hasText:'Next'}).click();await expect(page.locator('.onboarding-panel h2')).toHaveText('Explore rewards');await page.getByRole('button',{name:'Get started',exact:true}).click();await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('.onboarding-overlay')).not.toBeVisible();
 });
 test('Houston device location biases place suggestions and city override replaces its cache',async({page})=>{
- await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29.7604,longitude:-95.3698,accuracy:20},timestamp:Date.now()});}}}));await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();let query;await page.route('**/api/places?**',r=>{query=new URL(r.request().url()).searchParams;return r.fulfill({json:{places:[{name:'Houston Cafe',detail:'Houston, Texas',lat:29.76,lon:-95.37}]}});});await page.locator('#place').fill('cafe');await expect(page.locator('#destinationSuggestions')).toContainText('Houston Cafe');expect(query.get('lat')).toBe('29.760');expect(query.get('lon')).toBe('-95.370');await page.locator('.search-area-settings summary').click();await page.locator('#searchArea').fill('Houston, TX');await page.locator('#applySearchArea').click();await expect.poll(()=>query.get('area')).toBe('Houston, TX');expect(query.has('lat')).toBe(false);await page.locator('#destinationSuggestions button').filter({hasText:'Houston Cafe'}).click();await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('No trip found with these settings.');await expect(page.getByRole('link',{name:'Open Google Maps'})).toBeVisible();
+ await page.addInitScript(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29.7604,longitude:-95.3698,accuracy:20},timestamp:Date.now()});}}}));await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();let query;await page.route('**/api/places?**',r=>{query=new URL(r.request().url()).searchParams;return r.fulfill({json:{places:[{name:'Houston Cafe',detail:'Houston, Texas',lat:29.76,lon:-95.37}]}});});await page.locator('#place').fill('cafe');await expect(page.locator('#destinationSuggestions')).toContainText('Houston Cafe');expect(query.get('lat')).toBe('29.760');expect(query.get('lon')).toBe('-95.370');await openPlannerMore(page);await page.locator('.search-area-settings summary').click();await page.locator('#searchArea').fill('Houston, TX');await page.locator('#applySearchArea').click();await expect.poll(()=>query.get('area')).toBe('Houston, TX');expect(query.has('lat')).toBe(false);await page.locator('#destinationSuggestions button').filter({hasText:'Houston Cafe'}).click();await page.locator('#autoFind').click();await expect(page.locator('#autoResults')).toContainText('No trip found with these settings.');await expect(page.getByRole('link',{name:'Open Google Maps'})).toBeVisible();
 });
 test('reward progress prospective partners and honest impact calculator work',async({page})=>{
  await setup(page);await page.locator('#appRewards').click();await expect(page.locator('#rewardProgress')).toHaveAttribute('value','0');await expect(page.locator('#nextRewardRemaining')).toContainText('60 points');await page.locator('#openPartners').click();await expect(page.locator('#partnersDialog')).toContainText('Kash Café');await expect(page.locator('#partnersDialog')).toContainText('Sharetea');await expect(page.locator('#partnersDialog')).toContainText('unconfirmed');await expect(page.locator('#partnersDialog')).toContainText('$10 / month');await page.locator('#closePartners').click();await page.locator('#appTrips').click();await plan(page);await page.locator('#guideStartTrip').click();await page.locator('#guideFinishTrip').click();await page.locator('#tripViewRewards').click();await expect(page.locator('#impactOffer')).toBeVisible();await page.locator('#saveImpact').click();await expect(page.locator('#impactStatus')).toContainText('Confirm');await page.locator('#impactReplacedDriving').check();await page.locator('#saveImpact').click();await expect(page.locator('#impactValue')).not.toHaveText('0.00 kg');const value=await page.locator('#impactValue').textContent();await page.evaluate(()=>document.getElementById('saveImpact').click());await expect(page.locator('#impactValue')).toHaveText(value);await page.locator('#openVisualTour').click();await page.screenshot({path:test.info().outputPath('feedback-wallet-highlights.png'),fullPage:true});
@@ -904,7 +905,7 @@ test('live line activity is opt in and demo crowd count is labeled simulated',as
 
 test('changing search area preserves selected places and stop choices',async({page})=>{
  await setup(page);await plan(page);await page.locator('#appTrips').click();const before=await page.evaluate(()=>window.wldCaptureSearch());
- await page.locator('.search-area-settings summary').click();await page.locator('#searchArea').fill('Houston, TX');await page.locator('#applySearchArea').click();
+ await openPlannerMore(page);await page.locator('.search-area-settings summary').click();await page.locator('#searchArea').fill('Houston, TX');await page.locator('#applySearchArea').click();
  expect(await page.evaluate(()=>window.wldCaptureSearch())).toEqual(before);await page.locator('#resetSearchArea').click();await page.locator('#autoFind').click();await expect(page.locator('.route-choice').first()).toBeVisible();
 });
 test('GPS selection survives an outstanding origin lookup and local context refresh',async({page})=>{
@@ -944,7 +945,7 @@ for(const city of [{name:'Houston',lat:29.7604,lon:-95.3698},{name:'New York',la
 });
 
 test('classmate feedback keeps partner access visible and detailed wallet rules expandable',async({page})=>{
- await setup(page);await page.locator('#plannerPartners').click();await expect(page.locator('#partnersDialog')).toBeVisible();await expect(page.locator('#partnersDialog')).toContainText('Kash Café');await page.locator('#closePartners').click();await expect(page.locator('#plannerPartners')).toBeFocused();
+ await setup(page);await openPlannerMore(page);await page.locator('#plannerPartners').click();await expect(page.locator('#partnersDialog')).toBeVisible();await expect(page.locator('#partnersDialog')).toContainText('Kash Café');await page.locator('#closePartners').click();await expect(page.locator('#plannerPartners')).toBeFocused();
  await page.locator('#appRewards').click();await expect(page.locator('#rewardRules')).not.toHaveAttribute('open','');await page.locator('#rewardRules summary').click();await expect(page.locator('#rewardRules')).toContainText('5-minute grace');await expect(page.locator('#rewardRules')).toContainText('not implemented account limits');await expect(page.locator('#rewardProgress')).toHaveAttribute('max','60');
 });
 
@@ -1044,4 +1045,21 @@ test('return visits refresh the map area when device location permission is alre
  });
  const errors=await setup(page);await expect(page.locator('#originSearch')).toHaveValue('Current location');await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lat-36.738))).toBeLessThan(.001);
  await page.reload({waitUntil:'domcontentloaded'});await expect(page.locator('#originSearch')).toHaveValue('Current location');await page.locator('#appMap').click();await expect.poll(()=>page.evaluate(()=>Math.abs(routeMap.getCenter().lng+119.787))).toBeLessThan(.001);expect(errors).toEqual([]);
+});
+
+
+test('laptop last location can be confirmed without pretending it is fresh GPS',async({page})=>{
+ await page.addInitScript(()=>{window.preciseReply=null;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,options){if(options.enableHighAccuracy)window.preciseReply=ok;else ok({coords:{latitude:35.361,longitude:-118.914,accuracy:350},timestamp:Date.now()-20*60000})}}})});
+ const errors=await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationUseLast')).toBeVisible();await expect(page.locator('#originSearch')).toHaveValue('');await expect(page.locator('#locationText')).toContainText('20 min ago');
+ await page.locator('#locationUseLast').click();await expect(page.locator('#originSearch')).toHaveValue('Last reported location');expect(await page.evaluate(()=>selectedPlaces.originSearch.lat)).toBe(35.361);expect(await page.evaluate(()=>Date.now()-locationPoint.timestamp)).toBeGreaterThan(19*60000);
+ await page.evaluate(()=>window.preciseReply({coords:{latitude:37.87,longitude:-122.27,accuracy:10},timestamp:Date.now()}));expect(await page.evaluate(()=>selectedPlaces.originSearch.lat)).toBe(35.361);expect(errors).toEqual([]);
+});
+
+test('fresh laptop retry replaces the review point and removes its confirmation',async({page})=>{
+ await page.addInitScript(()=>{window.preciseReply=null;Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok,fail,o){if(o.enableHighAccuracy)window.preciseReply=ok;else ok({coords:{latitude:35.361,longitude:-118.914,accuracy:50},timestamp:Date.now()-10*60000})}}})});
+ await setup(page);await page.locator('.location-shortcut').filter({hasText:'Use my location'}).click();await expect(page.locator('#locationUseLast')).toBeVisible();await page.evaluate(()=>window.preciseReply({coords:{latitude:36.738,longitude:-119.787,accuracy:20},timestamp:Date.now()}));await expect(page.locator('#originSearch')).toHaveValue('Current location');await expect(page.locator('#locationHelp')).toBeHidden();expect(await page.evaluate(()=>startingLocationPreview)).toBe(null);
+});
+
+test('Plan keeps secondary buttons under More options and still opens them',async({page})=>{
+ await setup(page);await expect(page.locator('#autoFind')).toBeVisible();await expect(page.locator('.location-shortcut').filter({hasText:'Use my location'})).toBeVisible();await expect(page.locator('#plannerPartners')).toBeHidden();await expect(page.getByRole('button',{name:'Save current trip as Home',exact:true})).toBeHidden();await expect(page.locator('#nearbyDepartures')).toBeHidden();await openPlannerMore(page);await expect(page.locator('#plannerPartners')).toBeVisible();await expect(page.getByRole('button',{name:'Save current trip as Home',exact:true})).toBeVisible();await expect(page.locator('#nearbyDepartures')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

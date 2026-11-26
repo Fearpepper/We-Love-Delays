@@ -1027,3 +1027,5 @@ body.glass-app .location-welcome{position:fixed;right:24px;bottom:24px;z-index:1
 .map-place{padding:16px;border-radius:18px;border:1px solid #dbc7d1;background:#fff9fcbd}.map-place h3{font-size:18px;margin:0 0 8px}.map-place p{margin:0 0 12px}.map-place .actions{display:flex;gap:8px;flex-wrap:wrap}.explore-routes{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}.explore-routes span{border-radius:8px;background:#e8f2ff;color:#134779;padding:4px 8px;font-size:13px}#mapAreaName{font-size:16px;margin:0 0 16px}
 
 #mapText[hidden],#mapExplorerStatus[hidden],#mapExploreCredit[hidden]{display:none!important}
+
+#locationUseLast[hidden]{display:none!important}.planner-more{margin-top:18px!important;border-top:1px solid #cedee9;padding-top:10px}.planner-more>summary{font-size:15px;font-weight:600}.planner-more>.everyday-trips{margin-top:12px}.planner-more .planner-partner-link{margin-top:12px}
