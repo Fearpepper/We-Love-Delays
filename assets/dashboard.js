@@ -71,7 +71,7 @@
  window.addEventListener('DOMContentLoaded',()=>{
   shortcutHost=document.createElement('section');shortcutHost.className='everyday-trips';shortcutHost.setAttribute('aria-label','Everyday trips');
   shortcutHost.innerHTML='<div class="everyday-buttons"></div><form hidden><label>Name this trip<input maxlength="40" required placeholder="e.g. Work" aria-label="Saved trip name"></label><button class="btn alt" type="submit">Save</button><button class="btn alt" type="button" data-cancel-save>Cancel</button></form><p role="status" class="hint"></p><details><summary>Saved & recent trips</summary><div class="everyday-recent"></div></details>';
-  setTimeout(()=>{$('autoFind').closest('.card').querySelector('.planner-intro')?.after(shortcutHost);},0);
+  setTimeout(()=>{const more=$('plannerMore');if(more)more.querySelector('summary').after(shortcutHost);else $('autoFind').closest('.card').querySelector('.planner-intro')?.after(shortcutHost);},0);
   shortcutHost.querySelector('form').onsubmit=e=>{e.preventDefault();const input=shortcutHost.querySelector('input');saveNamed(input.value.trim()||'My trip');shortcutHost.querySelector('form').hidden=true;};
   shortcutHost.querySelector('[data-cancel-save]').onclick=()=>{shortcutHost.querySelector('form').hidden=true;};refresh();
  });
