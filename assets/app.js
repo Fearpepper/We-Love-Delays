@@ -442,7 +442,7 @@ $('navAdvance').onclick=()=>{
 function updateNavigationPosition(lat,lon,accuracy,timestamp=Date.now()){
  if(![lat,lon,accuracy,timestamp].every(Number.isFinite)||Math.abs(lat)>90||Math.abs(lon)>180||accuracy<0||Date.now()-timestamp>30000||timestamp>Date.now()+5000){$('navStatus').textContent='Location outdated or unavailable. Follow the steps.';return;}
  window.dispatchEvent(new CustomEvent('wld:gps-fix',{detail:{accuracy,timestamp}}));
- lastNavigationFix={lat,lon,accuracy,timestamp};locationPoint={lat,lon,accuracy,timestamp,confirmedLast:source==='Confirmed last location'};showLocationOnMap({center:mapFollowing,accuracy});
+ lastNavigationFix={lat,lon,accuracy,timestamp};locationPoint={lat,lon,accuracy,timestamp};showLocationOnMap({center:mapFollowing,accuracy});
  if(!activeNavigation)return;
  maybeRemindStop(lat,lon,accuracy);
  const steps=activeNavigation.steps;
