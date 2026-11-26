@@ -30,7 +30,7 @@ def area(lat,lon):
 
 def nearby_transit(lat,lon):
     if not transit.configured():raise RuntimeError('Transit unavailable')
-    raw=transit.request('nearby_routes',{'lat':lat,'lon':lon,'max_distance':1500})
+    raw=transit.request('nearby_routes',{'lat':lat,'lon':lon,'max_distance':1500,'include_inactive':'true'})
     if not isinstance(raw.get('nearby_routes'),list):raise ValueError('Invalid nearby routes')
     stops={}
     for route in raw['nearby_routes'][:80]:
@@ -38,7 +38,7 @@ def nearby_transit(lat,lon):
         mode,label=transit.transport(route)
         info={'id':str(route.get('global_route_id',''))[:180],
               'name':str(route.get('route_short_name') or route.get('route_long_name') or label)[:100],
-              'agency':str(route.get('route_network_name',''))[:100],'mode':label}
+              'agency':str(route.get('route_network_name',''))[:100],'mode':label,'active':route.get('is_active') is not False}
         for itinerary in (route.get('merged_itineraries') or [])[:10]:
             if not isinstance(itinerary,dict):continue
             s=transit.stop(itinerary.get('closest_stop'))
